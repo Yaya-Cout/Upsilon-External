@@ -10,19 +10,13 @@ def get1(src:ptr8) -> int:
 
 @micropython.viper
 def memadd(src:ptr8, n:int) -> int:
-    sum = 0
-    for i in range(n):
-        sum += src[i]
-    return sum
+    return sum(src[i] for i in range(n))
 
 @micropython.viper
 def memadd2(src_in) -> int:
     src = ptr8(src_in)
     n = int(len(src_in))
-    sum = 0
-    for i in range(n):
-        sum += src[i]
-    return sum
+    return sum(src[i] for i in range(n))
 
 b = bytearray(b'1234')
 print(b)

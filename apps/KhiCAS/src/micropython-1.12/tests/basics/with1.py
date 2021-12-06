@@ -47,7 +47,6 @@ with CtxMgr2() as a:
     try:
         try:
             raise ValueError
-            print("No ValueError3")
         finally:
             print("finally1")
     finally:
@@ -60,7 +59,6 @@ try:
             try:
                 try:
                     raise ValueError
-                    print("No ValueError3")
                 finally:
                     print("finally1")
             finally:

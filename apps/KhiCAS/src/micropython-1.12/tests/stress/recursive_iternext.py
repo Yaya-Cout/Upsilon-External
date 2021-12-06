@@ -26,7 +26,7 @@ except:
 
 try:
     x = (1, 2)
-    for i in range(N):
+    for _ in range(N):
         x = enumerate(x)
     tuple(x)
 except RuntimeError:
@@ -34,7 +34,7 @@ except RuntimeError:
 
 try:
     x = (1, 2)
-    for i in range(N):
+    for _ in range(N):
         x = filter(None, x)
     tuple(x)
 except RuntimeError:
@@ -42,7 +42,7 @@ except RuntimeError:
 
 try:
     x = (1, 2)
-    for i in range(N):
+    for _ in range(N):
         x = map(max, x, ())
     tuple(x)
 except RuntimeError:
@@ -50,7 +50,7 @@ except RuntimeError:
 
 try:
     x = (1, 2)
-    for i in range(N):
+    for _ in range(N):
         x = zip(x)
     tuple(x)
 except RuntimeError:

@@ -2,8 +2,6 @@
 
 def gen():
     return 1
-    # This yield is just to make this a generator
-    yield
 
 f = gen()
 

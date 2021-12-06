@@ -166,10 +166,10 @@ def trace_ray(scene, ray, depth):
     if ndotl > 0 or ldotv > 0:
         light_ray = Ray(point + light_vec * EPS, light_vec)
         light_col = trace_to_light(scene, light_ray, light_dist)
-        if ndotl > 0:
-            col += light_col * surf.diffuse * ndotl
-        if ldotv > 0:
-            col += light_col * surf.specular * ldotv ** surf.spec_idx
+    if ndotl > 0:
+        col += light_col * surf.diffuse * ndotl
+    if ldotv > 0:
+        col += light_col * surf.specular * ldotv ** surf.spec_idx
 
     # Reflections
     if depth > 0 and surf.reflect > 0:

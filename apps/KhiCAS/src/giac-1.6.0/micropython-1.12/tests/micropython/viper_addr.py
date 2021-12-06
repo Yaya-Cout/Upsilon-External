@@ -11,10 +11,7 @@ def memset(dest:ptr8, c:int, n:int):
 
 @micropython.viper
 def memsum(src:ptr8, n:int) -> int:
-    s = 0
-    for i in range(n):
-        s += src[i]
-    return s
+    return sum(src[i] for i in range(n))
 
 # create array and get its address
 ar = bytearray('0000')

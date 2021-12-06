@@ -1,5 +1,3 @@
 d = {1: 2, 3: 4}
-els = []
-for i in d:
-    els.append((i, d[i]))
+els = list(d.items())
 print(sorted(els))

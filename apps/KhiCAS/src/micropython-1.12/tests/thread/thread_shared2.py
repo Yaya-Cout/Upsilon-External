@@ -9,7 +9,7 @@ def foo(lst, i):
     lst[i] += 1
 
 def thread_entry(n, lst, idx):
-    for i in range(n):
+    for _ in range(n):
         foo(lst, idx)
     with lock:
         global n_finished

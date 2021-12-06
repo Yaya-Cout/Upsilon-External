@@ -12,7 +12,7 @@ from hwconfig import LED
 # if you're unlucky).
 def pwm_cycle(led, duty, cycles):
     duty_off = 20 - duty
-    for i in range(cycles):
+    for _ in range(cycles):
         if duty:
             led.on()
             utime.sleep_ms(duty)

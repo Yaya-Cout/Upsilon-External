@@ -1,8 +1,4 @@
 # create a large dictionary
 
-d = {}
-x = 1
-while x < 1000:
-    d[x] = x
-    x += 1
+d = {x: x for x in range(1, 1000)}
 print(d[500])

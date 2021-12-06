@@ -1,53 +1,25 @@
 # test if conditions which are optimised by the compiler
 
-if 0:
-    print(5)
-else:
-    print(6)
+print(6)
 
-if 1:
-    print(7)
+print(7)
 
-if 2:
-    print(8)
+print(8)
 
-if -1:
-    print(9)
-elif 1:
-    print(10)
+print(9)
+print(12)
 
-if 0:
-    print(11)
-else:
-    print(12)
+print(14)
 
-if 0:
-    print(13)
-elif 1:
-    print(14)
+print(17)
 
-if 0:
-    print(15)
-elif 0:
-    print(16)
-else:
-    print(17)
+print('a')
 
-if not False:
-    print('a')
+print('b')
 
-if not True:
-    print('a')
-else:
-    print('b')
+print('b')
 
-if False:
-    print('a')
-else:
-    print('b')
-
-if True:
-    print('a')
+print('a')
 
 if (1,):
     print('a')
@@ -60,10 +32,7 @@ else:
 f2 = 0
 
 def f(t1, t2, f1):
-    if False:
-        print(1)
-    if True:
-        print(1)
+    print(1)
     if ():
         print(1)
     if (1,):

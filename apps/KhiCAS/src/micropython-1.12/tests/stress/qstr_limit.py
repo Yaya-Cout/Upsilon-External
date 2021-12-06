@@ -5,8 +5,8 @@ def make_id(n, base='a'):
     return ''.join(chr(ord(base) + i % 26) for i in range(n))
 
 # identifiers in parser
+g = {}
 for l in range(254, 259):
-    g = {}
     var = make_id(l)
     try:
         exec(var + '=1', g)

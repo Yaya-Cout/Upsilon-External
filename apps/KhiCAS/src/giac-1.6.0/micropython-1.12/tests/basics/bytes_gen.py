@@ -1,5 +1,4 @@
 # construct a bytes object from a generator
 def gen():
-    for i in range(4):
-        yield i
+    yield from range(4)
 print(bytes(gen()))

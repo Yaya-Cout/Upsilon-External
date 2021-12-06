@@ -11,7 +11,7 @@ import string
 needed_keys = ('USB_PID_CDC_MSC', 'USB_PID_CDC_HID', 'USB_PID_CDC', 'USB_VID')
 
 def parse_usb_ids(filename):
-    rv = dict()
+    rv = {}
     for line in open(filename).readlines():
         line = line.rstrip('\r\n')
         match = re.match('^#define\s+(\w+)\s+\(0x([0-9A-Fa-f]+)\)$', line)

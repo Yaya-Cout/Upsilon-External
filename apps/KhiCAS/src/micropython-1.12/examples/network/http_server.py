@@ -49,7 +49,7 @@ def main(micropython_optimize=False):
         print(req)
         while True:
             h = client_stream.readline()
-            if h == b"" or h == b"\r\n":
+            if h in [b"", b"\r\n"]:
                 break
             print(h)
         client_stream.write(CONTENT % counter)

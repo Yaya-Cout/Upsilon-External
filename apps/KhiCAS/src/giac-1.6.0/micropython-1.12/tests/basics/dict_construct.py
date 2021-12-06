@@ -1,6 +1,6 @@
 # dict constructor
 
-d = dict()
+d = {}
 print(d)
 
 d = dict({1:2})

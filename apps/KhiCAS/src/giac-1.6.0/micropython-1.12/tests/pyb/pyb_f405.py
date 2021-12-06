@@ -2,7 +2,7 @@
 
 import os, pyb
 
-if not 'STM32F405' in os.uname().machine:
+if 'STM32F405' not in os.uname().machine:
     print('SKIP')
     raise SystemExit
 

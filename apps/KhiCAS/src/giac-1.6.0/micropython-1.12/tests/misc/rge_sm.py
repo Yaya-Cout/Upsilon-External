@@ -39,7 +39,7 @@ class RungeKutta(object):
                 break
 
     def solveNSteps(self, nSteps):
-        for i in range(nSteps):
+        for _ in range(nSteps):
             if not self.iterate():
                 break
 
@@ -76,23 +76,6 @@ def phaseDiagram(system, trajStart, trajPlot, h=0.1, tend=1.0, range=1.0):
             print()
             # draw the arrow
             continue
-            l = (len(rk.Trajectory) - 1) / 3
-            if l > 0 and 2 * l < len(rk.Trajectory):
-                p1 = rk.Trajectory[l]
-                p2 = rk.Trajectory[2 * l]
-                x1, y1 = trajPlot(p1)
-                x2, y2 = trajPlot(p2)
-                dx = -0.5 * (y2 - y1) # orthogonal to line
-                dy = 0.5 * (x2 - x1)  # orthogonal to line
-                #l = math.sqrt(dx*dx + dy*dy)
-                #if abs(l) > 1e-3:
-                #    l = 0.1 / l
-                #    dx *= l
-                #    dy *= l
-                print(x1 + dx, y1 + dy)
-                print(x2, y2)
-                print(x1 - dx, y1 - dy)
-                print()
 
 def singleTraj(system, trajStart, h=0.02, tend=1.0):
     tstart = 0.0

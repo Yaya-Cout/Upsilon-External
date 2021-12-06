@@ -103,7 +103,7 @@ pin.mode(Pin.IN)
 print(pin.mode() == Pin.IN)
 # pull
 pin.pull(None)
-print(pin.pull() == None)
+print(pin.pull() is None)
 pin.pull(Pin.PULL_DOWN)
 print(pin.pull() == Pin.PULL_DOWN)
 # drive

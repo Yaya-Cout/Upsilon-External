@@ -56,10 +56,8 @@ uos.mount(bdev, '/')
 
 print(uos.getcwd())
 
-f = open('test.txt', 'w')
-f.write('hello')
-f.close()
-
+with open('test.txt', 'w') as f:
+    f.write('hello')
 print(uos.listdir())
 print(uos.listdir('/'))
 print(uos.stat('')[:-3])
@@ -67,10 +65,8 @@ print(uos.stat('/')[:-3])
 print(uos.stat('test.txt')[:-3])
 print(uos.stat('/test.txt')[:-3])
 
-f = open('/test.txt')
-print(f.read())
-f.close()
-
+with open('/test.txt') as f:
+    print(f.read())
 uos.rename('test.txt', 'test2.txt')
 print(uos.listdir())
 uos.rename('test2.txt', '/test3.txt')

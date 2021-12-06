@@ -7,7 +7,7 @@ def transform_radix2(vector, inverse):
     # Returns the integer whose value is the reverse of the lowest 'bits' bits of the integer 'x'.
     def reverse(x, bits):
         y = 0
-        for i in range(bits):
+        for _ in range(bits):
             y = (y << 1) | (x & 1)
             x >>= 1
         return y

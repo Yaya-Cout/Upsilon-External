@@ -2,7 +2,7 @@
 
 import os, pyb
 
-if not 'PYBv1.' in os.uname().machine:
+if 'PYBv1.' not in os.uname().machine:
     print('SKIP')
     raise SystemExit
 

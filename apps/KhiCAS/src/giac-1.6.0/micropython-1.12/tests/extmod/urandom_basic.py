@@ -9,7 +9,7 @@ except ImportError:
 
 # check getrandbits returns a value within the bit range
 for b in (1, 2, 3, 4, 16, 32):
-    for i in range(50):
+    for _ in range(50):
         assert random.getrandbits(b) < (1 << b)
 
 # check that seed(0) gives a non-zero value

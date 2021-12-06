@@ -87,9 +87,8 @@ def run_micropython(pyb, args, test_file, is_special=False):
                             ready = select.select([master], [], [], 0.02)
                             if ready[0] == [master]:
                                 rv += os.read(master, 1024)
-                            else:
-                                if not required or rv:
-                                    return rv
+                            elif not required or rv:
+                                return rv
 
                     def send_get(what):
                         os.write(master, what)
@@ -284,7 +283,7 @@ def run_tests(pyb, tests, args, base_path="."):
 
         # Check if emacs repl is supported, and skip such tests if it's not
         t = run_feature_check(pyb, args, base_path, 'repl_emacs_check.py')
-        if not 'True' in str(t, 'ascii'):
+        if 'True' not in str(t, 'ascii'):
             skip_tests.add('cmdline/repl_emacs_keys.py')
 
         upy_byteorder = run_feature_check(pyb, args, base_path, 'byteorder.py')
@@ -516,9 +515,9 @@ def run_tests(pyb, tests, args, base_path="."):
     print("{} tests performed ({} individual testcases)".format(test_count, testcase_count))
     print("{} tests passed".format(passed_count))
 
-    if len(skipped_tests) > 0:
+    if skipped_tests:
         print("{} tests skipped: {}".format(len(skipped_tests), ' '.join(skipped_tests)))
-    if len(failed_tests) > 0:
+    if failed_tests:
         print("{} tests failed: {}".format(len(failed_tests), ' '.join(failed_tests)))
         return False
 
@@ -534,10 +533,7 @@ class append_filter(argparse.Action):
     def __call__(self, parser, args, value, option):
         if not hasattr(args, self.dest):
             args.filters = []
-        if option.startswith(("-e", "--e")):
-            option = "exclude"
-        else:
-            option = "include"
+        option = "exclude" if option.startswith(("-e", "--e")) else "include"
         args.filters.append((option, re.compile(value)))
 
 

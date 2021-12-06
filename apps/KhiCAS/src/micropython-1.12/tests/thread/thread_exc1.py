@@ -21,7 +21,7 @@ n_thread = 4
 n_finished = 0
 
 # spawn threads
-for i in range(n_thread):
+for _ in range(n_thread):
     _thread.start_new_thread(thread_entry, ())
 
 # busy wait for threads to finish

@@ -63,6 +63,5 @@ print(b)
 # Growth of bytearray via slice extension
 b = bytearray(b'12345678')
 b.append(57) # expand and add a bit of unused space at end of the bytearray
-for i in range(400):
-    b[-1:] = b'ab' # grow slowly into the unused space
+b[-1:] = b'ab' # grow slowly into the unused space
 print(len(b), b)

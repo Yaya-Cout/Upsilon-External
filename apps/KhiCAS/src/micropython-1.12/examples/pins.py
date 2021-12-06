@@ -38,7 +38,7 @@ def pins():
         row.append(pin_name)
         row.append(mode_str[pin_mode])
         row.append(pull_str[pin.pull()])
-        if pin_mode == pyb.Pin.AF_PP or pin_mode == pyb.Pin.AF_OD:
+        if pin_mode in [pyb.Pin.AF_PP, pyb.Pin.AF_OD]:
             pin_af = pin.af()
             for af_entry in pin_entry[1:]:
                 if pin_af == af_entry[0]:

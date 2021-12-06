@@ -31,9 +31,6 @@ def callback_inner(arg):
 def callback_outer(arg):
     global done
     micropython.schedule(callback_inner, 0)
-    # need a loop so that the VM can check for pending events
-    for i in range(2):
-        pass
     print('outer')
     done += 1
 
@@ -48,7 +45,7 @@ while done != 2:
 def callback(arg):
     global done
     try:
-        for i in range(100):
+        for _ in range(100):
             micropython.schedule(lambda x:x, None)
     except RuntimeError:
         print('RuntimeError')

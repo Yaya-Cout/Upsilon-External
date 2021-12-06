@@ -39,10 +39,7 @@ functions = [
 for f_name, f, test_vals in functions:
     print(f_name)
     for val in test_vals:
-        if type(val) == tuple:
-            ret = f(*val)
-        else:
-            ret = f(val)
+        ret = f(*val) if type(val) == tuple else f(val)
         if type(ret) == float:
             print("%.5g" % ret)
         elif type(ret) == tuple:

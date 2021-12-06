@@ -77,7 +77,7 @@ def main(use_stream=True):
                 print(req)
                 while True:
                     h = client_s.readline()
-                    if h == b"" or h == b"\r\n":
+                    if h in [b"", b"\r\n"]:
                         break
                     print(h)
                 if req:

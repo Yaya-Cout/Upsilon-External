@@ -45,7 +45,7 @@ def create_vfs(bdev, vfs_class):
     vfs_class.mkfs(bdev)
     vfs = vfs_class(bdev)
     with vfs.open('f', 'w') as f:
-        for i in range(100):
+        for _ in range(100):
             f.write('test')
     return vfs
 

@@ -2,13 +2,12 @@
 SPI test for the CC3200 based boards.
 '''
 
+
 from machine import SPI
 import os
 
 mch = os.uname().machine
-if 'LaunchPad' in mch:
-    spi_pins = ('GP14', 'GP16', 'GP30')
-elif 'WiPy' in mch:
+if 'LaunchPad' in mch or 'WiPy' in mch:
     spi_pins = ('GP14', 'GP16', 'GP30')
 else:
     raise Exception('Board not supported!')
@@ -76,7 +75,7 @@ print(spi.write_readinto(buffer_w, buffer_r) == 12)
 print(buffer_w == buffer_r)
 
 # check for memory leaks...
-for i in range (0, 1000):
+for _ in range(1000):
     spi = SPI(0, SPI.MASTER, baudrate=1000000)
 
 # test deinit

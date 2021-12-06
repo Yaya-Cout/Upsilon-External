@@ -53,10 +53,7 @@ print(viper_no_annotation(4, 5))
 # a for loop
 @micropython.viper
 def viper_for(a:int, b:int) -> int:
-    total = 0
-    for x in range(a, b):
-        total += x
-    return total
+    return sum(range(a, b))
 print(viper_for(10, 10000))
 
 # accessing a global

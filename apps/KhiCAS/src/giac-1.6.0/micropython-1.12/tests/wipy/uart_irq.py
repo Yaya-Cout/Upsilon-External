@@ -2,14 +2,13 @@
 UART IRQ test for the CC3200 based boards.
 '''
 
+
 from machine import UART
 import os
 import time
 
 mch = os.uname().machine
-if 'LaunchPad' in mch:
-    uart_pins = [[('GP12', 'GP13'), ('GP12', 'GP13', 'GP7', 'GP6')], [('GP16', 'GP17'), ('GP16', 'GP17', 'GP7', 'GP6')]]
-elif 'WiPy' in mch:
+if 'LaunchPad' in mch or 'WiPy' in mch:
     uart_pins = [[('GP12', 'GP13'), ('GP12', 'GP13', 'GP7', 'GP6')], [('GP16', 'GP17'), ('GP16', 'GP17', 'GP7', 'GP6')]]
 else:
     raise Exception('Board not supported!')
@@ -124,7 +123,7 @@ print(uart0_irq.flags() == 0)
 print(uart1.read() == b'123')
 
 # check for memory leaks
-for i in range(0, 1000):
+for _ in range(1000):
     uart0_irq = uart0.irq(trigger=UART.RX_ANY, handler=uart0_handler)
     uart1_irq = uart1.irq(trigger=UART.RX_ANY, handler=uart1_handler)
 

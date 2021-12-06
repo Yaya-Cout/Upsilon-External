@@ -4,7 +4,7 @@ def mandelbrot(w, h):
     def in_set(c):
         z = 0
         for i in range(32):
-            z = z * z + c
+            z = z**2 + c
             if abs(z) > 100:
                 return i
         return 0

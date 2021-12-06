@@ -72,12 +72,11 @@ print(f())
 def f():
     try:
         try:
-            try:
-                raise ValueError
-            except:
-                raise
+            raise ValueError
         except:
             raise
+    except:
+        raise
     finally:
         print('finally')
         return 0

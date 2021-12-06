@@ -3,8 +3,8 @@
 delta = 100000000000000000000000000000012345
 
 for i in range(11):
+    x = delta * (i - 5)
     for j in range(11):
-        x = delta * (i - 5)
         y = delta * (j - 5)
         if y != 0:
             print(x % y)

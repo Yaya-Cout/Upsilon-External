@@ -4,13 +4,11 @@
 def foo():
     seq = [1, 2, 3]
     v = 100
-    i = 5
-    while i > 0:
+    for i in range(5, 0, -1):
         print(i)
         for a in seq:
             if a == 2:
                 break
-        i -= 1
 
 foo()
 

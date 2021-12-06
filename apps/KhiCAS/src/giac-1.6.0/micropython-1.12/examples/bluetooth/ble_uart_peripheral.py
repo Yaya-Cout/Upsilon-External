@@ -58,7 +58,7 @@ class BLEUART:
     def read(self, sz=None):
         if not sz:
             sz = len(self._rx_buffer)
-        result = self._rx_buffer[0:sz]
+        result = self._rx_buffer[:sz]
         self._rx_buffer = self._rx_buffer[sz:]
         return result
 

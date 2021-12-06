@@ -68,9 +68,8 @@ class Done(object):
     def remove_unfixed(self, v):
         changed = False
         for i in range(self.count):
-            if not self.already_done(i):
-                if self.remove(i, v):
-                    changed = True
+            if not self.already_done(i) and self.remove(i, v):
+                changed = True
         return changed
 
     def filter_tiles(self, tiles):
@@ -247,9 +246,8 @@ def constraint_pass(pos, last_move=None):
                     vmax += 1
 
             for num in range(7):
-                if (num < vmin) or (num > vmax):
-                    if done.remove(i, num):
-                        changed = True
+                if ((num < vmin) or (num > vmax)) and done.remove(i, num):
+                    changed = True
 
     # Computes how many of each value is still free
     for cell in done.cells:
@@ -290,7 +288,7 @@ def constraint_pass(pos, last_move=None):
                         filled += 1
                 else:
                     unknown.append(nid)
-            if len(unknown) > 0:
+            if unknown:
                 if num == filled:
                     for u in unknown:
                         if EMPTY in done[u]:
@@ -318,13 +316,12 @@ def find_moves(pos, strategy, order):
 
     if order == ASCENDING:
         return [(cell_id, v) for v in done[cell_id]]
-    else:
-        # Try higher values first and EMPTY last
-        moves = list(reversed([(cell_id, v)
-                               for v in done[cell_id] if v != EMPTY]))
-        if EMPTY in done[cell_id]:
-            moves.append((cell_id, EMPTY))
-        return moves
+    # Try higher values first and EMPTY last
+    moves = list(reversed([(cell_id, v)
+                           for v in done[cell_id] if v != EMPTY]))
+    if EMPTY in done[cell_id]:
+        moves.append((cell_id, EMPTY))
+    return moves
 
 
 def play_move(pos, move):
@@ -380,10 +377,10 @@ def solved(pos, output, verbose=False):
             tiles[num] -= 1
             if (tiles[num] < 0):
                 return IMPOSSIBLE
-            vmax = 0
-            vmin = 0
             if num != EMPTY:
                 cells_around = hex.get_by_id(i).links
+                vmax = 0
+                vmin = 0
                 for nid in cells_around:
                     if done.already_done(nid):
                         if done[nid][0] != EMPTY:
@@ -417,22 +414,21 @@ def solve_step(prev, strategy, order, output, first=False):
     moves = find_moves(pos, strategy, order)
     if len(moves) == 0:
         return solved(pos, output)
-    else:
-        for move in moves:
-            # print("Trying (%d, %d)" % (move[0], move[1]))
-            ret = OPEN
-            new_pos = pos.clone()
-            play_move(new_pos, move)
-            # print_pos(new_pos)
-            while constraint_pass(new_pos, move[0]):
-                pass
-            cur_status = solved(new_pos, output)
-            if cur_status != OPEN:
-                ret = cur_status
-            else:
-                ret = solve_step(new_pos, strategy, order, output)
-            if ret == SOLVED:
-                return SOLVED
+    for move in moves:
+        # print("Trying (%d, %d)" % (move[0], move[1]))
+        ret = OPEN
+        new_pos = pos.clone()
+        play_move(new_pos, move)
+        # print_pos(new_pos)
+        while constraint_pass(new_pos, move[0]):
+            pass
+        cur_status = solved(new_pos, output)
+        if cur_status != OPEN:
+            ret = cur_status
+        else:
+            ret = solve_step(new_pos, strategy, order, output)
+        if ret == SOLVED:
+            return SOLVED
     return IMPOSSIBLE
 
 
@@ -472,10 +468,7 @@ def read_file(file):
         for x in range(size + y):
             tile = line[p:p + 2]
             p += 2
-            if tile[1] == ".":
-                inctile = EMPTY
-            else:
-                inctile = int(tile)
+            inctile = EMPTY if tile[1] == "." else int(tile)
             tiles[inctile] += 1
             # Look for locked tiles
             if tile[0] == "+":
@@ -491,10 +484,7 @@ def read_file(file):
         for x in range(y, size * 2 - 1):
             tile = line[p:p + 2]
             p += 2
-            if tile[1] == ".":
-                inctile = EMPTY
-            else:
-                inctile = int(tile)
+            inctile = EMPTY if tile[1] == "." else int(tile)
             tiles[inctile] += 1
             # Look for locked tiles
             if tile[0] == "+":
@@ -512,9 +502,8 @@ def solve_file(file, strategy, order, output):
     solve(pos, strategy, order, output)
 
 
-LEVELS = {}
-
-LEVELS[2] = ("""
+LEVELS = {
+    2: ("""
 2
   . 1
  . 1 1
@@ -523,54 +512,60 @@ LEVELS[2] = ("""
  1 1
 . . .
  1 1
-""")
-
-LEVELS[10] = ("""
+"""),
+    10: (
+        """
 3
   +.+. .
  +. 0 . 2
  . 1+2 1 .
   2 . 0+.
    .+.+.
-""", """\
+""",
+        """\
   . . 1
  . 1 . 2
 0 . 2 2 .
  . . . .
   0 . .
-""")
-
-LEVELS[20] = ("""
+""",
+    ),
+    20: (
+        """
 3
    . 5 4
   . 2+.+1
  . 3+2 3 .
  +2+. 5 .
    . 3 .
-""", """\
+""",
+        """\
   3 3 2
  4 5 . 1
 3 5 2 . .
  2 . . .
   . . .
-""")
-
-LEVELS[25] = ("""
+""",
+    ),
+    25: (
+        """
 3
    4 . .
   . . 2 .
  4 3 2 . 4
   2 2 3 .
    4 2 4
-""", """\
+""",
+        """\
   3 4 2
  2 4 4 .
 . . . 4 2
  . 2 4 3
   . 2 .
-""")
-
-LEVELS[30] = ("""
+""",
+    ),
+    30: (
+        """
 4
     5 5 . .
    3 . 2+2 6
@@ -579,7 +574,8 @@ LEVELS[30] = ("""
   4 5 4 . 5 4
    5+2 . . 3
     4 . . .
-""", """\
+""",
+        """\
    3 4 3 .
   4 6 5 2 .
  2 5 5 . . 2
@@ -587,9 +583,10 @@ LEVELS[30] = ("""
  . 3 5 4 5 4
   . 2 . 3 3
    . . . .
-""")
-
-LEVELS[36] = ("""
+""",
+    ),
+    36: (
+        """
 4
     2 1 1 2
    3 3 3 . .
@@ -598,7 +595,8 @@ LEVELS[36] = ("""
   2 2 . . . 2
    4 3 4 . .
     3 2 3 3
-""", """\
+""",
+        """\
    3 4 3 2
   3 4 4 . 3
  2 . . 3 4 3
@@ -606,7 +604,9 @@ LEVELS[36] = ("""
  3 3 . 2 . 2
   3 . 2 . 2
    2 2 . 1
-""")
+""",
+    ),
+}
 
 
 ###########################################################################

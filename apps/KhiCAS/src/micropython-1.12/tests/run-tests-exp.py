@@ -14,10 +14,7 @@ tests = [
     " misc", "unicode", "extmod", "unix"
 ]
 
-if sys.platform == 'win32':
-    MICROPYTHON = "micropython.exe"
-else:
-    MICROPYTHON = "micropython"
+MICROPYTHON = "micropython.exe" if sys.platform == 'win32' else "micropython"
 
 
 def should_skip(test):
@@ -58,9 +55,8 @@ for suite in tests:
 
         exp = None
         try:
-            f = open(qtest + ".exp")
-            exp = f.read()
-            f.close()
+            with open(qtest + ".exp") as f:
+                exp = f.read()
         except OSError:
             pass
 
@@ -68,9 +64,8 @@ for suite in tests:
             #print("run " + qtest)
             r = os.system(MICROPYTHON + " %s >.tst.out" % qtest)
             if r == 0:
-                f = open(".tst.out")
-                out = f.read()
-                f.close()
+                with open(".tst.out") as f:
+                    out = f.read()
             else:
                 out = "CRASH"
 

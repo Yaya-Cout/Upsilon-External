@@ -25,7 +25,6 @@ while True:
                       try:
                        print(2)
                        break
-                       print(3)
                       except:
                        pass
                      except:

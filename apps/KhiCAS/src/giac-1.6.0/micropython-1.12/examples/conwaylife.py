@@ -36,7 +36,7 @@ def conway_rand():
 
 # loop for a certain number of frames, doing iterations of Conway's Game of Life
 def conway_go(num_frames):
-    for i in range(num_frames):
+    for _ in range(num_frames):
         conway_step()           # do 1 iteration
         lcd.show()              # update the LCD
         pyb.delay(50)

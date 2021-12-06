@@ -43,7 +43,7 @@ class Lexer:
                     lines.append((line_num, line[4:]))
                 elif len(lines) > 0 and lines[-1][1] is not None:
                     lines.append((line_num, None))
-        if len(lines) > 0 and lines[-1][1] is not None:
+        if lines and lines[-1][1] is not None:
             lines.append((line_num, None))
         self.cur_line = 0
         self.lines = lines
@@ -55,13 +55,12 @@ class Lexer:
     def next(self):
         if len(self.lines) == 0:
             raise Lexer.EOF
+        l = self.lines.pop(0)
+        self.cur_line = l[0]
+        if l[1] is None:
+            raise Lexer.Break
         else:
-            l = self.lines.pop(0)
-            self.cur_line = l[0]
-            if l[1] is None:
-                raise Lexer.Break
-            else:
-                return l[1]
+            return l[1]
 
     def error(self, msg):
         print('({}:{}) {}'.format(self.filename, self.cur_line, msg))
@@ -107,9 +106,7 @@ class MarkdownWriter:
         self.para(descr)
 
     def method(self, ctx, name, args, descr):
-        if name == '\\constructor':
-            proto = '{}{}'.format(ctx, args)
-        elif name == '\\call':
+        if name in ['\\constructor', '\\call']:
             proto = '{}{}'.format(ctx, args)
         else:
             proto = '{}.{}{}'.format(ctx, name, args)
@@ -241,10 +238,7 @@ class DocClass(DocItem):
 
     def process_classmethod(self, lex, d):
         name = d['id']
-        if name == '\\constructor':
-            dict_ = self.constructors
-        else:
-            dict_ = self.classmethods
+        dict_ = self.constructors if name == '\\constructor' else self.classmethods
         if name in dict_:
             lex.error("multiple definition of method '{}'".format(name))
         method = dict_[name] = DocMethod(name, d['args'])
@@ -480,7 +474,7 @@ def process_file(file, doc):
             while True:
                 line = lex.next()
                 fun, match = re_match_first(doc_regexs, line)
-                if fun == None:
+                if fun is None:
                     lex.error('unknown line format: {}'.format(line))
                 fun(doc, lex, match.groupdict())
 

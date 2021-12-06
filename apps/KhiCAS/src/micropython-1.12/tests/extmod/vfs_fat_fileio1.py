@@ -48,12 +48,10 @@ vfs = uos.VfsFat(bdev)
 uos.mount(vfs, '/ramdisk')
 uos.chdir('/ramdisk')
 
-# file IO
-f = open("foo_file.txt", "w")
-print(str(f)[:17], str(f)[-1:])
-f.write("hello!")
-f.flush()
-f.close()
+with open("foo_file.txt", "w") as f:
+    print(str(f)[:17], str(f)[-1:])
+    f.write("hello!")
+    f.flush()
 f.close() # allowed
 try:
     f.write("world!")

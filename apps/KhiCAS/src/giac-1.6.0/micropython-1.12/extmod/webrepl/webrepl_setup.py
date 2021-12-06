@@ -40,9 +40,7 @@ def get_daemon_status():
     with open(RC) as f:
         for l in f:
             if "webrepl" in l:
-                if l.startswith("#"):
-                    return False
-                return True
+                return not l.startswith("#")
         return None
 
 

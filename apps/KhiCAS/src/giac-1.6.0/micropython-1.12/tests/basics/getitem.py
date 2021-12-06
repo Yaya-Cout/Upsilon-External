@@ -10,7 +10,7 @@ A()[0]
 A()[1]
 
 # iterate using a for loop
-for i in A():
+for _ in A():
     pass
 
 # iterate manually
@@ -32,7 +32,7 @@ class A:
     def __getitem__(self, i):
         raise TypeError
 try:
-    for i in A():
+    for _ in A():
         pass
 except TypeError:
     print("TypeError")

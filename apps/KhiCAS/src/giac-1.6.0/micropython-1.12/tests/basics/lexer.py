@@ -48,22 +48,8 @@ b')
 
 # lots of indentation
 def a(x):
- if x:
-  if x:
-   if x:
     if x:
-     if x:
-      if x:
-       if x:
-        if x:
-         if x:
-          if x:
-           if x:
-            if x:
-             if x:
-              if x:
-               if x:
-                print(x)
+        print(x)
 a(1)
 
 # badly formed hex escape sequences

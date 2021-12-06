@@ -2,12 +2,13 @@
 machine test for the CC3200 based boards.
 '''
 
+
 import machine
 import os
 from network import WLAN
 
 mch = os.uname().machine
-if not 'LaunchPad' in mch and not'WiPy' in mch:
+if 'LaunchPad' not in mch and 'WiPy' not in mch:
     raise Exception('Board not supported!')
 
 wifi = WLAN()
@@ -20,7 +21,7 @@ print(machine.unique_id() == wifi.mac())
 machine.main('main.py')
 
 rand_nums = []
-for i in range(0, 100):
+for _ in range(100):
     rand = machine.rng()
     if rand not in rand_nums:
         rand_nums.append(rand)
@@ -28,7 +29,7 @@ for i in range(0, 100):
         print('RNG number repeated')
         break
 
-for i in range(0, 10):
+for _ in range(10):
     machine.idle()
 
 print("Active")

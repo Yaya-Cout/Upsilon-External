@@ -15,4 +15,4 @@ class mylist2(list):
 
 l = mylist2([1, 2, 3])
 print(l)
-print([e for e in l])
+print(list(l))

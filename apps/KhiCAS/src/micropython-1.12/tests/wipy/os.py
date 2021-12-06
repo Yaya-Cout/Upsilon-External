@@ -2,6 +2,7 @@
 os module test for the CC3200 based boards
 '''
 
+
 from machine import SD
 import os
 
@@ -31,17 +32,14 @@ os.chdir('..')
 print(os.getcwd())
 os.chdir('test')
 print(os.getcwd())
-# create a new file
-f = open('test.txt', 'w')
-test_bytes = os.urandom(1024)
-n_w = f.write(test_bytes)
-print(n_w == len(test_bytes))
-f.close()
-f = open('test.txt', 'r')
-r = bytes(f.read(), 'ascii')
-# check that we can write and read it correctly
-print(r == test_bytes)
-f.close()
+with open('test.txt', 'w') as f:
+    test_bytes = os.urandom(1024)
+    n_w = f.write(test_bytes)
+    print(n_w == len(test_bytes))
+with open('test.txt', 'r') as f:
+    r = bytes(f.read(), 'ascii')
+    # check that we can write and read it correctly
+    print(r == test_bytes)
 os.rename('test.txt', 'newtest.txt')
 print(os.listdir())
 os.rename('/flash/test', '/flash/newtest')
@@ -58,20 +56,16 @@ os.chdir('..')
 print(os.getcwd())
 os.chdir('test')
 print(os.getcwd())
-# create a new file
-f = open('test.txt', 'w')
-test_bytes = os.urandom(1024)
-n_w = f.write(test_bytes)
-print(n_w == len(test_bytes))
-f.close()
-f = open('test.txt', 'r')
-r = bytes(f.read(), 'ascii')
-# check that we can write and read it correctly
-print(r == test_bytes)
-f.close()
-
+with open('test.txt', 'w') as f:
+    test_bytes = os.urandom(1024)
+    n_w = f.write(test_bytes)
+    print(n_w == len(test_bytes))
+with open('test.txt', 'r') as f:
+    r = bytes(f.read(), 'ascii')
+    # check that we can write and read it correctly
+    print(r == test_bytes)
 print('CC3200' in os.uname().machine)
-print('WiPy' == os.uname().sysname)
+print(os.uname().sysname == 'WiPy')
 
 os.sync()
 os.stat('/flash')

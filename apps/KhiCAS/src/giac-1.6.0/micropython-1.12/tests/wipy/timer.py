@@ -2,14 +2,13 @@
 Timer test for the CC3200 based boards.
 '''
 
+
 from machine import Timer
 import os
 import time
 
 mch = os.uname().machine
-if 'LaunchPad' in mch:
-    pwm_pin = ('GP24')
-elif 'WiPy' in mch:
+if 'LaunchPad' in mch or 'WiPy' in mch:
     pwm_pin = ('GP24')
 else:
     raise Exception('Board not supported!')
@@ -84,7 +83,7 @@ tim = Timer(0, mode=Timer.PERIODIC, width=32)
 ch = tim.channel(Timer.A | Timer.B, period=5000000)
 
 # check for memory leaks...
-for i in range(1000):
+for _ in range(1000):
     tim = Timer(0, mode=Timer.PERIODIC)
     ch = tim.channel(Timer.A, freq=5)
 

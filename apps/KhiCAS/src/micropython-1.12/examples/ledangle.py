@@ -6,7 +6,7 @@ def led_angle(seconds_to_run_for):
     l2 = pyb.LED(2)
     accel = pyb.Accel()
 
-    for i in range(20 * seconds_to_run_for):
+    for _ in range(20 * seconds_to_run_for):
         # get x-axis
         x = accel.x()
 

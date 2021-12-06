@@ -2,11 +2,12 @@
 wipy module test for the CC3200 based boards
 '''
 
+
 import os
 import wipy
 
 mch = os.uname().machine
-if not 'LaunchPad' in mch and not'WiPy' in mch:
+if 'LaunchPad' not in mch and 'WiPy' not in mch:
     raise Exception('Board not supported!')
 
 print(wipy.heartbeat() == True)

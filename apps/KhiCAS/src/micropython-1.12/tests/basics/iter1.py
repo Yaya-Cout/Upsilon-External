@@ -4,7 +4,7 @@
 class NotIterable:
     pass
 try:
-    for i in NotIterable():
+    for _ in NotIterable():
         pass
 except TypeError:
     print('TypeError')

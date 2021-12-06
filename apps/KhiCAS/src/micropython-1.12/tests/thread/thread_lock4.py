@@ -35,7 +35,7 @@ output = []
 output_lock = _thread.allocate_lock()
 
 # spawn threads to do the jobs
-for i in range(4):
+for _ in range(4):
     _thread.start_new_thread(thread_entry, ())
 
 # wait for the jobs to complete

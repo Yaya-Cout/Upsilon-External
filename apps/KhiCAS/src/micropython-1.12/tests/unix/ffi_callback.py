@@ -9,8 +9,7 @@ def ffi_open(names):
     err = None
     for n in names:
         try:
-            mod = ffi.open(n)
-            return mod
+            return ffi.open(n)
         except OSError as e:
             err = e
     raise err

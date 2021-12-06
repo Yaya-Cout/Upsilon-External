@@ -53,15 +53,14 @@ def cat_together():
     import hashlib
     hasher = hashlib.md5()
     all_lines = []
-    outf = open(args.output_dir + "/out", "wb")
-    for fname in glob.glob(args.output_dir + "/*.qstr"):
-        with open(fname, "rb") as f:
-            lines = f.readlines()
-            all_lines += lines
-    all_lines.sort()
-    all_lines = b"\n".join(all_lines)
-    outf.write(all_lines)
-    outf.close()
+    with open(args.output_dir + "/out", "wb") as outf:
+        for fname in glob.glob(args.output_dir + "/*.qstr"):
+            with open(fname, "rb") as f:
+                lines = f.readlines()
+                all_lines += lines
+        all_lines.sort()
+        all_lines = b"\n".join(all_lines)
+        outf.write(all_lines)
     hasher.update(all_lines)
     new_hash = hasher.hexdigest()
     #print(new_hash)

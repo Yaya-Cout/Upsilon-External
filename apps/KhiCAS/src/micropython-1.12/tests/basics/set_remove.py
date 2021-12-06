@@ -14,9 +14,7 @@ for n in range(20):
     print('testing set with {} items'.format(n))
     for i in range(n):
         # create set
-        s = set()
-        for j in range(n):
-            s.add(str(j))
+        s = {str(j) for j in range(n)}
         print(len(s))
 
         # delete an item
@@ -28,6 +26,5 @@ for n in range(20):
             if str(j) in s:
                 if j == i:
                     print(j, 'in s, but it should not be')
-            else:
-                if j != i:
-                    print(j, 'not in s, but it should be')
+            elif j != i:
+                print(j, 'not in s, but it should be')

@@ -3,4 +3,4 @@
 print(...)
 print(Ellipsis)
 
-print(... == Ellipsis)
+print(Ellipsis == ...)

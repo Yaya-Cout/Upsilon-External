@@ -72,12 +72,7 @@ def main():
         pyb = None
 
     if len(args.files) == 0:
-        if pyb is None:
-            # run PC tests
-            test_dirs = ('internal_bench',)
-        else:
-            # run pyboard tests
-            test_dirs = ('basics', 'float', 'pyb')
+        test_dirs = ('internal_bench', ) if pyb is None else ('basics', 'float', 'pyb')
         tests = sorted(test_file for test_files in (glob('{}/*.py'.format(dir)) for dir in test_dirs) for test_file in test_files)
     else:
         # tests explicitly given

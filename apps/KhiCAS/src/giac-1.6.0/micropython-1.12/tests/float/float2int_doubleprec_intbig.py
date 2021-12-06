@@ -16,33 +16,27 @@ while maxsize:
 is_64bit = maxsize_bits > 32
 # 0 = none, 1 = long long, 2 = mpz
 ll_type = None
-if is_64bit:
-    if maxsize_bits < 63:
-        ll_type = 0
-else:
-    if maxsize_bits < 31:
-        ll_type = 0
+if is_64bit and maxsize_bits < 63 or not is_64bit and maxsize_bits < 31:
+    ll_type = 0
 if ll_type is None:
     one = 1
-    if one << 65 < one << 62:
-        ll_type = 1
-    else:
-        ll_type = 2
-
+    ll_type = 1 if one << 65 < one << 62 else 2
 # This case occurs with time.time() values
-if ll_type != 0:
-    print(int(1418774543.))
-    print("%d" % 1418774543.)
-    if ll_type == 3:
-        print(int(2.**100))
-        print("%d" % 2.**100)
-else:
+if ll_type == 0:
     print(int(1073741823.))
     print("%d" % 1073741823.)
 
+elif ll_type == 3:
+    print(int(1418774543.))
+    print("%d" % 1418774543.)
+    print(int(2.**100))
+    print("%d" % 2.**100)
+else:
+    print(int(1418774543.))
+    print("%d" % 1418774543.)
 testpass = True
 p2_rng = ((30,63,1024),(62,63,1024))[is_64bit][ll_type]
-for i in range(0,p2_rng):
+for i in range(p2_rng):
     bitcnt = len(bin(int(2.**i))) - 3;
     if i != bitcnt:
         print('fail: 2**%u was %u bits long' % (i, bitcnt));
@@ -51,7 +45,7 @@ print("power of  2 test: %s" % (testpass and 'passed' or 'failed'))
 
 testpass = True
 p10_rng = ((9,18,23),(18,18,23))[is_64bit][ll_type]
-for i in range(0,p10_rng):
+for i in range(p10_rng):
     digcnt = len(str(int(10.**i))) - 1;
     if i != digcnt:
         print('fail: 10**%u was %u digits long' % (i, digcnt));

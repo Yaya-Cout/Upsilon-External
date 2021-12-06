@@ -20,7 +20,7 @@ for t in T(1, 2), T(bar=1, foo=2):
     print(t + t)
     print(t * 3)
 
-    print([f for f in t])
+    print(list(t))
 
     print(isinstance(t, tuple))
 

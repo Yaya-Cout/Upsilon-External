@@ -84,7 +84,7 @@ def asm_jump_x86(entry):
 
 def asm_jump_arm(entry):
     b_off = entry - 4
-    if b_off >> 11 == 0 or b_off >> 11 == -1:
+    if b_off >> 11 in [0, -1]:
         # Signed value fits in 12 bits
         b0 = 0xe000 | (b_off >> 1 & 0x07ff)
         b1 = 0
@@ -290,7 +290,10 @@ def build_got_generic(env):
     for sec in env.sections:
         for r in sec.reloc:
             s = r.sym
-            if not (s.entry['st_info']['bind'] == 'STB_GLOBAL' and r['r_info_type'] in env.arch.arch_got):
+            if (
+                s.entry['st_info']['bind'] != 'STB_GLOBAL'
+                or r['r_info_type'] not in env.arch.arch_got
+            ):
                 continue
             s_type = s.entry['st_info']['type']
             assert s_type in ('STT_NOTYPE', 'STT_FUNC', 'STT_OBJECT'), s_type
@@ -521,12 +524,8 @@ def do_relocation_text(env, text_addr, r):
     else:
         assert 0, reloc_type
 
-    # Log information about relocation
     if log_name is None:
-        if s_type == 'STT_SECTION':
-            log_name = s.section.name
-        else:
-            log_name = s.name
+        log_name = s.section.name if s_type == 'STT_SECTION' else s.name
     log(LOG_LEVEL_3, '  {:08x} {} -> {:08x}'.format(r_offset, log_name, addr))
 
 def do_relocation_data(env, text_addr, r):
@@ -552,15 +551,9 @@ def do_relocation_data(env, text_addr, r):
         sec = s.section
         assert r_offset % env.arch.word_size == 0
         addr = sec.addr + s['st_value'] + r_addend
-        if s_type == 'STT_SECTION':
-            log_name = sec.name
-        else:
-            log_name = s.name
+        log_name = sec.name if s_type == 'STT_SECTION' else s.name
         log(LOG_LEVEL_3, '  {:08x} -> {} {:08x}'.format(r_offset, log_name, addr))
-        if env.arch.separate_rodata:
-            data = env.full_rodata
-        else:
-            data = env.full_text
+        data = env.full_rodata if env.arch.separate_rodata else env.full_text
         existing, = struct.unpack_from(struct_type, data, r_offset)
         if sec.name.startswith(('.text', '.rodata', '.data.rel.ro', '.bss')):
             struct.pack_into(struct_type, data, r_offset, existing + addr)
@@ -570,10 +563,7 @@ def do_relocation_data(env, text_addr, r):
             kind = s.mp_fun_table_offset
         else:
             assert 0, sec.name
-        if env.arch.separate_rodata:
-            base = '.rodata'
-        else:
-            base = '.text'
+        base = '.rodata' if env.arch.separate_rodata else '.text'
         env.mpy_relocs.append((base, r_offset, kind))
 
     else:
@@ -604,9 +594,6 @@ def load_object_file(env, felf):
                         env.sections.append(sec)
                 elif s.name.startswith('.data'):
                     raise LinkError('{}: {} non-empty'.format(felf, s.name))
-                else:
-                    # Ignore section
-                    pass
             elif s.header.sh_type in ('SHT_REL', 'SHT_RELA'):
                 shndx = s.header.sh_info
                 if shndx in sections_shndx:
@@ -692,12 +679,11 @@ def link_objects(env, native_qstr_vals_len, native_qstr_objs_len):
             sym.section = env.qstr_obj_section
         elif sym.name in env.known_syms:
             sym.resolved = env.known_syms[sym.name]
+        elif sym.name in fun_table:
+            sym.section = mp_fun_table_sec
+            sym.mp_fun_table_offset = fun_table[sym.name]
         else:
-            if sym.name in fun_table:
-                sym.section = mp_fun_table_sec
-                sym.mp_fun_table_offset = fun_table[sym.name]
-            else:
-                raise LinkError('{}: undefined symbol: {}'.format(sym.filename, sym.name))
+            raise LinkError('{}: undefined symbol: {}'.format(sym.filename, sym.name))
 
     # Align sections, assign their addresses, and create full_text
     env.full_text = bytearray(env.arch.asm_jump(8)) # dummy, to be filled in later
@@ -766,7 +752,7 @@ class MPYOutput:
             self.write_bytes(s)
 
     def write_reloc(self, base, offset, dest, n):
-        need_offset = not (base == self.prev_base and offset == self.prev_offset + 1)
+        need_offset = base != self.prev_base or offset != self.prev_offset + 1
         self.prev_offset = offset + n - 1
         if dest <= 2:
             dest = (dest << 1) | (n > 1)
@@ -857,10 +843,7 @@ def build_mpy(env, entry_offset, fmpy, native_qstr_vals, native_qstr_objs):
         if isinstance(kind, str) and kind.startswith('.text'):
             kind = 0
         elif kind in ('.rodata', '.data.rel.ro'):
-            if env.arch.separate_rodata:
-                kind = rodata_const_table_idx
-            else:
-                kind = 0
+            kind = rodata_const_table_idx if env.arch.separate_rodata else 0
         elif isinstance(kind, str) and kind.startswith('.bss'):
             kind = bss_const_table_idx
         elif kind == 'mp_fun_table':
@@ -906,10 +889,7 @@ def do_preprocess(args):
             print('#define %s (mp_native_qstr_val_table[%d])' % (q, i), file=f)
         for i, q in enumerate(sorted(qstr_objs)):
             print('#define MP_OBJ_NEW_QSTR_%s ((mp_obj_t)mp_native_qstr_obj_table[%d])' % (q, i), file=f)
-        if args.arch == 'xtensawin':
-            qstr_type = 'uint32_t' # esp32 can only read 32-bit values from IRAM
-        else:
-            qstr_type = 'uint16_t'
+        qstr_type = 'uint32_t' if args.arch == 'xtensawin' else 'uint16_t'
         print('extern const {} mp_native_qstr_val_table[];'.format(qstr_type), file=f)
         print('extern const mp_uint_t mp_native_qstr_obj_table[];', file=f)
 

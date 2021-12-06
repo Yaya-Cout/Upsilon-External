@@ -16,7 +16,7 @@ import gc
 gc.collect()
 
 # allocate lots of memory
-for i in range(100000):
+for _ in range(100000):
     [42, 42, 42, 42]
 
 # check that the memoryview is still what we want

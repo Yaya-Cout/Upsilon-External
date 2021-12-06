@@ -18,28 +18,18 @@ try:
     print("Unexpectedly opened non-existing file")
 except OSError:
     print("Expected OSError")
-    pass
-
-f = open("testfile", "w+b")
-f.write(b"1234567890")
-f.seek(0)
-print(f.read())
-f.close()
-
-# Open with truncation
-f = open("testfile", "w+b")
-f.write(b"abcdefg")
-f.seek(0)
-print(f.read())
-f.close()
-
-# Open without truncation
-f = open("testfile", "r+b")
-f.write(b"1234")
-f.seek(0)
-print(f.read())
-f.close()
-
+with open("testfile", "w+b") as f:
+    f.write(b"1234567890")
+    f.seek(0)
+    print(f.read())
+with open("testfile", "w+b") as f:
+    f.write(b"abcdefg")
+    f.seek(0)
+    print(f.read())
+with open("testfile", "r+b") as f:
+    f.write(b"1234")
+    f.seek(0)
+    print(f.read())
 # cleanup
 try:
     os.remove("testfile")

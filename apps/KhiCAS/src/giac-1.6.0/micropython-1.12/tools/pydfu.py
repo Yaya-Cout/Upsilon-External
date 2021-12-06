@@ -115,12 +115,14 @@ def init():
                 break
 
     # Get device into idle state
-    for attempt in range(4):
+    for _ in range(4):
         status = get_status()
         if status == __DFU_STATE_DFU_IDLE:
             break
-        elif (status == __DFU_STATE_DFU_DOWNLOAD_IDLE
-            or status == __DFU_STATE_DFU_UPLOAD_IDLE):
+        elif status in [
+            __DFU_STATE_DFU_DOWNLOAD_IDLE,
+            __DFU_STATE_DFU_UPLOAD_IDLE,
+        ]:
             abort_request()
         else:
             clr_status()
@@ -346,10 +348,7 @@ def read_dfu_file(filename):
                                    'signature altsetting named name '
                                    'size elements')
         img_prefix['num'] = target_idx
-        if img_prefix['named']:
-            img_prefix['name'] = cstring(img_prefix['name'])
-        else:
-            img_prefix['name'] = ''
+        img_prefix['name'] = cstring(img_prefix['name']) if img_prefix['named'] else ''
         print('    %(signature)s %(num)d, alt setting: %(altsetting)s, '
               'name: "%(name)s", size: %(size)d, elements: %(elements)d'
               % img_prefix)
@@ -445,7 +444,7 @@ def get_memory_layout(device):
             multiplier = seg_match.groups()[2]
             if multiplier == 'K':
                 page_size *= 1024
-            if multiplier == 'M':
+            elif multiplier == 'M':
                 page_size *= 1024 * 1024
             size = num_pages * page_size
             last_addr = addr + size - 1

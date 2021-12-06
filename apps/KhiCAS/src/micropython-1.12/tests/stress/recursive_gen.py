@@ -10,8 +10,7 @@ except RuntimeError:
 
 # recursion via an iterator over a generator
 def gen2():
-    for x in gen2():
-        yield x
+    yield from gen2()
 try:
     next(gen2())
 except RuntimeError:

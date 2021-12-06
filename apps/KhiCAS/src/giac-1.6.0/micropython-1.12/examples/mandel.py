@@ -8,8 +8,8 @@ def mandelbrot():
     #@micropython.native
     def in_set(c):
         z = 0
-        for i in range(40):
-            z = z*z + c
+        for _ in range(40):
+            z = z**2 + c
             if abs(z) > 60:
                 return False
         return True

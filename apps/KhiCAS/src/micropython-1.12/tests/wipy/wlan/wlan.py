@@ -2,13 +2,14 @@
 WLAN test for the CC3200 based boards.
 '''
 
+
 from network import WLAN
 import os
 import time
 import testconfig
 
 mch = os.uname().machine
-if not 'LaunchPad' in mch and not 'WiPy' in mch:
+if 'LaunchPad' not in mch and 'WiPy' not in mch:
     raise Exception('Board not supported!')
 
 
@@ -29,7 +30,7 @@ print(wifi.antenna() == WLAN.INT_ANT)
 wifi = WLAN(mode=WLAN.AP)
 print(wifi.mode() == WLAN.AP)
 print(wifi.channel() == 1)
-print(wifi.auth() == None)
+print(wifi.auth() is None)
 print(wifi.antenna() == WLAN.INT_ANT)
 wifi = WLAN(0, mode=WLAN.AP, ssid='test-wlan', auth=(WLAN.WPA, '123456abc'), channel=7)
 print(wifi.mode() == WLAN.AP)
@@ -47,7 +48,7 @@ for net in scan_r:
     if net.ssid == testconfig.wlan_ssid:
         # test that the scan results contains the desired params
         print(len(net.bssid) == 6)
-        print(net.channel == None)
+        print(net.channel is None)
         print(net.sec == testconfig.wlan_auth[0])
         print(net.rssi < 0)
         print('Network found')
@@ -60,7 +61,7 @@ print(wifi.channel() == 7)
 wifi.ssid('t-wlan')
 print(wifi.ssid() == 't-wlan')
 wifi.auth(None)
-print(wifi.auth() == None)
+print(wifi.auth() is None)
 wifi.auth((WLAN.WEP, '11223344556677889900'))
 print(wifi.auth() == (WLAN.WEP, '11223344556677889900'))
 wifi.antenna(WLAN.INT_ANT)

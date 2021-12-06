@@ -57,14 +57,10 @@ uos.mount(vfs, "/ramdisk")
 
 print("statvfs:", vfs.statvfs("/ramdisk"))
 
-f = open('/ramdisk/test.txt', 'w')
-f.write('test file')
-f.close()
-
+with open('/ramdisk/test.txt', 'w') as f:
+    f.write('test file')
 print("statvfs:", vfs.statvfs("/ramdisk"))
 
-f = open('/ramdisk/test.txt')
-print(f.read())
-f.close()
-
+with open('/ramdisk/test.txt') as f:
+    print(f.read())
 uos.umount(vfs)

@@ -9,9 +9,7 @@ print(a[-1])
 a.append(10)
 print(len(a))
 
-s = 0
-for i in a:
-    s += i
+s = sum(a)
 print(s)
 
 print(a[1:])
@@ -24,7 +22,7 @@ print(str(bytearray(b"123"), "utf-8"))
 print(bytearray([1]) == bytearray([1]))
 print(bytearray([1]) == bytearray([2]))
 print(bytearray([1]) == b"1")
-print(b"1" == bytearray([1]))
+print(bytearray([1]) == b"1")
 print(bytearray() == bytearray())
 
 # comparison with other type should return False

@@ -5,8 +5,8 @@ def f():
     print([(a, b) for a in range(3) for b in range(2)])
     print([a * 2 for a in range(7) if a > 3])
 
-    print([a for a in [1, 3, 5]])
-    print([a for a in [a for a in range(4)]])
+    print(list([1, 3, 5]))
+    print(list(list(range(4))))
 
     # dict comprehension
 

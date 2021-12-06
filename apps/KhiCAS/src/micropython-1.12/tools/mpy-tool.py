@@ -123,12 +123,13 @@ def mp_opcode_format(bytecode, ip, count_var_uint):
     ip_start = ip
     f = ((0x000003a4 >> (2 * ((opcode) >> 4))) & 3)
     if f == MP_BC_FORMAT_QSTR:
-        if config.MICROPY_OPT_CACHE_MAP_LOOKUP_IN_BYTECODE:
-            if (opcode == MP_BC_LOAD_NAME
-                or opcode == MP_BC_LOAD_GLOBAL
-                or opcode == MP_BC_LOAD_ATTR
-                or opcode == MP_BC_STORE_ATTR):
-                ip += 1
+        if config.MICROPY_OPT_CACHE_MAP_LOOKUP_IN_BYTECODE and opcode in [
+            MP_BC_LOAD_NAME,
+            MP_BC_LOAD_GLOBAL,
+            MP_BC_LOAD_ATTR,
+            MP_BC_STORE_ATTR,
+        ]:
+            ip += 1
         ip += 3
     else:
         extra_byte = (opcode & MP_BC_MASK_EXTRA_BYTE) == 0
@@ -461,14 +462,12 @@ class RawCodeNative(RawCode):
                 print('    %s & 0xff, (%s >> 8) & 0xff, (%s >> 16) & 0xff, %s >> 24,' % (qst, qst, qst, qst))
                 return 4
             elif MP_NATIVE_ARCH_ARMV6M <= config.native_arch <= MP_NATIVE_ARCH_ARMV7EMDP:
+                # qstr object, movw and movt
+                self._asm_thumb_rewrite_mov(pc, qst)
                 if is_obj:
-                    # qstr object, movw and movt
-                    self._asm_thumb_rewrite_mov(pc, qst)
                     self._asm_thumb_rewrite_mov(pc + 4, '(%s >> 16)' % qst)
                     return 8
                 else:
-                    # qstr number, movw instruction
-                    self._asm_thumb_rewrite_mov(pc, qst)
                     return 4
             else:
                 assert 0
@@ -577,20 +576,19 @@ def read_obj(f):
     obj_type = f.read(1)
     if obj_type == b'e':
         return Ellipsis
+    buf = f.read(read_uint(f))
+    if obj_type == b's':
+        return str_cons(buf, 'utf8')
+    elif obj_type == b'b':
+        return bytes_cons(buf)
+    elif obj_type == b'i':
+        return int(str_cons(buf, 'ascii'), 10)
+    elif obj_type == b'f':
+        return float(str_cons(buf, 'ascii'))
+    elif obj_type == b'c':
+        return complex(str_cons(buf, 'ascii'))
     else:
-        buf = f.read(read_uint(f))
-        if obj_type == b's':
-            return str_cons(buf, 'utf8')
-        elif obj_type == b'b':
-            return bytes_cons(buf)
-        elif obj_type == b'i':
-            return int(str_cons(buf, 'ascii'), 10)
-        elif obj_type == b'f':
-            return float(str_cons(buf, 'ascii'))
-        elif obj_type == b'c':
-            return complex(str_cons(buf, 'ascii'))
-        else:
-            assert 0
+        assert 0
 
 def read_prelude(f, bytecode, qstr_win):
     n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args = read_prelude_sig(lambda: read_byte(f, bytecode))

@@ -6,12 +6,12 @@ except:
     raise SystemExit
 
 def f():
-    print(sys.exc_info()[0:2])
+    print(sys.exc_info()[:2])
 
 try:
     raise ValueError('value', 123)
 except:
-    print(sys.exc_info()[0:2])
+    print(sys.exc_info()[:2])
     f()
 
 # Outside except block, sys.exc_info() should be back to None's

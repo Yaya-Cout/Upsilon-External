@@ -28,10 +28,7 @@ def parse(file,dump_images=False):
   for t in range(prefix['targets']):
     tprefix, data  = consume('<6sBI255s2I',data,'signature altsetting named name size elements')
     tprefix['num'] = t
-    if tprefix['named']:
-      tprefix['name'] = cstring(tprefix['name'])
-    else:
-      tprefix['name'] = ''
+    tprefix['name'] = cstring(tprefix['name']) if tprefix['named'] else ''
     print ('%(signature)s %(num)d, alt setting: %(altsetting)s, name: "%(name)s", size: %(size)d, elements: %(elements)d' % tprefix)
     tsize = tprefix['size']
     target, data = data[:tsize], data[tsize:]
@@ -57,12 +54,12 @@ def parse(file,dump_images=False):
 
 def build(file,targets,device=DEFAULT_DEVICE):
   data = b''
-  for t,target in enumerate(targets):
+  for target in targets:
     tdata = b''
     for image in target:
       # pad image to 8 bytes (needed at least for L476)
       pad = (8 - len(image['data']) % 8 ) % 8
-      image['data'] = image['data'] + bytes(bytearray(8)[0:pad])
+      image['data'] = image['data'] + bytes(bytearray(8)[:pad])
       #
       tdata += struct.pack('<2I',image['address'],len(image['data']))+image['data']
     tdata = struct.pack('<6sBI255s2I',b'Target',0,1, b'ST...',len(tdata),len(target)) + tdata

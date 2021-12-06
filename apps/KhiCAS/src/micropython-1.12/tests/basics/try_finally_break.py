@@ -9,7 +9,6 @@ def f():
         finally:
             print(2)
             break
-            print(3)
         print(4)
     print(5)
 f()
@@ -43,7 +42,7 @@ print(f())
 
 # similar to above but more nesting
 def f():
-    for i in range(2):
+    for _ in range(2):
         try:
             raise ValueError
         finally:
@@ -60,7 +59,7 @@ print(f())
 
 # lots of nesting
 def f():
-    for i in range(2):
+    for _ in range(2):
         try:
             raise ValueError
         finally:
@@ -91,7 +90,6 @@ def f(arg):
         finally:
             print(4)
             break
-            print(5)
         print(6)
     print(7)
 f(0) # no exception, else should execute

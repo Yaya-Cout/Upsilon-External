@@ -43,10 +43,8 @@ def op_basename(path):
 # Expects *file* name
 def _makedirs(name, mode=0o777):
     ret = False
-    s = ""
     comps = name.rstrip("/").split("/")[:-1]
-    if comps[0] == "":
-        s = "/"
+    s = "/" if comps[0] == "" else ""
     for c in comps:
         if s and s[-1] != "/":
             s += "/"
@@ -55,7 +53,7 @@ def _makedirs(name, mode=0o777):
             os.mkdir(s)
             ret = True
         except OSError as e:
-            if e.args[0] != errno.EEXIST and e.args[0] != errno.EISDIR:
+            if e.args[0] not in [errno.EEXIST, errno.EISDIR]:
                 raise e
             ret = False
     return ret
@@ -140,7 +138,7 @@ def url_open(url):
         l = s.readline()
         protover, status, msg = l.split(None, 2)
         if status != b"200":
-            if status == b"404" or status == b"301":
+            if status in [b"404", b"301"]:
                 raise NotFoundError("Package not found")
             raise ValueError(status)
         while 1:
@@ -284,7 +282,7 @@ def main():
     while i < len(sys.argv) and sys.argv[i][0] == "-":
         opt = sys.argv[i]
         i += 1
-        if opt == "-h" or opt == "--help":
+        if opt in ["-h", "--help"]:
             help()
             return
         elif opt == "-p":

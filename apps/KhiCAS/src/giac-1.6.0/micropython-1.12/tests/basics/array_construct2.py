@@ -8,4 +8,4 @@ except ImportError:
         raise SystemExit
 
 # construct from something with unknown length (requires generators)
-print(array('i', (i for i in range(10))))
+print(array('i', iter(range(10))))

@@ -7,7 +7,7 @@ except (Exception,):
 
 try:
     fail
-except (Exception, Exception):
+except Exception:
     print('except 2')
 
 try:

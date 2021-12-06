@@ -2,6 +2,7 @@
 SD card test for the CC3200 based boards.
 '''
 
+
 from machine import SD
 import os
 
@@ -25,7 +26,7 @@ sd = SD(id=0, pins=sd_pins)
 sd = SD(0, sd_pins)
 
 # check for memory leaks
-for i in range(0, 1000):
+for _ in range(1000):
     sd = sd = SD(0, pins=sd_pins)
 
 # next ones should raise

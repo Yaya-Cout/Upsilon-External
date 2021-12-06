@@ -16,7 +16,7 @@ def escape(s):
         '\\': '\\\\',
         '\"': '\\\"',
     }
-    return "\"\"\n\"{}\"".format(''.join([lookup[x] if x in lookup else x for x in s]))
+    return "\"\"\n\"{}\"".format(''.join([lookup.get(x, x) for x in s]))
 
 def chew_filename(t):
     return { 'func': "test_{}_fn".format(sub(r'/|\.|-', '_', t)), 'desc': t }

@@ -67,14 +67,13 @@ def run_feature_test(target, test):
 
 def run_benchmark_on_target(target, script):
     output, err = run_script_on_target(target, script)
-    if err is None:
-        time, norm, result = output.split(None, 2)
-        try:
-            return int(time), int(norm), result
-        except ValueError:
-            return -1, -1, 'CRASH: %r' % output
-    else:
+    if err is not None:
         return -1, -1, 'CRASH: %r' % err
+    time, norm, result = output.split(None, 2)
+    try:
+        return int(time), int(norm), result
+    except ValueError:
+        return -1, -1, 'CRASH: %r' % output
 
 def run_benchmarks(target, param_n, param_m, n_average, test_list):
     skip_complex = run_feature_test(target, 'complex') != 'complex'
@@ -98,11 +97,6 @@ def run_benchmarks(target, param_n, param_m, n_average, test_list):
         with open(BENCH_SCRIPT_DIR + 'benchrun.py', 'rb') as f:
             test_script += f.read()
         test_script += b'bm_run(%u, %u)\n' % (param_n, param_m)
-
-        # Write full test script if needed
-        if 0:
-            with open('%s.full' % test_file, 'wb') as f:
-                f.write(test_script)
 
         # Run MicroPython a given number of times
         times = []
@@ -134,10 +128,6 @@ def run_benchmarks(target, param_n, param_m, n_average, test_list):
             t_avg, t_sd = compute_stats(times)
             s_avg, s_sd = compute_stats(scores)
             print('{:.2f} {:.4f} {:.2f} {:.4f}'.format(t_avg, 100 * t_sd / t_avg, s_avg, 100 * s_sd / s_avg))
-            if 0:
-                print('  times: ', times)
-                print('  scores:', scores)
-
         sys.stdout.flush()
 
 def parse_output(filename):

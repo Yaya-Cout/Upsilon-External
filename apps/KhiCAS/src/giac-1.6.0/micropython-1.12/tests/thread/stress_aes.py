@@ -120,7 +120,7 @@ def aes_sb_sr_ark(state, w, w_idx, temp):
 def aes_state(state, w, temp, nr):
     aes_add_round_key(state, w)
     w_idx = 16
-    for i in range(nr - 1):
+    for _ in range(nr - 1):
         aes_sb_sr_mc_ark(state, w, w_idx, temp)
         w_idx += 16
     aes_sb_sr_ark(state, w, w_idx, temp)
@@ -139,7 +139,7 @@ def aes_key_expansion(key, w, temp, nk, nr):
             for j in range(1, 4):
                 t[j] = aes_s_box(w[w_idx + (j + 1) % 4])
         elif nk > 6 and i % nk == 4:
-            for j in range(0, 4):
+            for j in range(4):
                 t[j] = aes_s_box(w[w_idx + j])
         else:
             t = w
@@ -232,13 +232,13 @@ def thread_entry():
         # encrypt
         aes.set_key(key)
         aes.set_iv(iv)
-        for i in range(8):
+        for _ in range(8):
             aes.apply_to(data)
 
         # decrypt
         aes.set_key(key)
         aes.set_iv(iv)
-        for i in range(8):
+        for _ in range(8):
             aes.apply_to(data)
 
         # verify
@@ -249,7 +249,7 @@ def thread_entry():
 
 if __name__ == '__main__':
     n_thread = 20
-    for i in range(n_thread):
+    for _ in range(n_thread):
         _thread.start_new_thread(thread_entry, ())
     while count.value < n_thread:
         time.sleep(1)

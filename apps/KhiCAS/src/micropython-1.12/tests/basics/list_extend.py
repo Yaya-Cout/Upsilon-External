@@ -1,7 +1,6 @@
 # test list.__iadd__ and list.extend (they are equivalent)
 
 l = [1, 2]
-l.extend([])
 print(l)
 
 l.extend([3])

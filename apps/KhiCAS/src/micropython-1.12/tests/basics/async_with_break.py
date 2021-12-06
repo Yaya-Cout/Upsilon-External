@@ -12,7 +12,6 @@ async def f1():
         async with AContext():
             print('body')
             break
-            print('no 1')
         print('no 2')
 
 o = f1()
@@ -27,7 +26,6 @@ async def f2():
             async with AContext():
                 print('body')
                 break
-                print('no 1')
         finally:
             print('finally')
         print('no 2')
@@ -45,7 +43,6 @@ async def f3():
                 async with AContext():
                     print('body')
                     break
-                    print('no 1')
             finally:
                 print('finally inner')
         finally:

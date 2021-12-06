@@ -29,12 +29,11 @@ class ARange:
     async def __anext__(self):
         print('anext')
         print('f returned:', await f(20))
-        if self.cur < self.high:
-            val = self.cur
-            self.cur += 1
-            return val
-        else:
+        if self.cur >= self.high:
             raise StopAsyncIteration
+        val = self.cur
+        self.cur += 1
+        return val
 
 async def coro():
     async for x in ARange(4):

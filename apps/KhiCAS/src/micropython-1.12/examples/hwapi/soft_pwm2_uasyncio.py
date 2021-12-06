@@ -6,7 +6,7 @@ from hwconfig import LED, LED2
 
 async def pwm_cycle(led, duty, cycles):
     duty_off = 20 - duty
-    for i in range(cycles):
+    for _ in range(cycles):
         if duty:
             led.value(1)
             await uasyncio.sleep_ms(duty)

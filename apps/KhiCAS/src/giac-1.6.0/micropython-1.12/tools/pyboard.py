@@ -138,12 +138,11 @@ class TelnetToSerial:
 
     def inWaiting(self):
         n_waiting = len(self.fifo)
-        if not n_waiting:
-            data = self.tn.read_eager()
-            self.fifo.extend(data)
-            return len(data)
-        else:
+        if n_waiting:
             return n_waiting
+        data = self.tn.read_eager()
+        self.fifo.extend(data)
+        return len(data)
 
 
 class ProcessToSerial:

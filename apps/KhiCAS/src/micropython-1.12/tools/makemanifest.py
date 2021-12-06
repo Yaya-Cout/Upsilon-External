@@ -159,9 +159,7 @@ def mkdir(path):
         try:
             os.mkdir(cur_path)
         except OSError as er:
-            if er.args[0] == 17: # file exists
-                pass
-            else:
+            if er.args[0] != 17:
                 raise er
 
 def freeze_internal(kind, path, script, opt):

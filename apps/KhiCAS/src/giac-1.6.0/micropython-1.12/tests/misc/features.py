@@ -15,9 +15,7 @@ print(three)
 print("{}".format(4))
 five=25//5
 print(int(five))
-j=0
-for i in range(4):
-	j += i
+j = sum(range(4))
 print(j)
 print(3+4)
 try:
@@ -28,10 +26,8 @@ print("xxxxxxxxx".count("x"))
 def ten():
 	return 10
 print(ten())
-a=[]
-for i in range(13):
-	a.append(i)
-print(a[11])	
+a = list(range(13))
+print(a[11])
 print(a[-1])
 str="0123456789"
 print(str[1]+str[3])
@@ -56,10 +52,7 @@ b.print()
 for i in range(20):
 	pass
 print(i)
-if 20 > 30:
-	a="1"
-else:
-	a="2"
+a = "1" if 20 > 30 else "2"
 if 0 < 4:
 	print(a+"0")
 else:
@@ -111,10 +104,10 @@ for i in [1,2,3]:
 print(34)
 p=0
 for i in range(35, -1, -1):
-	print(i)
-	p = p + 1
-	if p > 0:
-		break
+    print(i)
+    p += 1
+    if p > 0:
+    	break
 p=36
 while p == 36:
 	print(p)
@@ -122,7 +115,7 @@ while p == 36:
 print(p)
 for i in [38]:
 	print(i)
-print(int(exec("def foo(): return 38") == None)+foo())
+print(int(exec("def foo(): return 38") is None) + foo())
 d = {}
 exec("def bar(): return 40", d)
 print(d["bar"]())
@@ -134,8 +127,7 @@ def fib2(n):
 		a, b = b, a+b
 	return result
 print(fib2(100)[-2]-14)
-Answer={}
-Answer["ForAll"]=42
+Answer = {'ForAll': 42}
 print(Answer["ForAll"])
 i = 43
 def f(i=i):

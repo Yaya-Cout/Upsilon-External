@@ -22,4 +22,4 @@ for val in f(3):
 #print(gen.__next__())
 
 # test printing, but only the first chars that match CPython
-print(repr(f(0))[0:17])
+print(repr(f(0))[:17])

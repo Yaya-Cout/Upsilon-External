@@ -5,7 +5,7 @@
 import _thread
 
 # the shared list
-li = list()
+li = []
 
 # main thread function
 def th(n, lo, hi):

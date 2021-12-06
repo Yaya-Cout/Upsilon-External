@@ -49,7 +49,7 @@ def test(bdev, vfs_class):
 
     # open, write close
     f = vfs.open('test', 'w')
-    for i in range(10):
+    for _ in range(10):
         f.write('some data')
     f.close()
 

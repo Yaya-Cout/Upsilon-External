@@ -20,7 +20,7 @@ spi.init(SPI.SLAVE, phase=1)
 print(spi)
 try:
     # need to flush input before we get an error (error is what we want to test)
-    for i in range(10):
+    for _ in range(10):
         spi.recv(1, timeout=100)
 except OSError:
     print("OSError")

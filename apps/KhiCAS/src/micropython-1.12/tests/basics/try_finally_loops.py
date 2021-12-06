@@ -6,13 +6,13 @@ while True:
         print('finally 1')
 
 
-for i in [1, 5, 10]:
+for _ in [1, 5, 10]:
     try:
         continue
     finally:
         print('finally 2')
 
-for i in range(3):
+for _ in range(3):
     try:
         continue
     finally:
@@ -44,7 +44,7 @@ for i in [1]:
 
 # Test unwind-jump where there is nothing in the body of the try or finally.
 # This checks that the bytecode emitter allocates enough stack for the unwind.
-for i in [1]:
+for _ in [1]:
     try:
         break
     finally:
@@ -55,7 +55,7 @@ for i in [1]:
 # There was a bug where an unwind jump would trash the globals dict upon return
 # from a function, because it used the Python-stack incorrectly.
 def f():
-    for i in [1]:
+    for _ in [1]:
         try:
             break
         finally:

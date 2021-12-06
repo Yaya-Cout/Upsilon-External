@@ -13,34 +13,23 @@ print(f.readlines())
 f = open("io/data/file1",mode="rb")
 print(f.readlines())
 
-# write() error
-f = open('io/data/file1', 'r')
-try:
-    f.write('x')
-except OSError:
-    print('OSError')
-f.close()
-
-# read(n) error on binary file
-f = open('io/data/file1', 'ab')
-try:
-    f.read(1)
-except OSError:
-    print('OSError')
-f.close()
-
-# read(n) error on text file
-f = open('io/data/file1', 'at')
-try:
-    f.read(1)
-except OSError:
-    print('OSError')
-f.close()
-
-# read() w/o args error
-f = open('io/data/file1', 'ab')
-try:
-    f.read()
-except OSError:
-    print('OSError')
-f.close()
+with open('io/data/file1', 'r') as f:
+    try:
+        f.write('x')
+    except OSError:
+        print('OSError')
+with open('io/data/file1', 'ab') as f:
+    try:
+        f.read(1)
+    except OSError:
+        print('OSError')
+with open('io/data/file1', 'at') as f:
+    try:
+        f.read(1)
+    except OSError:
+        print('OSError')
+with open('io/data/file1', 'ab') as f:
+    try:
+        f.read()
+    except OSError:
+        print('OSError')

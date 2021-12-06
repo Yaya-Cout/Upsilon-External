@@ -7,7 +7,7 @@ y = 2000000000000000000000000000000
 # printing
 print(x)
 print(y)
-print('%#X' % (x - x)) # print prefix
+print('%#X' % 0)
 print('{:#,}'.format(x)) # print with commas
 
 # addition
@@ -20,8 +20,8 @@ print(bool(x + xn))
 print(x - 1)
 print(x - y)
 print(y - x)
-print(x - x == 0)
-print(bool(x - x))
+print(0 == 0)
+print(bool(0))
 
 # multiplication
 print(x * 2)
@@ -37,14 +37,14 @@ print(~(-x))
 
 # left shift
 x = 0x10000000000000000000000
-for i in range(32):
-    x = x << 1
+for _ in range(32):
+    x <<= 1
     print(x)
 
 # right shift
 x = 0x10000000000000000000000
-for i in range(32):
-    x = x >> 1
+for _ in range(32):
+    x >>= 1
     print(x)
 
 # left shift of a negative number

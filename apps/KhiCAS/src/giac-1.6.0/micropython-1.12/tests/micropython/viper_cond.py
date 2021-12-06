@@ -2,9 +2,7 @@
 @micropython.viper
 def f():
     x = False
-    if x:
-        pass
-    else:
+    if not x:
         print("not x", x)
 f()
 

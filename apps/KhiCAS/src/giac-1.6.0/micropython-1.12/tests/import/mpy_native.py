@@ -10,7 +10,7 @@ except (ImportError, AttributeError):
     print("SKIP")
     raise SystemExit
 
-if not (sys.platform == 'linux' and sys.maxsize > 2 ** 32):
+if sys.platform != 'linux' or sys.maxsize <= 2 ** 32:
     print("SKIP")
     raise SystemExit
 

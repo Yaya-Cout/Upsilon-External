@@ -2,6 +2,7 @@
 ADC test for the CC3200 based boards.
 '''
 
+
 from machine import ADC
 import os
 
@@ -49,7 +50,7 @@ print(apin)
 print(apin() > 3000)
 
 # check for memory leaks...
-for i in range (0, 1000):
+for _ in range(1000):
     adc = ADC()
     apin = adc.channel(adc_channel)
 

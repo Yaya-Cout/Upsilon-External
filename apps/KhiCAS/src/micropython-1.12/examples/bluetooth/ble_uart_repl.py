@@ -15,10 +15,7 @@ _MP_STREAM_POLL = const(3)
 _MP_STREAM_POLL_RD = const(0x0001)
 
 # TODO: Remove this when STM32 gets machine.Timer.
-if hasattr(machine, 'Timer'):
-    _timer = machine.Timer(-1)
-else:
-    _timer = None
+_timer = machine.Timer(-1) if hasattr(machine, 'Timer') else None
 
 # Batch writes into 50ms intervals.
 def schedule_in(handler, delay_ms):
@@ -53,13 +50,12 @@ class BLEUARTStream(io.IOBase):
         return len(avail)
 
     def ioctl(self, op, arg):
-        if op == _MP_STREAM_POLL:
-            if self._uart.any():
-                return _MP_STREAM_POLL_RD
+        if op == _MP_STREAM_POLL and self._uart.any():
+            return _MP_STREAM_POLL_RD
         return 0
 
     def _flush(self):
-        data = self._tx_buf[0:100]
+        data = self._tx_buf[:100]
         self._tx_buf = self._tx_buf[100:]
         self._uart.write(data)
         if self._tx_buf:

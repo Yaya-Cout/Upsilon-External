@@ -28,7 +28,7 @@ def test_exception():
 
 # listcomp
 def test_listcomp():
-    print("test_listcomp", [x for x in range(3)])
+    print("test_listcomp", list(range(3)))
 
 # lambda
 def test_lambda():

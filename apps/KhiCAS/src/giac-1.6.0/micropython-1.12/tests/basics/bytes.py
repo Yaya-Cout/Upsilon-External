@@ -24,9 +24,7 @@ try:
 except TypeError:
     print("TypeError")
 
-s = 0
-for i in a:
-    s += i
+s = sum(a)
 print(s)
 
 

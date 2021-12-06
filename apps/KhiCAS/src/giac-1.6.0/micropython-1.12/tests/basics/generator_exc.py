@@ -15,8 +15,6 @@ for i in gen():
 def gen2():
     yield 1
     raise ValueError
-    yield 2
-    yield 3
 
 g = gen2()
 print(next(g))

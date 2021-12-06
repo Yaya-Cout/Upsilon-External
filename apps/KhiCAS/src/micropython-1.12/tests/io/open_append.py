@@ -13,23 +13,14 @@ try:
 except OSError:
     pass
 
-# Should create a file
-f = open("testfile", "a")
-f.write("foo")
-f.close()
-
-f = open("testfile")
-print(f.read())
-f.close()
-
-f = open("testfile", "a")
-f.write("bar")
-f.close()
-
-f = open("testfile")
-print(f.read())
-f.close()
-
+with open("testfile", "a") as f:
+    f.write("foo")
+with open("testfile") as f:
+    print(f.read())
+with open("testfile", "a") as f:
+    f.write("bar")
+with open("testfile") as f:
+    print(f.read())
 # cleanup
 try:
     os.remove("testfile")

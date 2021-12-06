@@ -12,7 +12,7 @@ maps = {framebuf.MONO_VLSB : 'MONO_VLSB',
         framebuf.MONO_HLSB : 'MONO_HLSB',
         framebuf.MONO_HMSB : 'MONO_HMSB'}
 
-for mapping in maps.keys():
+for mapping in maps:
     for x in range(size):
         buf[x] = 0
     fbuf = framebuf.FrameBuffer(buf, w, h, mapping)

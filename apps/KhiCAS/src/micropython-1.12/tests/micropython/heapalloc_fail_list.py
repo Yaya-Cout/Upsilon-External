@@ -11,7 +11,7 @@ sl = GetSlice()[:]
 l = [1, 2, 3]
 micropython.heap_lock()
 try:
-    print(l[0:1])
+    print(l[:1])
 except MemoryError:
     print('MemoryError: list index')
 micropython.heap_unlock()

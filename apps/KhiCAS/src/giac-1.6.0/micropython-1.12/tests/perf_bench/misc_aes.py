@@ -104,7 +104,7 @@ def aes_sb_sr_ark(state, w, w_idx, temp):
 def aes_state(state, w, temp, nr):
     aes_add_round_key(state, w)
     w_idx = 16
-    for i in range(nr - 1):
+    for _ in range(nr - 1):
         aes_sb_sr_mc_ark(state, w, w_idx, temp)
         w_idx += 16
     aes_sb_sr_ark(state, w, w_idx, temp)
@@ -123,7 +123,7 @@ def aes_key_expansion(key, w, temp, nk, nr):
             for j in range(1, 4):
                 t[j] = aes_s_box(w[w_idx + (j + 1) % 4])
         elif nk > 6 and i % nk == 4:
-            for j in range(0, 4):
+            for j in range(4):
                 t[j] = aes_s_box(w[w_idx + j])
         else:
             t = w
@@ -206,13 +206,13 @@ def bm_setup(params):
             # encrypt
             aes.set_key(key)
             aes.set_iv(iv)
-            for i in range(2):
+            for _ in range(2):
                 aes.apply_to(data)
 
             # decrypt
             aes.set_key(key)
             aes.set_iv(iv)
-            for i in range(2):
+            for _ in range(2):
                 aes.apply_to(data)
 
             # verify

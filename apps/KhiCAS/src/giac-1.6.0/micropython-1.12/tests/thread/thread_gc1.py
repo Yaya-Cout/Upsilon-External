@@ -7,7 +7,7 @@ import _thread
 
 def thread_entry(n):
     # allocate a bytearray and fill it
-    data = bytearray(i for i in range(256))
+    data = bytearray(iter(range(256)))
 
     # do some work and call gc.collect() a few times
     for i in range(n):
@@ -26,7 +26,7 @@ n_thread = 4
 n_finished = 0
 
 # spawn threads
-for i in range(n_thread):
+for _ in range(n_thread):
     _thread.start_new_thread(thread_entry, (10,))
 
 # busy wait for threads to finish

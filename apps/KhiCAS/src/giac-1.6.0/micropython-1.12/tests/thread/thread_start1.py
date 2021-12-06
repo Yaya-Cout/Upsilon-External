@@ -12,7 +12,7 @@ def foo():
     pass
 
 def thread_entry(n):
-    for i in range(n):
+    for _ in range(n):
         foo()
 
 _thread.start_new_thread(thread_entry, (10,))

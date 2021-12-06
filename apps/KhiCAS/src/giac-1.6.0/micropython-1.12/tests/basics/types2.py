@@ -8,7 +8,5 @@ print(hash(Foo) != 0)
 print(int == int)
 print(int != list)
 
-d = {}
-d[int] = list
-d[list] = int
+d = {int: list, list: int}
 print(len(d))

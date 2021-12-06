@@ -3,6 +3,7 @@ I2C test for the CC3200 based boards.
 A MPU-9150 sensor must be connected to the I2C bus.
 '''
 
+
 from machine import I2C
 import os
 import time
@@ -38,90 +39,90 @@ reg2_r = bytearray(2)
 
 # reset the sensor
 reg[0] |= 0x80
-print(1 == i2c.writeto_mem(addr, 107, reg))
+print(i2c.writeto_mem(addr, 107, reg) == 1)
 time.sleep_ms(100)  # wait for the sensor to reset...
 
-print(1 == i2c.readfrom_mem_into(addr, 107, reg)) # read the power management register 1
-print(0x40 == reg[0])
+print(i2c.readfrom_mem_into(addr, 107, reg) == 1)
+print(reg[0] == 0x40)
 
 # now just read one byte
 data = i2c.readfrom_mem(addr, 117, 1) # read the "who am I?" register
-print(0x68 == data[0])
+print(data[0] == 0x68)
 print(len(data) == 1)
-print(1 == i2c.readfrom_mem_into(addr, 117, reg)) # read the "who am I?" register again
-print(0x68 == reg[0])
+print(i2c.readfrom_mem_into(addr, 117, reg) == 1)
+print(reg[0] == 0x68)
 
 # now try reading two bytes
 data = i2c.readfrom_mem(addr, 116, 2) # read the "who am I?" register
-print(0x68 == data[1])
+print(data[1] == 0x68)
 print(data == b'\x00\x68')
 print(len(data) == 2)
-print(2 == i2c.readfrom_mem_into(addr, 116, reg2)) # read the "who am I?" register again
-print(0x68 == reg2[1])
+print(i2c.readfrom_mem_into(addr, 116, reg2) == 2)
+print(reg2[1] == 0x68)
 print(reg2 == b'\x00\x68')
 
-print(1 == i2c.readfrom_mem_into(addr, 107, reg)) # read the power management register 1
-print(0x40 == reg[0])
+print(i2c.readfrom_mem_into(addr, 107, reg) == 1)
+print(reg[0] == 0x40)
 # clear the sleep bit
 reg[0] = 0
-print(1 == i2c.writeto_mem(addr, 107, reg))
+print(i2c.writeto_mem(addr, 107, reg) == 1)
 # read it back
 i2c.readfrom_mem_into(addr, 107, reg)
-print(0 == reg[0])
+print(reg[0] == 0)
 
 # set the sleep bit
 reg[0] = 0x40
-print(1 == i2c.writeto_mem(addr, 107, reg))
+print(i2c.writeto_mem(addr, 107, reg) == 1)
 # read it back
 i2c.readfrom_mem_into(addr, 107, reg)
-print(0x40 == reg[0])
+print(reg[0] == 0x40)
 
 # reset the sensor
 reg[0] |= 0x80
-print(1 == i2c.writeto_mem(addr, 107, reg))
+print(i2c.writeto_mem(addr, 107, reg) == 1)
 time.sleep_ms(100)  # wait for the sensor to reset...
 
 # now read and write two register at a time
-print(2 == i2c.readfrom_mem_into(addr, 107, reg2))
-print(0x40 == reg2[0])
-print(0x00 == reg2[1])
+print(i2c.readfrom_mem_into(addr, 107, reg2) == 2)
+print(reg2[0] == 0x40)
+print(reg2[1] == 0x00)
 # clear the sleep bit
 reg2[0] = 0
 # set some other bits
 reg2[1] |= 0x03
-print(2 == i2c.writeto_mem(addr, 107, reg2))
+print(i2c.writeto_mem(addr, 107, reg2) == 2)
 # read it back
 i2c.readfrom_mem_into(addr, 107, reg2_r)
 print(reg2 == reg2_r)
 
 # reset the sensor
 reg[0] = 0x80
-print(1 == i2c.writeto_mem(addr, 107, reg))
+print(i2c.writeto_mem(addr, 107, reg) == 1)
 time.sleep_ms(100)  # wait for the sensor to reset...
 
 # try some raw read and writes
 reg[0] = 117 # register address
-print(1 == i2c.writeto(addr, reg, stop=False)) # just write the register address
+print(i2c.writeto(addr, reg, stop=False) == 1)
 # now read
-print(1 == i2c.readfrom_into(addr, reg))
+print(i2c.readfrom_into(addr, reg) == 1)
 print(reg[0] == 0x68)
 reg[0] = 117 # register address
-print(1 == i2c.writeto(addr, reg, stop=False)) # just write the register address
+print(i2c.writeto(addr, reg, stop=False) == 1)
 # now read
-print(0x68 == i2c.readfrom(addr, 1)[0])
+print(i2c.readfrom(addr, 1)[0] == 0x68)
 
 i2c.readfrom_mem_into(addr, 107, reg2)
-print(0x40 == reg2[0])
-print(0x00 == reg2[1])
+print(reg2[0] == 0x40)
+print(reg2[1] == 0x00)
 
 reg2[0] = 107 # register address
 reg2[1] = 0
-print(2 == i2c.writeto(addr, reg2, stop=True)) # write the register address and the data
+print(i2c.writeto(addr, reg2, stop=True) == 2)
 i2c.readfrom_mem_into(addr, 107, reg) # check it back
 print(reg[0] == 0)
 
 # check for memory leaks...
-for i in range (0, 1000):
+for _ in range(1000):
     i2c = I2C(0, I2C.MASTER, baudrate=100000)
 
 # test deinit

@@ -11,7 +11,5 @@ print(type(1j) == complex)
 
 # hashing float types
 
-d = dict()
-d[float] = complex
-d[complex] = float
+d = {float: complex, complex: float}
 print(len(d))

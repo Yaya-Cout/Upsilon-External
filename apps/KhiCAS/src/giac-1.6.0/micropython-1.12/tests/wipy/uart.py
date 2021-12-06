@@ -3,21 +3,18 @@ UART test for the CC3200 based boards.
 UART0 and UART1 must be connected together for this test to pass.
 '''
 
+
 from machine import UART
 from machine import Pin
 import os
 import time
 
 mch = os.uname().machine
-if 'LaunchPad' in mch:
-    uart_id_range = range(0, 2)
-    uart_pins = [[('GP12', 'GP13'), ('GP12', 'GP13', 'GP7', 'GP6')], [('GP16', 'GP17'), ('GP16', 'GP17', 'GP7', 'GP6')]]
-elif 'WiPy' in mch:
-    uart_id_range = range(0, 2)
-    uart_pins = [[('GP12', 'GP13'), ('GP12', 'GP13', 'GP7', 'GP6')], [('GP16', 'GP17'), ('GP16', 'GP17', 'GP7', 'GP6')]]
-else:
+if 'LaunchPad' not in mch and 'WiPy' not in mch:
     raise Exception('Board not supported!')
 
+uart_id_range = range(2)
+uart_pins = [[('GP12', 'GP13'), ('GP12', 'GP13', 'GP7', 'GP6')], [('GP16', 'GP17'), ('GP16', 'GP17', 'GP7', 'GP6')]]
 # just in case we have the repl duplicated on any of the uarts
 os.dupterm(None)
 
@@ -54,11 +51,11 @@ print(uart1.read() == b'123456')
 print(uart1.write(b'123') == 3)
 print(uart0.read(1) == b'1')
 print(uart0.read(2) == b'23')
-print(uart0.read() == None)
+print(uart0.read() is None)
 
 uart0.write(b'123')
 buf = bytearray(3)
-print(uart1.readinto(buf, 1) == 1) 
+print(uart1.readinto(buf, 1) == 1)
 print(buf)
 print(uart1.readinto(buf) == 2)
 print(buf)
@@ -79,33 +76,33 @@ uart0 = UART(0, 1000000, pins=('GP12', None))
 print(uart0.write(b'123456') == 6)
 print(uart1.read() == b'123456')
 print(uart1.write(b'123') == 3)
-print(uart0.read() == None)
+print(uart0.read() is None)
 
 # rx only mode
 uart0 = UART(0, 1000000, pins=(None, 'GP13'))
 print(uart0.write(b'123456') == 6)
-print(uart1.read() == None)
+print(uart1.read() is None)
 print(uart1.write(b'123') == 3)
 print(uart0.read() == b'123')
 
 # leave pins as they were (rx only mode)
 uart0 = UART(0, 1000000, pins=None)
 print(uart0.write(b'123456') == 6)
-print(uart1.read() == None)
+print(uart1.read() is None)
 print(uart1.write(b'123') == 3)
 print(uart0.read() == b'123')
 
 # no pin assignment
 uart0 = UART(0, 1000000, pins=(None, None))
 print(uart0.write(b'123456789') == 9)
-print(uart1.read() == None)
+print(uart1.read() is None)
 print(uart1.write(b'123456789') == 9)
-print(uart0.read() == None)
+print(uart0.read() is None)
 print(Pin.board.GP12)
 print(Pin.board.GP13)
 
 # check for memory leaks...
-for i in range (0, 1000):
+for _ in range(1000):
     uart0 = UART(0, 1000000)
     uart1 = UART(1, 1000000)
 
