@@ -28,6 +28,9 @@ apps/BadApple/app.elf: api/libapi.a
 apps/CHIP-8/app.elf: api/libapi.a
 	make -C apps/CHIP-8
 
+apps/CopyFile/app.elf: api/libapi.a
+	make -C apps/CopyFile
+
 clean:
 	rm -f apps.tar
 	make -C api clean
@@ -38,4 +41,4 @@ clean:
 	make -C apps/HexEdit clean
 	make -C apps/BadApple clean
 	make -C apps/CHIP-8 clean
-
+	make -C apps/CopyFile clean
