@@ -1,4 +1,4 @@
-apps.tar: apps/KhiCAS/app.elf apps/Periodic/app.elf apps/Nofrendo/app.elf apps/Peanut-GB/app.elf apps/HexEdit/app.elf apps/BadApple/app.elf apps/CHIP-8/app.elf
+apps.tar: apps/KhiCAS/app.elf apps/Periodic/app.elf apps/Nofrendo/app.elf apps/Peanut-GB/app.elf apps/HexEdit/app.elf apps/BadApple/app.elf apps/CHIP-8/app.elf apps/Example/app.elf
 	./archive $@ $^
 
 flash: apps.tar
@@ -28,6 +28,9 @@ apps/BadApple/app.elf: api/libapi.a
 apps/CHIP-8/app.elf: api/libapi.a
 	make -C apps/CHIP-8
 
+apps/Example/app.elf: api/libapi.a
+	make -C apps/Example
+
 clean:
 	rm -f apps.tar
 	make -C api clean
@@ -38,4 +41,5 @@ clean:
 	make -C apps/HexEdit clean
 	make -C apps/BadApple clean
 	make -C apps/CHIP-8 clean
+	make -C apps/Example clean
 
