@@ -44,6 +44,7 @@ static char ** remove(char ** first, char ** last) {
  * select_file: display a file list to let the user chose a file
  * @param extension_to_match const char *, use an empty string to match any file extension
  * @param max_files int, the maximum number of files to display
+ * @return const char *, the name of the selected file, or NULL if no file is selected
  */
 const char * select_file(const char * extension_to_match, int max_files) {
   // The file list
