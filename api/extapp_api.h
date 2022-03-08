@@ -13,12 +13,21 @@
 #define EXTERNC
 #endif
 
+// Screen size
+// The screen width
 #define LCD_WIDTH 320
+// The screen height
 #define LCD_HEIGHT 240
 
+// Files systems
+// The RAM file system, which can be written, and it is used by the system applications,
+// this storage is erased on reset
 #define EXTAPP_RAM_FILE_SYSTEM 0
+// The flash file system, which is written by the external application website,
+// used for big files storing, and roms, this storage is kept after a reset
 #define EXTAPP_FLASH_FILE_SYSTEM 1
 
+// The code of the keys, returned by `extapp_scanKeyboard()`
 #define SCANCODE_Left ((uint64_t)1 << 0)
 #define SCANCODE_Up ((uint64_t)1 << 1)
 #define SCANCODE_Down ((uint64_t)1 << 2)
@@ -67,6 +76,7 @@
 #define SCANCODE_EXE ((uint64_t)1 << 52)
 #define SCANCODE_None  ((uint64_t)1 <<  54)
 
+// Keys, returned by `extapp_getKey()`
 // Character codes
 #define KEY_CHAR_0          0x30
 #define KEY_CHAR_1          0x31
@@ -233,24 +243,140 @@
 #define KEY_PRGM_SHIFT 78
 #define KEY_PRGM_MENU 48
 
+// External API functions
+/**
+ * Get the current date, in milliseconds, from the boot, excluding suspended time
+ * @return uint64_t, the current date from the boot in milliseconds
+ */
 EXTERNC uint64_t extapp_millis();
+/**
+ * Sleep ms milliseconds
+ * @param ms uint32_t, the number of milliseconds to sleep
+ */
 EXTERNC void extapp_msleep(uint32_t ms);
+// Scan the keyboard, and return a key that can be identified by SCANCODE_* constants (like SCANCODE_Left)
 EXTERNC uint64_t extapp_scanKeyboard();
+/**
+ * Push a buffer of pixels to the screen
+ * @param x uint16_t, the x position of the buffer to display on the screen
+ * @param y uint16_t, the y position of the buffer to display on the screen
+ * @param w uint16_t, the width of the buffer to display on the screen
+ * @param h uint16_t, the height of the buffer to display on the screen
+ * @param pixels const uint16_t *, the buffer to display on the screen
+ */
 EXTERNC void extapp_pushRect(int16_t x, int16_t y, uint16_t w, uint16_t h, const uint16_t * pixels);
+/**
+ * Push a colored rectangle on the screen
+ * @param x uint16_t, the x position of the rectangle
+ * @param y uint16_t, the y position of the rectangle
+ * @param w uint16_t, the width of the rectangle
+ * @param h uint16_t, the height of the rectangle
+ * @param color uint16_t, the color of the rectangle
+ */
 EXTERNC void extapp_pushRectUniform(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t color);
+/**
+ * Push a rectangle from the screen
+ * @param x uint16_t, the x position of the rectangle
+ * @param y uint16_t, the y position of the rectangle
+ * @param w uint16_t, the width of the rectangle
+ * @param h uint16_t, the height of the rectangle
+ * @param pixels uint16_t *, the pointer to the buffer to store the pixel rect
+ */
 EXTERNC void extapp_pullRect(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t * pixels);
+/**
+ * Display large text
+ * @param text const char *t, the text to display
+ * @param x int16_t, the x position of the text to display
+ * @param y int16_t, the y position of the text to display
+ * @param fg uint16_t, the color of the foreground
+ * @param bg uint16_t, the color of the background
+ * @param fake bool, whether to not display the text, just return the size of the text
+ * @return uint16_t, the width of the text
+ */
 EXTERNC int16_t extapp_drawTextLarge(const char *text, int16_t x, int16_t y, uint16_t fg, uint16_t bg, bool fake);
+/**
+ * Display small text
+ * @param text const char *t, the text to display
+ * @param x int16_t, the x position of the text to display
+ * @param y int16_t, the y position of the text to display
+ * @param fg uint16_t, the color of the foreground
+ * @param bg uint16_t, the color of the background
+ * @param fake bool, whether to not display the text, just return the size of the text
+ * @return uint16_t, the width of the text
+ */
 EXTERNC int16_t extapp_drawTextSmall(const char *text, int16_t x, int16_t y, uint16_t fg, uint16_t bg, bool fake);
+/**
+ * Wait for screen refresh
+ */
 EXTERNC bool extapp_waitForVBlank();
+/**
+ * Set text into clipboard
+ * @param text const char *t, the text to copy
+ */
 EXTERNC void extapp_clipboardStore(const char *text);
+/**
+ * Get clipboard contents
+ * @return const char *, the contents of the clipboard
+ */
 EXTERNC const char * extapp_clipboardText();
+/**
+ * Get a list of files in "storage", filtered by extension
+ * @param filename const char **, an array that must to be a equal to
+ *                 the maxrecords variable, to avoid buffer overflow
+ * @param maxrecords int, the maximum number of records that can be retrieved,
+ *                   it should be equal to the length of the filenames array,
+ *                   to avoid buffer overflow
+ * @param extension const char *, the extension of the filename to retrieve,
+ *                   it work only with RAM file system for now
+ * @param storage int, the storage to use (like EXTAPP_FLASH_FILE_SYSTEM)
+ * @return int, the number of retrieved records
+ */
 EXTERNC int extapp_fileListWithExtension(const char ** filenames, int maxrecords, const char * extension, int storage);
+/**
+ * Return if "filename" exist in "storage"
+ * @param filename const char *, the file to check existing
+ * @param storage int, the storage to use (like EXTAPP_FLASH_FILE_SYSTEM)
+ * @return bool, true if the operation is successful
+ */
 EXTERNC bool extapp_fileExists(const char * filename, int storage);
+/**
+ * Erase "filename" in "storage"
+ * @param filename const char *, the file to remove
+ * @param storage int, the storage to use (like EXTAPP_FLASH_FILE_SYSTEM)
+ * @return bool, true if the operation is successful
+ */
 EXTERNC bool extapp_fileErase(const char * filename, int storage);
+/**
+ * Read "filename" from "storage"
+ * @param filename const char *, the file to read
+ * @param len, size_t, a pointer to a size_t variable, to store the file length
+ * @param storage int, the storage to use (like EXTAPP_FLASH_FILE_SYSTEM)
+ * @return const char *, the file content
+ */
 EXTERNC const char * extapp_fileRead(const char * filename, size_t *len, int storage);
+/**
+ * Write "content" into "filename" in "storage"
+ * @param filename const char *, the file to write
+ * @param content, const char *, the content of the file to write
+ * @param len, size_t, the length of the file to write
+ * @param storage int, the storage to use (like EXTAPP_FLASH_FILE_SYSTEM)
+ * @return bool, true if the operation is successful
+ */
 EXTERNC bool extapp_fileWrite(const char * filename, const char * content, size_t len, int storage);
+/**
+ * Enable alpha lock
+ */
 EXTERNC void extapp_lockAlpha();
+/**
+ * Reset keyboard status, like alpha lock
+ */
 EXTERNC void extapp_resetKeyboard();
+/**
+ * Get pressed keys
+ * @param allowSuspend bool, whether to allow suspending the calculator
+ * @param alphaWasActive bool, a pointer to a bool to store if the alpha (lock) was active
+ * @return int, the code of the pressed key, like KEY_CHAR_0 or KEY_CTRL_EXE
+ */
 EXTERNC int extapp_getKey(bool allowSuspend, bool *alphaWasActive);
 
 #endif
