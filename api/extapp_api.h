@@ -342,7 +342,7 @@ EXTERNC bool extapp_fileExists(const char * filename, int storage);
 /**
  * Erase "filename" in "storage"
  * @param filename const char *, the file to remove
- * @param storage int, the storage to use (like EXTAPP_FLASH_FILE_SYSTEM)
+ * @param storage int, the storage to use (like EXTAPP_RAM_FILE_SYSTEM)
  * @return bool, true if the operation is successful
  */
 EXTERNC bool extapp_fileErase(const char * filename, int storage);
