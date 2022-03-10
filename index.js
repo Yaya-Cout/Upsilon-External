@@ -332,7 +332,7 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
           $scope.lastAction = $translate.instant("ADDING") + " " + file.name;
         });
 
-        if(file.name.endsWith(".txt")) {
+        if(file.name.endsWith(".txt") || file.name.endsWith(".urt")) {
           console.log("Normalizing", file.name);
           let normalized = await normalizeTextFile(file);
           file = {
