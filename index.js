@@ -225,7 +225,7 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
             continue;
           }
 
-          text = replaceAtIndex(text, i, String.fromCodePoint(0xFFFD))
+          // text = replaceAtIndex(text, i, String.fromCodePoint(0xFFFD))
         }
         let t = new TextEncoder("UTF-8").encode(text);
         resolve(t);
