@@ -392,13 +392,13 @@
 // Whether to enable optimisation of: a, b, c = d, e, f
 // Requires MICROPY_COMP_DOUBLE_TUPLE_ASSIGN and costs 68 bytes (Thumb2)
 #ifndef MICROPY_COMP_TRIPLE_TUPLE_ASSIGN
-#define MICROPY_COMP_TRIPLE_TUPLE_ASSIGN (0)
+#define MICROPY_COMP_TRIPLE_TUPLE_ASSIGN (1)
 #endif
 
 // Whether to enable optimisation of: return a if b else c
 // Costs about 80 bytes (Thumb2) and saves 2 bytes of bytecode for each use
 #ifndef MICROPY_COMP_RETURN_IF_EXPR
-#define MICROPY_COMP_RETURN_IF_EXPR (0)
+#define MICROPY_COMP_RETURN_IF_EXPR (1)
 #endif
 
 /*****************************************************************************/
@@ -433,7 +433,7 @@
 
 // Whether to enable a simple VM stack overflow check
 #ifndef MICROPY_DEBUG_VM_STACK_OVERFLOW
-#define MICROPY_DEBUG_VM_STACK_OVERFLOW (1)
+#define MICROPY_DEBUG_VM_STACK_OVERFLOW (0)
 #endif
 
 /*****************************************************************************/
@@ -463,7 +463,7 @@
 
 // Whether math.factorial is large, fast and recursive (1) or small and slow (0).
 #ifndef MICROPY_OPT_MATH_FACTORIAL
-#define MICROPY_OPT_MATH_FACTORIAL (0)
+#define MICROPY_OPT_MATH_FACTORIAL (1)
 #endif
 
 /*****************************************************************************/
@@ -546,7 +546,7 @@
 
 // Whether to provide the mp_kbd_exception object, and micropython.kbd_intr function
 #ifndef MICROPY_KBD_EXCEPTION
-#define MICROPY_KBD_EXCEPTION (0)
+#define MICROPY_KBD_EXCEPTION (1)
 #endif
 
 // Prefer to raise KeyboardInterrupt asynchronously (from signal or interrupt
@@ -830,7 +830,7 @@ typedef double mp_float_t;
 
 // Whether str.center() method provided
 #ifndef MICROPY_PY_BUILTINS_STR_CENTER
-#define MICROPY_PY_BUILTINS_STR_CENTER (0)
+#define MICROPY_PY_BUILTINS_STR_CENTER (1)
 #endif
 
 // Whether str.count() method provided
@@ -845,12 +845,12 @@ typedef double mp_float_t;
 
 // Whether str.partition()/str.rpartition() method provided
 #ifndef MICROPY_PY_BUILTINS_STR_PARTITION
-#define MICROPY_PY_BUILTINS_STR_PARTITION (0)
+#define MICROPY_PY_BUILTINS_STR_PARTITION (1)
 #endif
 
 // Whether str.splitlines() method provided
 #ifndef MICROPY_PY_BUILTINS_STR_SPLITLINES
-#define MICROPY_PY_BUILTINS_STR_SPLITLINES (0)
+#define MICROPY_PY_BUILTINS_STR_SPLITLINES (1)
 #endif
 
 // Whether to support bytearray object
@@ -865,12 +865,12 @@ typedef double mp_float_t;
 
 // Whether to support memoryview object
 #ifndef MICROPY_PY_BUILTINS_MEMORYVIEW
-#define MICROPY_PY_BUILTINS_MEMORYVIEW (0)
+#define MICROPY_PY_BUILTINS_MEMORYVIEW (1)
 #endif
 
 // Whether to support memoryview.itemsize attribute
 #ifndef MICROPY_PY_BUILTINS_MEMORYVIEW_ITEMSIZE
-#define MICROPY_PY_BUILTINS_MEMORYVIEW_ITEMSIZE (0)
+#define MICROPY_PY_BUILTINS_MEMORYVIEW_ITEMSIZE (1)
 #endif
 
 // Whether to support set object
@@ -915,12 +915,12 @@ typedef double mp_float_t;
 
 // Support for callling next() with second argument
 #ifndef MICROPY_PY_BUILTINS_NEXT2
-#define MICROPY_PY_BUILTINS_NEXT2 (0)
+#define MICROPY_PY_BUILTINS_NEXT2 (1)
 #endif
 
 // Whether to support rounding of integers (incl bignum); eg round(123,-1)=120
 #ifndef MICROPY_PY_BUILTINS_ROUND_INT
-#define MICROPY_PY_BUILTINS_ROUND_INT (1)
+#define MICROPY_PY_BUILTINS_ROUND_INT (0)
 #endif
 
 // Whether to support timeout exceptions (like socket.timeout)
@@ -1104,7 +1104,7 @@ typedef double mp_float_t;
 
 // Whether to return number of collected objects from gc.collect()
 #ifndef MICROPY_PY_GC_COLLECT_RETVAL
-#define MICROPY_PY_GC_COLLECT_RETVAL (1)
+#define MICROPY_PY_GC_COLLECT_RETVAL (0)
 #endif
 
 // Whether to provide "io" module
@@ -1135,7 +1135,7 @@ typedef double mp_float_t;
 
 // Whether to provide "io.BytesIO" class
 #ifndef MICROPY_PY_IO_BYTESIO
-#define MICROPY_PY_IO_BYTESIO (0)
+#define MICROPY_PY_IO_BYTESIO (1)
 #endif
 
 // Whether to provide "io.BufferedWriter" class
@@ -1176,7 +1176,7 @@ typedef double mp_float_t;
 
 // Whether to provide "sys.atexit" function (MicroPython extension)
 #ifndef MICROPY_PY_SYS_ATEXIT
-#define MICROPY_PY_SYS_ATEXIT (0)
+#define MICROPY_PY_SYS_ATEXIT (1)
 #endif
 
 // Whether to provide "sys.settrace" function
@@ -1191,18 +1191,18 @@ typedef double mp_float_t;
 
 // Whether to provide sys.{stdin,stdout,stderr} objects
 #ifndef MICROPY_PY_SYS_STDFILES
-#define MICROPY_PY_SYS_STDFILES (1)
+#define MICROPY_PY_SYS_STDFILES (0)
 #endif
 
 // Whether to provide sys.{stdin,stdout,stderr}.buffer object
 // This is implemented per-port
 #ifndef MICROPY_PY_SYS_STDIO_BUFFER
-#define MICROPY_PY_SYS_STDIO_BUFFER (1)
+#define MICROPY_PY_SYS_STDIO_BUFFER (0)
 #endif
 
 // Whether to provide "uerrno" module
 #ifndef MICROPY_PY_UERRNO
-#define MICROPY_PY_UERRNO (1)
+#define MICROPY_PY_UERRNO (0)
 #endif
 
 // Whether to provide the uerrno.errorcode dict
@@ -1294,7 +1294,7 @@ typedef double mp_float_t;
 
 // Optimized heap queue for relative timestamps
 #ifndef MICROPY_PY_UTIMEQ
-#define MICROPY_PY_UTIMEQ (0)
+#define MICROPY_PY_UTIMEQ (1)
 #endif
 
 #ifndef MICROPY_PY_UHASHLIB
@@ -1310,7 +1310,7 @@ typedef double mp_float_t;
 #endif
 
 #ifndef MICROPY_PY_UHASHLIB_SHA256
-#define MICROPY_PY_UHASHLIB_SHA256 (1)
+#define MICROPY_PY_UHASHLIB_SHA256 (0)
 #endif
 
 #ifndef MICROPY_PY_UCRYPTOLIB
@@ -1582,7 +1582,7 @@ typedef double mp_float_t;
 // Feature dependency check.
 #if MICROPY_PY_SYS_SETTRACE
 #if !MICROPY_PERSISTENT_CODE_SAVE
-#error "MICROPY_PY_SYS_SETTRACE requires MICROPY_PERSISTENT_CODE_SAVE to be enabled"<
+#error "MICROPY_PY_SYS_SETTRACE requires MICROPY_PERSISTENT_CODE_SAVE to be enabled"
 #endif
 #if MICROPY_COMP_CONST
 #error "MICROPY_PY_SYS_SETTRACE requires MICROPY_COMP_CONST to be disabled"

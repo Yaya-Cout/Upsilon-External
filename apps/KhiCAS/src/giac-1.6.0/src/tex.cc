@@ -962,7 +962,7 @@ namespace giac {
     }
   }
 
-  static bool in_autoscale(const gen & g,vector<double> & vx,vector<double> & vy,vector<double> & vz,GIAC_CONTEXT){
+  static bool in_autoscale(const gen & g,vector<double> & vx,vector<double> & vy,vector<double> & vz,GIAC_CONTEXT,bool curve=false){
     if (g.type==_VECT && g.subtype==_POINT__VECT && g._VECTptr->size()==3){
       vecteur v=*evalf_double(g,1,contextptr)._VECTptr;
       if (v[2].type==_CPLX)
@@ -975,7 +975,21 @@ namespace giac {
       }
     }
     if (g.type==_VECT ){
+      if (!curve && g.subtype==_GROUP__VECT && !has_i(g) && !g._VECTptr->empty() && g._VECTptr->front().type!=_VECT){ // "compressed" hypersurface
+	vecteur v=*evalf_double(g,1,contextptr)._VECTptr;
+	int s=v.size();
+	if (s%3==0){
+	  for (int i=0;i<s;i+=3){
+	    vx.push_back(v[i]._DOUBLE_val);
+	    vy.push_back(v[i+1]._DOUBLE_val);
+	    vz.push_back(v[i+2]._DOUBLE_val);
+	  }
+	  return false;
+	}
+      }
       bool ortho=false;
+      if (g.subtype==_POLYEDRE__VECT)
+	ortho=true;
       const_iterateur it=g._VECTptr->begin(),itend=g._VECTptr->end();
       for (;it!=itend;++it){
 	ortho = ortho | in_autoscale(*it,vx,vy,vz,contextptr);
@@ -991,7 +1005,7 @@ namespace giac {
 	  if (tmp.type==_VECT && tmp._VECTptr->size()>4)
 	    tmp=(*tmp._VECTptr)[4];
 	}
-	in_autoscale(tmp,vx,vy,vz,contextptr);
+	in_autoscale(tmp,vx,vy,vz,contextptr,true);
       }
       return false;
     }
@@ -1001,6 +1015,27 @@ namespace giac {
 	gen & gf=g0._VECTptr->front();
 	if (gf.type==_VECT && gf._VECTptr->size()>4){
 	  in_autoscale((*gf._VECTptr)[4],vx,vy,vz,contextptr);
+	}
+      }	
+      return false;
+    }
+    if (g.is_symb_of_sommet(at_hyperplan)){
+      gen & g0=g._SYMBptr->feuille;
+      if (g0.type==_VECT && g0._VECTptr->size()>=2){
+	gen n=evalf_double(g0._VECTptr->front(),1,contextptr);
+	gen P=evalf_double(g0._VECTptr->back(),1,contextptr);
+	if (n.type==_VECT && n._VECTptr->size()==3 && P.type==_VECT && P._VECTptr->size()==3){
+	  vecteur & N=*n._VECTptr;
+	  vecteur & M=*P._VECTptr;
+	  if (M[0].type==_DOUBLE_ && M[1].type==_DOUBLE_ && M[2].type==_DOUBLE_ && N[0].type==_DOUBLE_ && N[1].type==_DOUBLE_ && N[2].type==_DOUBLE_){
+	    double d=M[0]._DOUBLE_val,r=(std::abs(N[0]._DOUBLE_val)+std::abs(N[1]._DOUBLE_val)+std::abs(N[2]._DOUBLE_val))/3;
+	    vx.push_back(d-r); vx.push_back(d+r);
+	    d=M[1]._DOUBLE_val;
+	    vy.push_back(d-r); vy.push_back(d+r);
+	    d=M[2]._DOUBLE_val;
+	    vz.push_back(d-r); vz.push_back(d+r);
+	    return false;
+	  }
 	}
       }	
       return false;
@@ -1027,6 +1062,23 @@ namespace giac {
 	v=makevecteur(c-r,c+r,c-cst_i*r,c+cst_i*r);
       in_autoscale(v,vx,vy,vz,contextptr);
       return true;
+    }
+    if (g.is_symb_of_sommet(at_hypersphere)){
+      vecteur & v=*g._SYMBptr->feuille._VECTptr;
+      gen c=evalf_double(v[0],1,contextptr),R=evalf_double(v[1],1,contextptr);
+      if (c.type==_VECT && c._VECTptr->size()==3){
+	vecteur & M=*c._VECTptr;
+	if (M[0].type==_DOUBLE_ && M[1].type==_DOUBLE_ && M[2].type==_DOUBLE_ && R.type==_DOUBLE_){
+	  double r=R._DOUBLE_val;
+	  double d=M[0]._DOUBLE_val;
+	  vx.push_back(d-r); vx.push_back(d+r);
+	  d=M[1]._DOUBLE_val;
+	  vy.push_back(d-r); vy.push_back(d+r);
+	  d=M[2]._DOUBLE_val;
+	  vz.push_back(d-r); vz.push_back(d+r);
+	  return true;
+	}
+      }
     }
     // FIXME sphere etc.
     if (g.type!=_VECT){
@@ -1554,8 +1606,8 @@ namespace giac {
 	double x=t.x,y=t.y;
 	double cost=std::cos(t.theta*deg2rad_d);
 	double sint=std::sin(t.theta*deg2rad_d);
-	double Dx=t.turtle_length*cost/2;
-	double Dy=t.turtle_length*sint/2;
+	double Dx=turtle_length*cost/2;
+	double Dy=turtle_length*sint/2;
 	string col(flcolor2pstrickscolor(prec.color));
 	fprintf(file,"\\psset{linecolor=%s}\n", col.c_str());
 	if (t.visible){

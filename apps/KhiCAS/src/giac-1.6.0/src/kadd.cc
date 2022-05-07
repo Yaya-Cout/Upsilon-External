@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <ctype.h>
+#define HAVE_TIME_H
+#include <time.h>
 
 #ifndef NO_NAMESPACE_GIAC
 namespace giac {
@@ -91,6 +93,8 @@ int ext_main(){
   return 0;
 }
 #endif
+
+void handle_flash(GIAC_CONTEXT);
 
 unsigned short mmind_col[]={COLOR_BLUE,COLOR_RED,COLOR_MAGENTA,COLOR_GREEN,COLOR_CYAN,COLOR_YELLOW};
 
@@ -255,10 +259,150 @@ int fractale(GIAC_CONTEXT){
   return 0;
 }
 
+int finance(int mode,GIAC_CONTEXT){ // mode==-1 pret, 1 placement
+  static double pv=(-mode)*10000;
+  static double fv=0;
+  static double ir=3; // % annual
+  static double irpy=12; // per year
+  static double pm=100; // mensualite
+  static double nb=10; // nombre d'annuites
+  double * tabd[6]={&pv,&fv,&ir,&irpy,&pm,&nb};
+  bool solved=false;
+  Menu smallmenu;
+  smallmenu.numitems=7; 
+  // and uncomment first smallmenuitems[app_number].text="Reserved"
+  // replace by your application name
+  // and add if (smallmenu.selection==app_number-1){ call your code }
+  MenuItem smallmenuitems[smallmenu.numitems];      
+  smallmenu.items=smallmenuitems;
+  smallmenu.height=11;
+  smallmenu.scrollbar=1;
+  smallmenu.scrollout=1;
+  smallmenu.title = (char *) (mode==-1?"Pret bancaire":"Epargne");
+  smallmenu.type = MENUTYPE_NO_NUMBER;
+  while(1) {
+    drawRectangle(0,0,LCD_WIDTH_PX,LCD_HEIGHT_PX,_WHITE);
+    string pvs,fvs,pms;
+    if (mode==-1){
+      pvs=((lang==1)?"Somme due actuelle ":"Present due amount ");
+      fvs=((lang==1)?"Somme due future ":"Future due amount "); 
+      pms=((lang==1)?"Mensualite ":"Payment ");
+    } else {
+      pvs=((lang==1)?"Epargne actuelle ":"Present amount ");
+      fvs=((lang==1)?"Epargne future ":"Future amount ");
+      pms=((lang==1)?"Versement mensuel ":"Payment ");
+    }
+    string irs=((lang==1)?"Taux d'interet annuel ":"Annual interest rate ");
+    string irpys=((lang==1)?"Paiements par an ":"Payments per year ");
+    string nbs=((lang==1)?"Nombre d'annees ":"Number of years ");
+    string pvs1=pvs+giac::print_DOUBLE_((-mode)*pv,contextptr),
+      fvs1=fvs+giac::print_DOUBLE_((-mode)*fv,contextptr),
+      irs1=irs+giac::print_DOUBLE_(ir,contextptr)+"%",
+      irpys1=irpys+giac::print_DOUBLE_(irpy,contextptr),
+      pms1=pms+giac::print_DOUBLE_(pm,contextptr),
+      nbs1=nbs+giac::print_DOUBLE_(nb,contextptr);
+    char * tab[6]={(char*)pvs1.c_str(),(char*)fvs1.c_str(), (char*)irs1.c_str(),(char*)irpys1.c_str(), (char*)pms1.c_str(),(char*)nbs1.c_str()};
+    for (int i=0;i<6;i++)
+      smallmenuitems[i].text = tab[i];
+    smallmenuitems[6].text = (char*)((lang==1)?"Quitter ":"Quit ");
+    os_draw_string(0,200,solved?giac::_GREEN:giac::_MAGENTA,_WHITE,"Ans solve|EXE change|Tool help");
+    int sres = doMenu(&smallmenu);
+    if (sres==MENU_RETURN_EXIT)
+      break;
+    int choix=smallmenu.selection-1;
+    if (sres == KEY_CTRL_CATALOG || sres==KEY_BOOK) { // Help
+      xcas::textArea text;
+      text.editable=false;
+      text.clipline=-1;
+      text.title = (char*)((lang==1)?"Calcul d'un pret":"Finance help");
+      text.allowF1=true;
+      text.python=python_compat(contextptr);
+      std::vector<xcas::textElement> & elem=text.elements;
+      elem = std::vector<xcas::textElement> (2);
+      elem[0].s = (lang==1)?"Deplacez le curseur sur une ligne, tapez EXE/OK pour entrer une nouvelle valeur ou tapez sur Ans pour resoudre.":"Move cursor on a line, type EXE/OK to enter a new value or type Ans to solve";
+      elem[0].newLine = 0;
+      if (mode==-1)
+	elem[1].s = (lang==1)?"Par exemple entrez le montant de l'emprunt en 1, 0 en 2, le taux d'interet, le nombre d'annees puis placez le curseur en 5 et tapez Ans.":"For example, enter due amount in 1, 0 in 2, interest rate, number of years then move cursor on 5 and type Ans";
+      else
+	elem[1].s = (lang==1)?"Pour calculer l'evolution d'un placement, entrer le montant place au debut, le taux d'interet, le nombre d'annees, 0 en 5 (paiement) puis deplacez le curseur en 2 et tapez Ans":"";
+      elem[1].newLine = 1;
+      sres=doTextArea(&text,contextptr);
+      continue;
+    }
+    if (sres == KEY_CHAR_ANS){
+      if (choix==3)
+	continue;
+      double t1=std::pow(1+ir/100,1./irpy);
+      double t=t1-1;
+      double & u0=pv;
+      double & un=fv;
+      double & r=pm;
+      double C=r/t;
+      double n=nb*irpy;
+      // un=(1+t)^n*(u0-r/t)+r/t
+      if (choix==0){ // solve for u0=(1+t)^(-n)*(un-r/t)+r/t
+	u0=pow(t1,-n)*(un-C)+C;
+      }
+      if (choix==1){
+	un=pow(t1,n)*(u0-C)+C;
+      }
+      if (choix==2){ // solve for T
+	giac::gen sol=un-pow(1+vx_var,n,contextptr)*(u0-gen(r)/vx_var)-gen(r)/vx_var;
+	sol=giac::_fsolve(makesequence(sol,vx_var,t),contextptr);
+	if (sol.type==_DOUBLE_){
+	  t=sol._DOUBLE_val;
+	  ir=100*(std::pow(1+t,irpy)-1);
+	}
+	else continue;
+      }
+      if (choix==4){ // solve for r=t*(u0*(t+1)**n-﻿un)/((t+1)**n-1)
+	double tmp=pow(t+1,n);
+	r=t*(u0*tmp-un)/(tmp-1);
+      }
+      if (choix==5){ // solve for n=(-ln(t*u0-r)+ln(t*﻿un-r))/ln(t+1)
+	double n=std::log((t*un-r)/(t*u0-r))/std::log(t+1);
+	nb=n/irpy;
+      }
+      solved=true;
+    }
+    int keynumber=-1;
+    if (sres>=KEY_CHAR_0 && sres<=KEY_CHAR_9) keynumber=sres-KEY_CHAR_0;
+    if (sres==KEY_CTRL_EXE || sres == MENU_RETURN_SELECTION || sres == KEY_CTRL_OK || keynumber>=0) {
+      if (smallmenu.selection==7) // quit
+	break;
+      double d=*tabd[choix];
+      if (choix<2 && mode==1) d=-d;
+      if (keynumber>=0)
+	d=keynumber;
+      if (!inputdouble(tab[choix],d,contextptr))
+	continue;
+      if (choix<2 && mode==1) d=-d;
+      if (choix==3){
+	if (d<1)
+	  d=1;
+	if (d>365)
+	  d=365;
+      }
+      if (choix==5){
+	if (d<=0)
+	  d=1;
+	if (d>365)
+	  d=365;
+      }
+      *tabd[choix]=d;
+      solved=false;
+    }
+  }
+  return 0;
+}
 
 int khicas_addins_menu(GIAC_CONTEXT){
   Menu smallmenu;
-  smallmenu.numitems=7; // INCREMENT IF YOU ADD AN APPLICATION
+#ifdef NUMWORKS
+  smallmenu.numitems=10; // INCREMENT IF YOU ADD AN APPLICATION
+#else
+  smallmenu.numitems=9; // INCREMENT IF YOU ADD AN APPLICATION
+#endif  
   // and uncomment first smallmenuitems[app_number].text="Reserved"
   // replace by your application name
   // and add if (smallmenu.selection==app_number-1){ call your code }
@@ -267,58 +411,37 @@ int khicas_addins_menu(GIAC_CONTEXT){
   smallmenu.height=12;
   smallmenu.scrollbar=1;
   smallmenu.scrollout=1;
-  smallmenuitems[0].text = (char*)(lang?"Tableur":"Spreadsheet");
-  smallmenuitems[1].text = (char*)(lang?"Table periodique":"Periodic table");
-  smallmenuitems[2].text = (char*)(lang?"Exemple simple: Syracuse":"Simple example; Syracuse");
-  smallmenuitems[3].text = (char*)(lang?"Exemple de jeu: Mastermind":"Game example: Mastermind");
-  smallmenuitems[4].text = (char*)(lang?"Fractale de Mandelbrot":"Mandelbrot fractal");
-  // smallmenuitems[4].text = (char*)"Reserverd";
-  // smallmenuitems[5].text = (char*)"Reserverd";
-  // smallmenuitems[6].text = (char*)"Reserverd";
-  // smallmenuitems[7].text = (char*)"Reserverd";
-  // smallmenuitems[8].text = (char*)"Reserverd";
-  // smallmenuitems[9].text = (char*)"Reserverd";
-  // smallmenuitems[10].text = (char*)"Reserverd";
-  smallmenuitems[smallmenu.numitems-2].text = (char*)(lang?"Quitter le menu":"Leave menu");
-  smallmenuitems[smallmenu.numitems-1].text = (char*)(lang?"Quitter KhiCAS":"Leave KhiCAS");
+  smallmenuitems[0].text = (char*)((lang==1)?"Tableur":"Spreadsheet");
+  smallmenuitems[1].text = (char*)((lang==1)?"Table periodique":"Periodic table");
+  smallmenuitems[2].text = (char*)((lang==1)?"Pret":"Mortgage");
+  smallmenuitems[3].text = (char*)((lang==1)?"Epargne":"TVM");
+  smallmenuitems[4].text = (char*)((lang==1)?"Exemple simple: Syracuse":"Simple example; Syracuse");
+  smallmenuitems[5].text = (char*)((lang==1)?"Exemple de jeu: Mastermind":"Game example: Mastermind");
+  smallmenuitems[6].text = (char*)((lang==1)?"Fractale de Mandelbrot":"Mandelbrot fractal");
+  // smallmenuitems[5].text = (char*)"Mon application"; // adjust numitem !
+  // smallmenuitems[6].text = (char*)"Autre application";
+  // smallmenuitems[7].text = (char*)"Encore une autre";
+  // smallmenuitems[8].text = (char*)"Une avant-derniere";
+  // smallmenuitems[9].text = (char*)"Une derniere";
+#ifdef NUMWORKS
+  smallmenuitems[smallmenu.numitems-3].text = (char*)((lang==1)?"Personnaliser la flash":"Customize flash");
+#endif
+  smallmenuitems[smallmenu.numitems-2].text = (char*)((lang==1)?"Quitter le menu":"Leave menu");
+  smallmenuitems[smallmenu.numitems-1].text = (char*)((lang==1)?"Quitter KhiCAS":"Leave KhiCAS");
   while(1) {
     int sres = doMenu(&smallmenu);
     if(sres == MENU_RETURN_SELECTION || sres==KEY_CTRL_EXE) {
       if (smallmenu.selection==smallmenu.numitems){
 	return KEY_CTRL_MENU;
       }
-      if (smallmenu.selection==1)
+#ifdef NUMWORKS
+      if (smallmenu.selection==smallmenu.numitems-2)
+	handle_flash(contextptr);
+#endif
+      // Attention les entrees sont decalees de 1
+      if (smallmenu.selection==1) // tableur
 	sheet(contextptr);
-      if (smallmenu.selection==4)
-	mastermind(contextptr);
-      if (smallmenu.selection==5)
-	fractale(contextptr);
-      if (smallmenu.selection==3){
-	// Exemple simple d'application tierce: la suite de Syracuse
-	// on entre la valeur de u0
-	double d; int i;
-	for (;;){
-	  inputdouble(gettext("Suite de Syracuse. u0?"),d,contextptr);
-	  i=(d);
-	  if (i==d)
-	    break;
-	  confirm(gettext("u0 doit etre entier!"),gettext("Recommencez"));
-	}
-	i=max(i,1);
-	vecteur v(1,i); // initialise une liste avec u0
-	while (i!=1){
-	  if (i%2)
-	    i=3*i+1;
-	  else
-	    i=i/2;
-	  v.push_back(i);
-	}
-	// representation graphique de la liste
-	displaygraph(_listplot(v,contextptr),contextptr);
-	// on entre la liste en ligne de commande
-	Console_Input(gen(v).print(contextptr).c_str());
-      }
-      if (smallmenu.selection==2){
+      if (smallmenu.selection==2){ // table periodique
 	const char * name,*symbol;
 	char protons[32],nucleons[32],mass[32],electroneg[32];
 	int res=periodic_table(name,symbol,protons,nucleons,mass,electroneg);
@@ -356,12 +479,274 @@ int khicas_addins_menu(GIAC_CONTEXT){
 	}
 	return Console_Input(console_buf);
       }
+      if (smallmenu.selection==3){
+	finance(-1,contextptr);
+	continue;
+      }
+      if (smallmenu.selection==4){
+	finance(1,contextptr);
+	continue;
+      }
+      if (smallmenu.selection==5){
+	// Exemple simple d'application tierce: la suite de Syracuse
+	// on entre la valeur de u0
+	double d; int i;
+	for (;;){
+	  inputdouble(gettext("Suite de Syracuse. u0?"),d,contextptr);
+	  i=(d);
+	  if (i==d)
+	    break;
+	  confirm(gettext("u0 doit etre entier!"),gettext("Recommencez"));
+	}
+	i=max(i,1);
+	vecteur v(1,i); // initialise une liste avec u0
+	while (i!=1){
+	  if (i%2)
+	    i=3*i+1;
+	  else
+	    i=i/2;
+	  v.push_back(i);
+	}
+	// representation graphique de la liste en appelant la commande Xcas listplot
+	displaygraph(_listplot(v,contextptr),contextptr);
+	// on entre la liste en ligne de commande et on quitte
+	return Console_Input(gen(v).print(contextptr).c_str());
+      }
+      if (smallmenu.selection==6) // mastermind, on ne quitte pas
+	mastermind(contextptr);
+      if (smallmenu.selection==7)
+	fractale(contextptr);
     } // end sres==menu_selection
     Console_Disp(1,contextptr);
     break;
   } // end endless while
   return CONSOLE_SUCCEEDED;
-}  
+}
+
+/* *******************
+ *      FLASH        *
+ ********************* */
+#ifdef NUMWORKS
+
+void flash_info(const char * buf,std::vector<fileinfo_t> &v,size_t & first_modif,bool modif,int initpos,GIAC_CONTEXT){
+  Menu smallmenu;
+  smallmenu.numitems=v.size();
+  MenuItem smallmenuitems[smallmenu.numitems];
+  smallmenu.items=smallmenuitems;
+  smallmenu.height=modif?11:12;
+  smallmenu.scrollbar=1;
+  smallmenu.scrollout=1;
+  smallmenu.title = (char*)(lang==1?"Info Flash":"Flash Files");
+  smallmenu.type = MENUTYPE_FKEYS;
+  smallmenu.selection=initpos;
+  if (modif){
+    smallmenu.title = (char*)(lang==1?"Modifier fichiers":"Modify files");
+  }
+  vector<string> vs(v.size());
+  for (int i=0;i<v.size();++i){
+    vs[i]=v[i].filename.c_str();
+    vs[i]+=' ';
+    vs[i]+=print_INT_(v[i].size);
+    smallmenuitems[i].text=(char *)vs[i].c_str();
+    smallmenuitems[i].type = MENUITEM_CHECKBOX;
+    smallmenuitems[i].value= ((v[i].mode/100)&4)==4;
+  }
+  while (1){
+    if (modif){
+      drawRectangle(0,200,LCD_WIDTH_PX,22,giac::_WHITE);
+      os_draw_string(0,200,giac::_WHITE,33333,"Tool: renam | Ans: -/+ | EXE: ok");
+    }
+    int sres = doMenu(&smallmenu);
+    int i=smallmenu.selection-1;
+    if (sres==MENU_RETURN_EXIT){
+      break;
+    }
+    if (modif && sres == KEY_CTRL_CATALOG || sres==KEY_BOOK) { // rename
+      string s=v[i].filename,msg1=(lang==1?"Renommer ":"Rename ")+s;
+      int j=inputline(msg1.c_str(),"",s,false);
+      if (j){
+	v[i].filename=s;
+	vs[i]=v[i].filename.c_str();
+	vs[i]+=' ';
+	vs[i]+=print_INT_(v[i].size);
+	smallmenuitems[i].text=(char *)vs[i].c_str();
+      }
+      continue;
+    }
+    if (sres == MENU_RETURN_SELECTION  || sres==KEY_CTRL_EXE) {
+      if (modif){
+	flash_synchronize(buf,v,&first_modif);
+#if defined NUMWORKS && !defined DEVICE
+	// debug
+	file_savetar("file.tar",(char *)buf,tar_totalsize(buf,0));
+#endif
+	break;
+      }
+      string msg1=vs[i];
+      const char * ptr=(buf+v[i].header_offset);
+#ifdef HAVE_TIME_H
+      char tbuf[512];
+      char m[4]={0,0,0,0};
+      strncpy(m,ptr+104,3);
+      string msg2=string("Mode: ")+m;
+      ulonglong ul=fromstring8(ptr+136);
+      if (ul==(ulonglong) -1 || ul<1e8) // timestamp from calculator last reset
+	msg2 += ", RTC " + print_INT_(ul);
+      else {
+	time_t t=ul;
+	tm ts=*localtime(&t);
+	strftime(tbuf, sizeof(tbuf), "%a %Y-%m-%d %H:%M:%S %Z", &ts);
+	msg2 += string(", ")+tbuf;
+      }
+#else
+      string msg2=string("Mode: ")+(ptr+104)+string(" mtime ")+print_INT_(fromstring8(ptr+136));
+#endif
+      confirm(msg1.c_str(),msg2.c_str());
+      continue;
+    }
+    if (sres==KEY_CHAR_ANS){
+      if (i>=0 && i<v.size()){
+	if (modif && i>10){
+	  smallmenuitems[i].value=!smallmenuitems[i].value;
+	  int m=v[i].mode;
+	  if (smallmenuitems[i].value)
+	    m = ((m/100) | 4)*100+(m%100);
+	  else
+	    m = ((m/100) & 3)*100+(m%100);
+	  v[i].mode=m;
+	  if (smallmenuitems[i].value){
+	    // uncheck all files having the same filename
+	    const string & filename=v[i].filename;
+	    for (int j=0;j<v.size();++j){
+	      if (j==i || v[j].filename!=filename)
+		continue;
+	      m=v[j].mode;
+	      m = ((m/100) & 3)*100+(m%100);
+	      v[j].mode=m;
+	      smallmenuitems[j].value=false;
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+
+void flash_info(const char * buf,size_t & first_modif,bool modif,GIAC_CONTEXT){
+  std::vector<fileinfo_t> v=tar_fileinfo(buf,0);
+  int initpos=1;
+  if (modif)
+    initpos=v.size();
+  flash_info(buf,v,first_modif,modif,initpos,contextptr);
+}
+
+// copy text file from ram scriptstore
+int flash_from_ram(const char * buf,size_t & first_modif,GIAC_CONTEXT){
+  char filename[MAX_FILENAME_SIZE+1];
+  int n=giac_filebrowser(filename,"py",(lang==1?"Choisir fichier a copier":"Select file to copy"),0);
+  if (n==0) return 0;
+  const char * data=read_file(filename);
+  n=flash_adddata(buf,filename,data,strlen(data),0);
+  return n;
+}
+
+void handle_flash(GIAC_CONTEXT){
+  const char flash_fr[]="Cette application, disponible hors mode examen, permet de sauvegarder et gerer des scripts en memoire flash. Elle a besoin de 70K de memoire RAM, lancez-la tout de suite apres avoir ouvert KhiCAS.\nPour eviter une usure trop rapide de la flash, il est conseille de l'utiliser le moins souvent possible et de ne pas vider la corbeille avant que cela ne soit necessaire (ainsi les nouveaux fichiers s'ecriront sur d'autres secteurs).\nL'auteur decline toute responsabilite en cas d'usure prematuree de votre memoire flash.";
+  const char flash_en[]="This app (not available if exam mode is on) lets you save and handle scripts in flash memory. It requires 70K of free RAM, you should run it immediatly after launching KhiCAS.\nIn order to avoid premature wear of your flash, run this app only when required. Don't empty the trash unless it's necessary (that way new files will be written in other sectors).\nThe author declines all responsability in the event of premature wear of your flash memory.";
+  textArea text;
+  text.editable=false;
+  text.clipline=-1;
+  text.title =(lang==1)?"EXIT: annuler, EXE: ok":"EXIT: cancel, EXE: run";
+  add(&text,(lang==1)?flash_fr:flash_en);
+  int key=doTextArea(&text,contextptr);
+  if (key!=1
+#ifdef DEVICE
+      || inexammode()
+#endif
+      )
+    return;
+  text.elements.clear();
+  buf64k=(char *)malloc(1<<16);
+  if (buf64k==0){
+    confirm(lang==1?"Pas assez de memoire RAM.":"RAM Memory full",lang==1?"Purgez et relancez KhiCAS":"Purge and restart KhiCAS");    
+    return;
+  }
+#ifndef NUMWORKS
+  char * freeptr=0;
+  const char * flash_buf=file_gettar_aligned("apps.tar",freeptr);
+#endif
+  Menu smallmenu;
+  smallmenu.numitems=5;
+  MenuItem smallmenuitems[smallmenu.numitems];
+  smallmenu.items=smallmenuitems;
+  smallmenu.height=12;
+  smallmenu.scrollbar=1;
+  smallmenu.scrollout=1;
+  smallmenuitems[0].text = (char*)(lang==1?"Informations flash":"Flash informations");
+  smallmenuitems[1].text = (char*)(lang==1?"Copier RAM->flash":"Copy RAM->flash");
+  smallmenuitems[2].text = (char*)(lang==1?"Modifier infos fichiers":"Modify file infos");
+  smallmenuitems[3].text = (char*)(lang==1?"Vider la corbeille":"Empty trash");
+  smallmenuitems[4].text = (char*)(lang==1?"Quitter":"Leave");
+  while (1){
+    size_t first_modif=tar_totalsize(flash_buf,numworks_maxtarsize);
+    string title=(lang==1?"Flash libre ":"Free flash ");
+    title += print_INT_(numworks_maxtarsize-first_modif);
+    smallmenu.title = (char*)title.c_str();
+    smallmenu.selection = 1;
+    int sres = doMenu(&smallmenu);
+    if (sres==MENU_RETURN_EXIT){
+      break;
+    } 
+    if (sres == MENU_RETURN_SELECTION  || sres==KEY_CTRL_EXE) {
+      if (smallmenu.selection == smallmenu.numitems)
+	break;
+      if (smallmenu.selection == 1){
+	flash_info(flash_buf,first_modif,false,contextptr); // info only, no erase
+	continue;
+      }
+      if (smallmenu.selection == 2){
+	if (flash_from_ram(flash_buf,first_modif,contextptr)){
+	  // uncheck files having the same filename
+	  std::vector<fileinfo_t> v=tar_fileinfo(flash_buf,0);
+	  int n=v.size();
+	  if (n){
+	    --n;
+	    string & filename=v[n].filename;
+	    int modif=0;
+	    for (int j=0;j<n;++j){
+	      if ( v[j].filename!=filename)
+		continue;
+	      modif++;
+	      int m=v[j].mode;
+	      m = ((m/100) & 3)*100+(m%100);
+	      v[j].mode=m;
+	    }
+	    if (modif)
+	      flash_info(flash_buf,v,first_modif,true,v.size(),contextptr);
+	  }
+	}
+	continue;
+      }
+      if (smallmenu.selection == 3){
+	flash_info(flash_buf,first_modif,true,contextptr); // erase files
+	continue;
+      }
+      if (smallmenu.selection==4){
+	if (numworks_maxtarsize-first_modif>65536 && do_confirm(lang==1?"Il reste de la place, etes-vous sur?":"There's still room, are you sure?"))
+	  flash_emptytrash(flash_buf,&first_modif);
+      }
+    }
+  }
+  free(buf64k);
+#ifndef DEVICE
+  //free(freeptr);
+#endif
+}
+#else
+void handle_flash(GIAC_CONTEXT){
+  
+}
+#endif
 
 /* **************************
    * SPREADSHEET CODE       *
@@ -384,7 +769,11 @@ void change_undo(tableur & t){
 }
 
 void save_sheet(tableur & t,GIAC_CONTEXT){
+#if 1
+  string s=print_tableur(t,contextptr);
+#else
   string s=gen(extractmatricefromsheet(t.m,false),_SPREAD__VECT).print(contextptr);
+#endif
   string filename(remove_path(remove_extension(t.filename)));
   filename+=".tab";
 #ifdef NSPIRE_NEWLIB
@@ -769,16 +1158,25 @@ int sheet_menu_menu(tableur & t,GIAC_CONTEXT){
   //smallmenu.width=24;
   smallmenu.scrollbar=1;
   smallmenu.scrollout=1;
+#ifdef NUMWORKS
+  smallmenu.title = (char*)(lang==1?"Back: annule menu tableur":"Back: cancel sheet menu");
+#else
   smallmenu.title = (char*)(lang==1?"Esc: annule menu tableur":"Esc: cancel sheet menu");
-  smallmenuitems[0].text = (char *)(lang==1?"Sauvegarder tableur":"Save sheet");
+#endif
+  smallmenuitems[0].text = (char *)(lang==1?"Sauvegarde tableur (shift sto)":"Save sheet (shift sto)");
   smallmenuitems[1].text = (char *)(lang==1?"Sauvegarder tableur comme":"Save sheet as");
   if (nspire_exam_mode==2) smallmenuitems[1].text=smallmenuitems[0].text = (char*)(lang==1?"Sauvegarde desactivee":"Saving disabled");
   smallmenuitems[2].text = (char*)(lang==1?"Charger":"Load");
   string cell=(lang==1?"Editer cellule ":"Edit cell ")+printcell(t.cur_row,t.cur_col);
   smallmenuitems[3].text = (char*)cell.c_str();
   smallmenuitems[4].text = (char*)(lang==1?"Voir graphique (shift 6)":"View graph (shift 4)");
+#ifdef NUMWORKS
+  smallmenuitems[5].text = (char*)(lang==1?"Copie vers le bas (shift 4)":"Copy down (shift 7)");
+  smallmenuitems[6].text = (char*)(lang==1?"Copie vers droite (shift 4)":"Copy right (shift 7)");
+#else
   smallmenuitems[5].text = (char*)(lang==1?"Copier vers le bas (ctrl D)":"Copy down (ctrl D)");
   smallmenuitems[6].text = (char*)(lang==1?"Copier vers la droite (ctrl R)":"Copy right (ctrl R)");
+#endif
   smallmenuitems[7].text = (char*)(lang==1?"Inserer une ligne":"Insert row");
   smallmenuitems[8].text = (char*)(lang==1?"Inserer une colonne":"Insert column");
   smallmenuitems[9].text = (char*)(lang==1?"Effacer ligne courante":"Remove current row");
@@ -807,7 +1205,7 @@ int sheet_menu_menu(tableur & t,GIAC_CONTEXT){
       }
       if (smallmenu.selection== 3 && !exam_mode) {
 	char filename[128];
-	if (giac_filebrowser(filename,"tab",(lang==1?"Fichiers tableurs":"Sheet files"))){
+	if (giac_filebrowser(filename,"tab",(lang==1?"Fichiers tableurs":"Sheet files"),2)){
 	  if (t.changed && do_confirm(lang==1?"Sauvegarder le tableur actuel?":"Save current sheet?"))
 	    save_sheet(t,contextptr);
 	  const char * s=read_file(filename);
@@ -821,6 +1219,7 @@ int sheet_menu_menu(tableur & t,GIAC_CONTEXT){
 	      t.ncols=t.m.front()._VECTptr->size();
 	      t.cur_col=t.cur_row=0;
 	      t.sel_row_begin=t.cmd_row=-1;
+	      fix_sheet(t,contextptr);
 	    }
 	    else
 	      s=0;
@@ -897,6 +1296,11 @@ int sheet_menu_menu(tableur & t,GIAC_CONTEXT){
   return 1;
 }
 
+bool is_empty_cell(const gen & g){
+  if (g.type==_VECT) return is_zero(g[0]);
+  return is_zero(g);
+}
+
 void sheet_cmd(tableur & t,const char * ans){
   string s=ans; 
   if (t.sel_row_begin>=0){
@@ -909,15 +1313,15 @@ void sheet_cmd(tableur & t,const char * ans){
       t.cur_col=t.sel_col_begin;
     int i,j=t.cur_col;
     // find empty cell in next rows
-    for (i=t.cur_row;i<t.nrows;++i){
-      if (is_zero(t.m[i][t.cur_col][0]))
+    for (i=t.cur_row+1;i<t.nrows;++i){
+      if (is_empty_cell(t.m[i][t.cur_col]))
 	break;
     }
     if (i==t.nrows){
       // find an empty cell in next columns
       for (j=t.cur_col+1;j<t.ncols;++j){
 	for (i=0;i<t.nrows;++i){
-	  if (is_zero(t.m[i][j][0]))
+	  if (is_empty_cell(t.m[i][j]))
 	    break;
 	}
 	if (i<t.nrows)
@@ -1055,6 +1459,10 @@ giac::gen sheet(GIAC_CONTEXT){
     status_freeze=false;
     if (key==KEY_CTRL_SETUP){
       sheet_menu_setup(t,contextptr);
+      continue;
+    }
+    if (key==KEY_CHAR_STORE && t.cmd_row<0){
+      save_sheet(t,contextptr);
       continue;
     }
     if (key==KEY_CTRL_MENU){

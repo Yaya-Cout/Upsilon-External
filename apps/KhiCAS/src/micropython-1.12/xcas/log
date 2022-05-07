@@ -1,0 +1,434 @@
+Initializing GC heap: %p..%p = %lu bytes
+163d010€÷1¤þ..%p = %lu bytes
+1645000€÷1¤þ = %lu bytes
+32752€÷1¤þ bytes
+GC layout:
+  alloc table at %p, length %lu bytes, %lu blocks
+163d010€÷1¤þ, length %lu bytes, %lu blocks
+252€÷1¤þ bytes, %lu blocks
+1008€÷1¤þ blocks
+  finaliser table at %p, length %lu bytes, %lu blocks
+163d10c€÷1¤þ, length %lu bytes, %lu blocks
+126€÷1¤þ bytes, %lu blocks
+1008€÷1¤þ blocks
+  pool at %p, length %lu bytes, %lu blocks
+163d200°÷1¤þ, length %lu bytes, %lu blocks
+32256°÷1¤þ bytes, %lu blocks
+1008°÷1¤þ blocks
+gc_alloc(%lu bytes -> %lu blocks)
+48Ðö1¤þ bytes -> %lu blocks)
+2Ðö1¤þ blocks)
+gc_alloc(%p)
+163d200Ðö1¤þ)
+malloc %d : %p
+48 : %p
+163d200
+gc_alloc(%lu bytes -> %lu blocks)
+16Ðö1¤þ bytes -> %lu blocks)
+1Ðö1¤þ blocks)
+gc_alloc(%p)
+163d240Ðö1¤þ)
+malloc %d : %p
+16 : %p
+163d240
+gc_alloc(%lu bytes -> %lu blocks)
+32`÷1¤þ bytes -> %lu blocks)
+1`÷1¤þ blocks)
+gc_alloc(%p)
+163d260`÷1¤þ)
+malloc %d : %p
+32÷1¤þ : %p
+163d260÷1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32`÷1¤þ bytes -> %lu blocks)
+1`÷1¤þ blocks)
+gc_alloc(%p)
+163d280`÷1¤þ)
+malloc %d : %p
+32÷1¤þ : %p
+163d280÷1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+128÷1¤þ bytes -> %lu blocks)
+4÷1¤þ blocks)
+gc_alloc(%p)
+163d2a0÷1¤þ)
+malloc %d : %p
+128@÷1¤þ : %p
+163d2a0@÷1¤þ
+QSTR: add hash=%d len=%d data=%.*s
+34906@÷1¤þ len=%d data=%.*s
+17@÷1¤þ data=%.*s
+/documents/ndless
+gc_alloc(%lu bytes -> %lu blocks)
+192àö1¤þ bytes -> %lu blocks)
+6àö1¤þ blocks)
+gc_alloc(%p)
+163d320àö1¤þ)
+malloc %d : %p
+192÷1¤þ : %p
+163d320÷1¤þ
+QSTR: allocate new pool of size %d
+20@÷1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32`÷1¤þ bytes -> %lu blocks)
+1`÷1¤þ blocks)
+gc_alloc(%p)
+163d3e0`÷1¤þ)
+malloc %d : %p
+32÷1¤þ : %p
+163d3e0÷1¤þ
+MicroPython v1.12 on 2020-08-23
+gc_alloc(%lu bytes -> %lu blocks)
+32 bytes -> %lu blocks)
+1 blocks)
+gc_alloc(%p)
+163d400)
+malloc %d : %p
+320ö1¤þ : %p
+163d4000ö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+160ðõ1¤þ bytes -> %lu blocks)
+5ðõ1¤þ blocks)
+gc_alloc(%p)
+163d420ðõ1¤þ)
+malloc %d : %p
+160 ö1¤þ : %p
+163d420 ö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+20ðõ1¤þ bytes -> %lu blocks)
+1ðõ1¤þ blocks)
+gc_alloc(%p)
+163d4c0ðõ1¤þ)
+malloc %d : %p
+20 ö1¤þ : %p
+163d4c0 ö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32Ðõ1¤þ bytes -> %lu blocks)
+1Ðõ1¤þ blocks)
+gc_alloc(%p)
+163d4e0Ðõ1¤þ)
+malloc %d : %p
+32 : %p
+163d4e0
+gc_alloc(%lu bytes -> %lu blocks)
+1024€õ1¤þ bytes -> %lu blocks)
+32€õ1¤þ blocks)
+gc_alloc(%p)
+163d500€õ1¤þ)
+malloc %d : %p
+1024°õ1¤þ : %p
+163d500°õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+256€õ1¤þ bytes -> %lu blocks)
+8€õ1¤þ blocks)
+gc_alloc(%p)
+163d900€õ1¤þ)
+malloc %d : %p
+256°õ1¤þ : %p
+163d900°õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32Põ1¤þ bytes -> %lu blocks)
+1Põ1¤þ blocks)
+gc_alloc(%p)
+163da00Põ1¤þ)
+malloc %d : %p
+32€õ1¤þ : %p
+163da00€õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32õ1¤þ bytes -> %lu blocks)
+1õ1¤þ blocks)
+gc_alloc(%p)
+163da20õ1¤þ)
+malloc %d : %p
+32@õ1¤þ : %p
+163da20@õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+24õ1¤þ bytes -> %lu blocks)
+1õ1¤þ blocks)
+gc_alloc(%p)
+163da40õ1¤þ)
+malloc %d : %p
+24@õ1¤þ : %p
+163da40@õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+240õ1¤þ bytes -> %lu blocks)
+10õ1¤þ blocks)
+gc_alloc(%p)
+163da600õ1¤þ)
+malloc %d : %p
+24`õ1¤þ : %p
+163da60`õ1¤þ
+Traceback (most recent call last):
+  File "%q", line %d<stdin>", line %d2€ö1¤þ
+SyntaxError: invalid syntax
+gc_alloc(%lu bytes -> %lu blocks)
+32 bytes -> %lu blocks)
+1 blocks)
+gc_alloc(%p)
+163da80)
+malloc %d : %p
+320ö1¤þ : %p
+163da800ö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+160ðõ1¤þ bytes -> %lu blocks)
+5ðõ1¤þ blocks)
+gc_alloc(%p)
+163daa0ðõ1¤þ)
+malloc %d : %p
+160 ö1¤þ : %p
+163daa0 ö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+20ðõ1¤þ bytes -> %lu blocks)
+1ðõ1¤þ blocks)
+gc_alloc(%p)
+163db40ðõ1¤þ)
+malloc %d : %p
+20 ö1¤þ : %p
+163db40 ö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32Ðõ1¤þ bytes -> %lu blocks)
+1Ðõ1¤þ blocks)
+gc_alloc(%p)
+163db60Ðõ1¤þ)
+malloc %d : %p
+32 : %p
+163db60
+gc_alloc(%lu bytes -> %lu blocks)
+1024€õ1¤þ bytes -> %lu blocks)
+32€õ1¤þ blocks)
+gc_alloc(%p)
+163db80€õ1¤þ)
+malloc %d : %p
+1024°õ1¤þ : %p
+163db80°õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+256€õ1¤þ bytes -> %lu blocks)
+8€õ1¤þ blocks)
+gc_alloc(%p)
+163df80€õ1¤þ)
+malloc %d : %p
+256°õ1¤þ : %p
+163df80°õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+144àô1¤þ bytes -> %lu blocks)
+5àô1¤þ blocks)
+gc_alloc(%p)
+163e080àô1¤þ)
+malloc %d : %p
+144õ1¤þ : %p
+163e080õ1¤þ
+gc_free(%p)
+0õ1¤þ)
+free %p, %d
+0 õ1¤þ, %d
+0 õ1¤þ
+realloc %p, %d, %d : %p
+163e080 õ1¤þ, %d, %d : %p
+144 õ1¤þ, %d : %p
+40 õ1¤þ : %p
+163e080 õ1¤þ
+gc_free(%p)
+163db80°õ1¤þ)
+free %p, %d
+163db80Àõ1¤þ, %d
+1024Àõ1¤þ
+gc_free(%p)
+163df80°õ1¤þ)
+free %p, %d
+163df80Àõ1¤þ, %d
+256Àõ1¤þ
+gc_free(%p)
+163da80`õ1¤þ)
+free %p, %d
+163da80põ1¤þ, %d
+32põ1¤þ
+gc_free(%p)
+163db60põ1¤þ)
+free %p, %d
+163db60€õ1¤þ, %d
+32€õ1¤þ
+gc_free(%p)
+163db40õ1¤þ)
+free %p, %d
+163db40 õ1¤þ, %d
+20 õ1¤þ
+gc_free(%p)
+163daa0õ1¤þ)
+free %p, %d
+163daa0 õ1¤þ, %d
+160 õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+72°ô1¤þ bytes -> %lu blocks)
+3°ô1¤þ blocks)
+gc_alloc(%p)
+163da80°ô1¤þ)
+malloc %d : %p
+72àô1¤þ : %p
+163da80àô1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32ô1¤þ bytes -> %lu blocks)
+1ô1¤þ blocks)
+gc_alloc(%p)
+163dae0ô1¤þ)
+malloc %d : %p
+32Àô1¤þ : %p
+163dae0Àô1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+64àô1¤þ bytes -> %lu blocks)
+2àô1¤þ blocks)
+gc_alloc(%p)
+163db00àô1¤þ)
+malloc %d : %p
+64õ1¤þ : %p
+163db00õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+120õ1¤þ bytes -> %lu blocks)
+4õ1¤þ blocks)
+gc_alloc(%p)
+163db40õ1¤þ)
+malloc %d : %p
+120@õ1¤þ : %p
+163db40@õ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+48@õ1¤þ bytes -> %lu blocks)
+2@õ1¤þ blocks)
+gc_alloc(%p)
+163dbc0@õ1¤þ)
+malloc %d : %p
+48põ1¤þ : %p
+163dbc0põ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+21ô1¤þ bytes -> %lu blocks)
+1ô1¤þ blocks)
+gc_alloc(%p)
+163dc00ô1¤þ)
+malloc %d : %p
+21Àô1¤þ : %p
+163dc00Àô1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+0ô1¤þ bytes -> %lu blocks)
+0ô1¤þ blocks)
+malloc %d : %p
+0Àô1¤þ : %p
+0Àô1¤þ
+assign byte code: code=%p len=%lu flags=%x
+163dc00àô1¤þ len=%lu flags=%x
+21àô1¤þ flags=%x
+0àô1¤þ
+gc_free(%p)
+163dbc0põ1¤þ)
+free %p, %d
+163dbc0€õ1¤þ, %d
+48€õ1¤þ
+gc_free(%p)
+163db40põ1¤þ)
+free %p, %d
+163db40€õ1¤þ, %d
+120€õ1¤þ
+gc_free(%p)
+163e080`õ1¤þ)
+free %p, %d
+163e080põ1¤þ, %d
+40põ1¤þ
+gc_free(%p)
+163db00põ1¤þ)
+free %p, %d
+163db00€õ1¤þ, %d
+64€õ1¤þ
+gc_free(%p)
+163da80põ1¤þ)
+free %p, %d
+163da80€õ1¤þ, %d
+72€õ1¤þ
+make_function_from_raw_code %p
+163dae0pö1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32Àõ1¤þ bytes -> %lu blocks)
+1Àõ1¤þ blocks)
+gc_alloc(%p)
+163da80Àõ1¤þ)
+malloc %d : %p
+32ðõ1¤þ : %p
+163da80ðõ1¤þ
+calling function %p(n_args=%lu, n_kw=%lu, args=%p)
+163da80ö1¤þ(n_args=%lu, n_kw=%lu, args=%p)
+0ö1¤þ, n_kw=%lu, args=%p)
+0ö1¤þ, args=%p)
+0ö1¤þ)
+Input n_args: %lu, n_kw: %lu
+0 õ1¤þ, n_kw: %lu
+0 õ1¤þ
+Input pos args: 0: 
+Input kw args: 0: 
+Calling: n_pos_args=%d, n_kwonly_args=%d
+0 ô1¤þ, n_kwonly_args=%d
+0 ô1¤þ
+7ffea431f730: 
+7ffea431f718ðó1¤þ: 0ðó1¤þ 0ðó1¤þ 0ðó1¤þ 
+load name %s
+__repl_print__
+load global %s
+__repl_print__
+load name %s
+math
+load global %s
+math
+gc_alloc(%lu bytes -> %lu blocks)
+32`ò1¤þ bytes -> %lu blocks)
+1`ò1¤þ blocks)
+gc_alloc(%p)
+163daa0`ò1¤þ)
+malloc %d : %p
+32ò1¤þ : %p
+163daa0ò1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+24`ò1¤þ bytes -> %lu blocks)
+1`ò1¤þ blocks)
+gc_alloc(%p)
+163dac0`ò1¤þ)
+malloc %d : %p
+24ò1¤þ : %p
+163dac0ò1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+550ñ1¤þ bytes -> %lu blocks)
+20ñ1¤þ blocks)
+gc_alloc(%p)
+163db000ñ1¤þ)
+gc_realloc(%p -> %p)
+163dac0`ñ1¤þ -> %p)
+163db00`ñ1¤þ)
+gc_free(%p)
+163dac0Pñ1¤þ)
+realloc %p, %d, %d : %p
+163dac0ñ1¤þ, %d, %d : %p
+24ñ1¤þ, %d : %p
+55ñ1¤þ : %p
+163db00ñ1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+32 ò1¤þ bytes -> %lu blocks)
+1 ò1¤þ blocks)
+gc_alloc(%p)
+163dac0 ò1¤þ)
+malloc %d : %p
+32Pò1¤þ : %p
+163dac0Pò1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+24 ò1¤þ bytes -> %lu blocks)
+1 ò1¤þ blocks)
+gc_alloc(%p)
+163db40 ò1¤þ)
+malloc %d : %p
+24Pò1¤þ : %p
+163db40Pò1¤þ
+gc_alloc(%lu bytes -> %lu blocks)
+24àó1¤þ bytes -> %lu blocks)
+1àó1¤þ blocks)
+gc_alloc(%p)
+163db60àó1¤þ)
+malloc %d : %p
+24ô1¤þ : %p
+163db60ô1¤þ
+Traceback (most recent call last):
+  File "%q", line %d<stdin>", line %d1€ö1¤þ, in %q
+<module>
+NameError: name 'math' isn't defined

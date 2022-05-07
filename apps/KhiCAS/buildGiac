@@ -8,7 +8,7 @@ function build {
     rm -f *.o *.a
     make -f Makefile.numworks.$1 -j $(nproc)
     cp libgiac.a ../../lib/
-    rm -f *.o *.a
+#    rm -f *.o *.a
   )
 }
 

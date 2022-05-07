@@ -128,6 +128,8 @@
 
 extern const struct _mp_obj_module_t mp_module_utime;
 
+#define MICROPY_PORT_BUILTIN_MODULES \
+    { MP_ROM_QSTR(MP_QSTR_utime), MP_ROM_PTR(&mp_module_utime) }, \
 
 //#define MICROPY_EVENT_POLL_HOOK {ets_event_poll();}
 #if MICROPY_PY_THREAD
@@ -194,28 +196,3 @@ typedef long mp_off_t;
 
 #define MICROPY_PORT_ROOT_POINTERS \
     const char *readline_hist[8];
-
-
-extern const struct _mp_obj_module_t mp_module_graphic;
-extern const struct _mp_obj_module_t mp_module_cas;
-extern const struct _mp_obj_module_t mp_module_turtle;
-extern const struct _mp_obj_module_t mp_module_matplotl;
-extern const struct _mp_obj_module_t mp_module_linalg;
-extern const struct _mp_obj_module_t mp_module_arit;
-
-#define MICROPY_PORT_BUILTIN_MODULES \
-  { MP_ROM_QSTR(MP_QSTR_utime), MP_ROM_PTR(&mp_module_utime) },	       \
-  { MP_ROM_QSTR(MP_QSTR_time), MP_ROM_PTR(&mp_module_utime) },	       \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_cas), (mp_obj_t) &mp_module_cas },   \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_xcas), (mp_obj_t) &mp_module_cas },   \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_arit), (mp_obj_t) &mp_module_arit },	\
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_linalg), (mp_obj_t) &mp_module_linalg }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_matplotl), (mp_obj_t) &mp_module_matplotl }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_matplotlib), (mp_obj_t) &mp_module_matplotl }, \
-        { MP_OBJ_NEW_QSTR(MP_QSTR_matplotlib_dot_pyplot), (mp_obj_t) &mp_module_matplotl }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_pylab), (mp_obj_t) &mp_module_matplotl }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_turtle), (mp_obj_t) &mp_module_turtle }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_casioplot), (mp_obj_t) &mp_module_graphic }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_kandinsky), (mp_obj_t) &mp_module_graphic }, \
-	{ MP_OBJ_NEW_QSTR(MP_QSTR_graphic), (mp_obj_t) &mp_module_graphic }
-

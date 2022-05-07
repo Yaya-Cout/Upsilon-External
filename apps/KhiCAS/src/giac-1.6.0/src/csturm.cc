@@ -171,16 +171,41 @@ namespace giac {
   }
 #endif
 
-  void change_scale(modpoly & p,const gen & l){
+  void change_scale(modpoly & p,const gen & l,longlong lb){
+    //vecteur chk(p),save(p);
     int n=int(p.size());
+    if (lb!=(1<<31)){
+      if (lb==0) return;
+      mpz_t pi;
+      mpz_init(pi);
+      for (int i=n-2;i>=0;--i){
+	if (p[i].type==_INT_)
+	  mpz_set_si(pi,p[i].val);
+	else
+	  mpz_set(pi,*p[i]._ZINTptr);
+	if (lb<0)
+	  mpz_tdiv_q_2exp(pi,pi,(-lb)*(n-1-i)); // was mpz_fdiv_q_2exp
+	else
+	  mpz_mul_2exp(pi,pi,lb*(n-1-i));
+	p[i] = pi;
+      }
+      mpz_clear(pi);
+      //chk=p; p=save;
+      return;
+    }
     gen lton(l);
     for (int i=n-2;i>=0;--i){
       p[i] = p[i] * lton;
       lton = lton * l;
     }
+    //if (p!=chk) CERR << "bug\n";
   }
 
-  void back_change_scale(modpoly & p,const gen & l){
+  void back_change_scale(modpoly & p,const gen & l,longlong lb){
+    if (lb!=(1<<31)){
+      change_scale(p,l,-lb);
+      return;
+    }
     int n=int(p.size());
     gen lton(l);
     for (int i=n-2;i>=0;--i){
@@ -1244,6 +1269,8 @@ namespace giac {
 
   gen complexroot(const gen & g,bool complexe,GIAC_CONTEXT){
     vecteur v=gen2vecteur(g);
+    if (g.subtype==_POLY1__VECT)
+      v=makevecteur(v);
     bool use_vas=!complexe ,use_proot=true;
 #ifndef HAVE_LIBMPFR
     use_proot=false;
@@ -1479,7 +1506,7 @@ namespace giac {
 
   // like (ln(n/d)+shift*ln2)/expo, but faster for large integers
   gen LMQ_evalf(const gen & n,const gen & d,double shift,int expo,GIAC_CONTEXT){
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
     if (is_integer(n) && is_integer(d)){
       long int nexp=0,dexp=0;
       double nmant,dmant;
@@ -1511,7 +1538,7 @@ namespace giac {
       long int expo=0;
       if (is_integer(cl[i])){
 	if (cl[i].type==_ZINT){
-#ifdef USE_GMP_REPLACEMENTS
+#if defined USE_GMP_REPLACEMENTS || defined BF2GMP_H
 	  mant=evalf_double(cl[i],1,contextptr)._DOUBLE_val;
 #else
 	  mant=mpz_get_d_2exp (&expo,*cl[i]._ZINTptr);
@@ -1591,7 +1618,7 @@ namespace giac {
   static define_unary_function_eval (__posubLMQ,&_posubLMQ,_posubLMQ_s);
   define_unary_function_ptr5( at_posubLMQ ,alias_at_posubLMQ,&__posubLMQ,0,true);
 
-  gen poslbdLMQ(const modpoly & P,GIAC_CONTEXT){
+  gen poslbdLMQ(const modpoly & P,int & res,GIAC_CONTEXT){
     //---implements the Local_Max_Quadratic method (LMQ) to compute a
     //---lower bound on the values of the POSITIVE roots of p(x).
     
@@ -1610,11 +1637,11 @@ namespace giac {
     vector<short int> clsign;
     if (!compute_lnabsmantexpo(cl,cllnabsmant,clexpo,clsign,contextptr))
       return gensizeerr(contextptr);
-    gen tempmax=minus_inf;
+    gen tempmax=symbolic(at_neg,_IDNT_infinity());
     vector<int> timesused(k,1);
     for (int m=1;m<k;++m){
       if (clsign[m]==-1){ // is_strictly_positive(-cl[m],contextptr)
-	gen tempmin=plus_inf;
+	gen tempmin=symbolic(at_plus,_IDNT_infinity());
 	for (int n=0;n<m;++n){
 	  if (clsign[n]==1){ // is_strictly_positive(cl[n],contextptr)
 	    // gen temp=pow(-cl[m]/cl[n]*pow(plus_two,timesused[n]),inv(m-n,contextptr),contextptr);
@@ -1631,6 +1658,10 @@ namespace giac {
     }
     tempmax=tempmax/M_LN2;
     tempmax=-_ceil(tempmax,contextptr);
+    if (tempmax.type==_INT_)
+      res=tempmax.val;
+    else
+      res=1<<31;
     tempmax=pow(plus_two,tempmax,contextptr);
     return tempmax; 
   }
@@ -1642,7 +1673,8 @@ namespace giac {
       v=*g._VECTptr;
     else
       v=symb2poly_num(g,contextptr);
-    return poslbdLMQ(v,contextptr);
+    int res;
+    return poslbdLMQ(v,res,contextptr);
   }
   static const char _poslbdLMQ_s []="poslbdLMQ";
   static define_unary_function_eval (__poslbdLMQ,&_poslbdLMQ,_poslbdLMQ_s);
@@ -1667,6 +1699,7 @@ namespace giac {
   // P is assumed to be squarefree and without rational roots
   // find roots of P((ax+b)/(cx+d))
   vecteur VAS_positive_roots(const modpoly & P,const gen & ap,const gen & bp,const gen & cp,const gen & dp,GIAC_CONTEXT){
+    matrice Pascal;
     //---The steps below correspond to the steps described in the reference below.
     
     //---Reference:	"A Comparative Study of Two Real Root Isolation Methods" 
@@ -1697,20 +1730,21 @@ namespace giac {
       modpoly f = *genf._VECTptr;
 
       // STEP 3
-      gen lb=poslbdLMQ(f,contextptr);
+      int lbi;
+      gen lb=poslbdLMQ(f,lbi,contextptr);
 
       // STEP 4
       if (is_strictly_greater(lb,16,contextptr)){
-	change_scale(f,lb);
-	a=lb*a; c=lb*c; lb=1;
+	change_scale(f,lb,lbi);
+	a=lb*a; c=lb*c; lb=1; lbi=0;
       }
       
       // STEP 5
       if (is_greater(lb,1,contextptr)){
 	// f=taylor(f,lb);
-	change_scale(f,lb);
-	f=taylor(f,1);
-	back_change_scale(f,lb);
+	change_scale(f,lb,lbi);
+	f=taylor(f,1,0,&Pascal);
+	back_change_scale(f,lb,lbi);
 	b = lb*a + b; d = lb*c + d;
 	if (is_zero(f.back())){
 	  res.push_back(b/d);
@@ -1729,7 +1763,7 @@ namespace giac {
       }
 
       // STEP 6
-      modpoly f1=taylor(f,1),f2;
+      modpoly f1=taylor(f,1,0,&Pascal),f2;
       gen a1=a, b1=a+b, c1=c, d1=c+d;
       int r=0;
       if (is_zero(f1.back())){
@@ -1745,7 +1779,7 @@ namespace giac {
       if (v2>1){
 	f2=f;
 	reverse(f2.begin(),f2.end());
-	f2=taylor(f2,1);
+	f2=taylor(f2,1,0,&Pascal);
 	if (is_zero(f2.back()))
 	  f2.pop_back();
 	v2=variations(f2,contextptr);
@@ -1787,6 +1821,20 @@ namespace giac {
     return res;
   }
 
+  // P((ax+b)/(cx+d))
+  struct thread_vas_t {
+    modpoly * P;
+    vecteur * v;
+    gen a,b,c,d;
+    const context * contextptr;
+  };
+
+  void * do_thread_vas_t(void * ptr_){
+    thread_vas_t * ptr=(thread_vas_t *) ptr_;
+    *ptr->v=VAS_positive_roots(*ptr->P,ptr->a,ptr->b,ptr->c,ptr->d,ptr->contextptr);
+    return ptr_;
+  }
+
   gen _VAS_positive(const gen & g,GIAC_CONTEXT){
     if ( g.type==_STRNG && g.subtype==-1) return  g;
     vecteur v;
@@ -1820,36 +1868,59 @@ namespace giac {
 
   gen vas(const modpoly & p,GIAC_CONTEXT){
     vecteur v(p);
-    vecteur res;
+    vecteur res1,res2;
     bool has_zero=false;
     if (is_zero(v.back())){
       has_zero=true;
       v.pop_back();
     }
-    res=VAS_positive_roots(v,1,0,0,1,contextptr);
     vecteur w(v);
     change_scale(w,-1);
     if (w.size()%2==0)
       w=-w;
     if (w==v){
-      v=-res;
-      reverse(v.begin(),v.end());
-      iterateur it=v.begin(),itend=v.end();
+      res1=VAS_positive_roots(v,1,0,0,1,contextptr);
+      res2=-res1;
+      reverse(res2.begin(),res2.end());
+      iterateur it=res2.begin(),itend=res2.end();
       for (;it!=itend;++it){
 	if (it->type==_VECT)
 	  reverse(it->_VECTptr->begin(),it->_VECTptr->end());
       }
       if (has_zero)
-	v.push_back(0);
-      res=mergevecteur(v,res);
+	res2.push_back(0);
+      res1=mergevecteur(res2,res1);
     }
     else {
-      v=VAS_positive_roots(w,-1,0,0,1,contextptr);
+#ifdef HAVE_LIBPTHREAD
+      int nthreads=threads_allowed?threads:1;
+      if (nthreads>1 && p.size()>64){
+	pthread_t tab0;
+	thread_vas_t tmp0={&v,&res1,1,0,0,1,contextptr};
+	for (int i=0;i<v.size();++i){
+	  if (v[i].type==_ZINT)
+	    v[i]=*v[i]._ZINTptr;
+	}
+	thread_vas_t tmp1={&w,&res2,-1,0,0,1,contextptr};
+	bool res=true;
+	res=pthread_create(&tab0,(pthread_attr_t *) NULL,do_thread_vas_t,(void *) &tmp0);
+	if (res)
+	  do_thread_vas_t(&tmp0);
+	do_thread_vas_t(&tmp1);
+	void *ptr=&nthreads;
+	pthread_join(tab0,&ptr);
+      }
+      else 
+#endif
+	{
+	res1=VAS_positive_roots(v,1,0,0,1,contextptr);
+	res2=VAS_positive_roots(w,-1,0,0,1,contextptr);
+      }
       if (has_zero)
-	v.push_back(0);
-      res=mergevecteur(v,res);
+	res2.push_back(0);
+      res1=mergevecteur(res2,res1);
     }
-    return res;
+    return res1;
   }
   gen _VAS(const gen & g,GIAC_CONTEXT){
     if ( g.type==_STRNG && g.subtype==-1) return  g;

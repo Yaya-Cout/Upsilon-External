@@ -1,66 +1,38 @@
-build/py/asmxtensa.o: ../py/asmxtensa.c \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/stdio.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/_ansi.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/newlib.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/_newlib_version.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/config.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/ieeefp.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/features.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/cdefs.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/_default_types.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/lib/gcc/arm-none-eabi/9.3.1/include/stddef.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/lib/gcc/arm-none-eabi/9.3.1/include/stdarg.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/reent.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/_ansi.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_types.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/_types.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/lock.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/types.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_stdint.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/endian.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/_endian.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/select.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_sigset.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_timeval.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/timespec.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_timespec.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_pthreadtypes.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/sched.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/types.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/stdio.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/assert.h \
- ../py/mpconfig.h mpconfigport.h \
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/alloca.h
-../py/asmxtensa.c :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/stdio.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/_ansi.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/newlib.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/_newlib_version.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/config.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/ieeefp.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/features.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/cdefs.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/_default_types.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/lib/gcc/arm-none-eabi/9.3.1/include/stddef.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/lib/gcc/arm-none-eabi/9.3.1/include/stdarg.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/reent.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/_ansi.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_types.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/_types.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/lock.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/types.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_stdint.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/endian.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/_endian.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/select.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_sigset.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_timeval.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/timespec.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_timespec.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/_pthreadtypes.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/sched.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/machine/types.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/sys/stdio.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/assert.h :
- ../py/mpconfig.h mpconfigport.h :
- /opt/gcc-arm-none-eabi-9-2020-q2-update/arm-none-eabi/include/alloca.h :
+build/py/asmxtensa.o: ../py/asmxtensa.c /usr/include/newlib/stdio.h \
+ /usr/include/newlib/_ansi.h /usr/include/newlib/newlib.h \
+ /usr/include/newlib/_newlib_version.h /usr/include/newlib/sys/config.h \
+ /usr/include/newlib/machine/ieeefp.h /usr/include/newlib/sys/features.h \
+ /usr/include/newlib/sys/cdefs.h \
+ /usr/include/newlib/machine/_default_types.h \
+ /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
+ /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h \
+ /usr/include/newlib/sys/reent.h /usr/include/newlib/_ansi.h \
+ /usr/include/newlib/sys/_types.h /usr/include/newlib/machine/_types.h \
+ /usr/include/newlib/sys/lock.h /usr/include/newlib/sys/types.h \
+ /usr/include/newlib/sys/_stdint.h /usr/include/newlib/machine/endian.h \
+ /usr/include/newlib/machine/_endian.h /usr/include/newlib/sys/select.h \
+ /usr/include/newlib/sys/_sigset.h /usr/include/newlib/sys/_timeval.h \
+ /usr/include/newlib/sys/timespec.h /usr/include/newlib/sys/_timespec.h \
+ /usr/include/newlib/sys/_pthreadtypes.h /usr/include/newlib/sys/sched.h \
+ /usr/include/newlib/machine/types.h /usr/include/newlib/sys/stdio.h \
+ /usr/include/newlib/assert.h ../py/mpconfig.h mpconfigport.h \
+ /usr/include/newlib/alloca.h
+../py/asmxtensa.c /usr/include/newlib/stdio.h :
+ /usr/include/newlib/_ansi.h /usr/include/newlib/newlib.h :
+ /usr/include/newlib/_newlib_version.h /usr/include/newlib/sys/config.h :
+ /usr/include/newlib/machine/ieeefp.h /usr/include/newlib/sys/features.h :
+ /usr/include/newlib/sys/cdefs.h :
+ /usr/include/newlib/machine/_default_types.h :
+ /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h :
+ /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h :
+ /usr/include/newlib/sys/reent.h /usr/include/newlib/_ansi.h :
+ /usr/include/newlib/sys/_types.h /usr/include/newlib/machine/_types.h :
+ /usr/include/newlib/sys/lock.h /usr/include/newlib/sys/types.h :
+ /usr/include/newlib/sys/_stdint.h /usr/include/newlib/machine/endian.h :
+ /usr/include/newlib/machine/_endian.h /usr/include/newlib/sys/select.h :
+ /usr/include/newlib/sys/_sigset.h /usr/include/newlib/sys/_timeval.h :
+ /usr/include/newlib/sys/timespec.h /usr/include/newlib/sys/_timespec.h :
+ /usr/include/newlib/sys/_pthreadtypes.h /usr/include/newlib/sys/sched.h :
+ /usr/include/newlib/machine/types.h /usr/include/newlib/sys/stdio.h :
+ /usr/include/newlib/assert.h ../py/mpconfig.h mpconfigport.h :
+ /usr/include/newlib/alloca.h :

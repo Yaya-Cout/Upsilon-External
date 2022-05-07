@@ -32,10 +32,29 @@
 #ifndef is_cx2
 #define is_cx2 false
 #endif
+
+
+
 #ifdef KHICAS
-#ifndef NSPIRE_NEWLIB
+
+#ifdef NUMWORKS
+char * freeptr=0;
+#ifndef DEVICE
+const char * flash_buf=file_gettar_aligned("apps.tar",freeptr);
+extern "C" const char * flash_read(const char * filename){
+  return tar_loadfile(flash_buf,filename,0);
+}
+extern "C" int flash_filebrowser(const char ** filenames,int maxrecords,const char * extension){
+  return tar_filebrowser(flash_buf,filenames,maxrecords,extension);
+}
+#else
+const char * flash_buf=(const char *)0x90200000;
+#endif
+#endif
+
+#if defined NUMWORKS && !defined DEVICE //ndef NSPIRE_NEWLIB
 extern "C" {
-//  short int nspire_exam_mode=0;
+  short int nspire_exam_mode=0;
 }
 #endif
 #define XWASPY 1 // save .xw file as _xw.py (to be recognized by Numworks workshop)
@@ -48,6 +67,14 @@ const int xwaspy_shift=33; // must be between 32 and 63, reflect in xcas.js and 
 #include <ctype.h>
 #include "input_lexer.h"
 #include "input_parser.h"
+#if defined NUMWORKS && defined DEVICE
+  void py_ck_ctrl_c(){
+    if (giac::ctrl_c || giac::interrupted)
+      raisememerr();
+  }
+#else
+  void py_ck_ctrl_c(){}
+#endif
 //giac::context * contextptr=0;
 int clip_ymin=0;
 int lang=1;
@@ -59,11 +86,11 @@ bool global_show_axes=true;
 int esc_flag=0;
 int xcas_python_eval=0;
 char * python_heap=0;
-#ifdef DEVICE
-int python_stack_size=30*1024,python_heap_size=40*1024;
-#else
-int python_stack_size=64*1024,python_heap_size=256*1024;
+
+#ifdef QUICKJS
+#include "qjsgiac.h"
 #endif
+
 #ifdef MICROPY_LIB
 extern "C" int mp_token(const char * line);
 
@@ -88,7 +115,7 @@ int micropy_ck_eval(const char *line){
   if (python_heap && line[0]==0)
     return 1;
   if (!python_heap){
-    python_init(python_stack_size,python_heap_size);
+    python_init(pythonjs_stack_size,pythonjs_heap_size);
   }
   if (!python_heap){
     console_output("Memory full",11);
@@ -376,6 +403,8 @@ namespace giac {
 	      strcpy(menuitem, "  "); //allow for the folder and selection icons on MULTISELECT menus (e.g. file browser)
 	      strcpy(menuitem+2,menu->items[curitem].text);
 	    }
+	    else if (menu->type==MENUTYPE_NO_NUMBER)
+	      strcpy(menuitem,menu->items[curitem].text);
 	    else {
 	      int cur=curitem+1;
 	      if (menu->numitems<10){
@@ -576,7 +605,7 @@ namespace giac {
             menu->numselitems = menu->numselitems+1;
 	    }
 	    return key; //return on F1 too so that parent subroutines have a chance to e.g. redraw fkeys*/
-	} else if (menu->type == MENUTYPE_FKEYS) {
+	} else if (menu->type == MENUTYPE_FKEYS || menu->type==MENUTYPE_NO_NUMBER) {
 	  return key;
 	}
 	break;
@@ -586,7 +615,7 @@ namespace giac {
       case KEY_CTRL_F5:
       case KEY_CTRL_F6: case KEY_CTRL_CATALOG: case KEY_BOOK: case '\t':
       case KEY_CHAR_ANS: 
-	if (menu->type == MENUTYPE_FKEYS || menu->type==MENUTYPE_MULTISELECT) return key; // MULTISELECT also returns on Fkeys
+	if (menu->type == MENUTYPE_FKEYS || menu->type==MENUTYPE_NO_NUMBER || menu->type==MENUTYPE_MULTISELECT) return key; // MULTISELECT also returns on Fkeys
 	break;
       case KEY_CTRL_PASTE:
 	if (menu->type==MENUTYPE_MULTISELECT) return key; // MULTISELECT also returns on paste
@@ -632,12 +661,16 @@ namespace giac {
       case KEY_CHAR_7:
       case KEY_CHAR_8:
       case KEY_CHAR_9:
+	if (menu->type==MENUTYPE_NO_NUMBER)
+	  return key;
 	if(menu->numitems>=(key-0x30)) {
 	  menu->selection = (key-0x30);
 	  if (menu->type != MENUTYPE_FKEYS) return MENU_RETURN_SELECTION;
 	}
 	break;
       case KEY_CHAR_0:
+	if (menu->type==MENUTYPE_NO_NUMBER)
+	  return key;
 	if(menu->numitems>=10) {
 	  menu->selection = 10;
 	  if (menu->type != MENUTYPE_FKEYS)  return MENU_RETURN_SELECTION;
@@ -707,8 +740,8 @@ namespace giac {
 	break;
       case KEY_CHAR_LPAR:
       case KEY_CHAR_RPAR:
-	if(menu->numitems>=(key-21)) {
-	  menu->selection = (key-21);
+	if(menu->numitems>=(key-17)) {
+	  menu->selection = (key-17);
 	  if (menu->type != MENUTYPE_FKEYS)  return MENU_RETURN_SELECTION;
 	}
 	break;
@@ -738,7 +771,9 @@ namespace giac {
 #define CAT_CATEGORY_SOFUS 18
 #define CAT_CATEGORY_PHYS 19
 #define CAT_CATEGORY_UNIT 20
-#define CAT_CATEGORY_LOGO 21 // should be the last one
+#define CAT_CATEGORY_2D 21
+#define CAT_CATEGORY_3D 22
+#define CAT_CATEGORY_LOGO 23 // should be the last one
 #define XCAS_ONLY 0x80000000
   void init_locale(){
     lang=1;
@@ -857,6 +892,7 @@ namespace giac {
     {"add(u,v)", 0, "En Python, additionne des listes ou listes de listes u et v comme des vecteurs ou matrices.","[1,2,3],[0,1,3]", "[[1,2]],[[3,4]]", CAT_CATEGORY_LINALG},
     {"append", 0, "Ajoute un element en fin de liste l","#l.append(x)", 0, CAT_CATEGORY_LIST},
     {"approx(x)", 0, "Valeur approchee de x. Raccourci S-D", "pi", 0, CAT_CATEGORY_REAL| XCAS_ONLY},
+    {"aire(objet)", 0, "Aire algebrique", "cercle(0,1)", "triangle(-1,1+i,3)", CAT_CATEGORY_2D  },
     {"arg(z)", 0, "Argument du complexe z.", "1+i", 0, CAT_CATEGORY_COMPLEXNUM | XCAS_ONLY},
     {"asc(string)", 0, "Liste des codes ASCII d'une chaine", "\"Bonjour\"", 0, CAT_CATEGORY_ARIT},
     {"assume(hyp)", 0, "Hypothese sur une variable.", "x>1", "x>-1 and x<1", CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_SOFUS<<8) | XCAS_ONLY},
@@ -864,7 +900,9 @@ namespace giac {
     {"axes", "axes", "Axes visibles ou non axes=1 ou 0", "#axes=0", "#axes=1", CAT_CATEGORY_PROGCMD << 8|XCAS_ONLY},
     {"baisse_crayon ", "baisse_crayon ", "La tortue se deplace en marquant son passage.", 0, 0, CAT_CATEGORY_LOGO},
     {"barplot(list)", 0, "Diagramme en batons d'une serie statistique 1d.", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS | (CAT_CATEGORY_PLOT<<8)},
+    {"barycentre([pnt,coeff],...)", 0, "Barycentre d'une sequnence de [points,coefficients]. Utiliser isobarycenter si tous les coefficients sont egaux.", "[1,1],[i,1],[2,3]", 0, CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"binomial(n,p,k)", 0, "binomial(n,p,k) probabilite de k succes avec n essais ou p est la proba de succes d'un essai. binomial_cdf(n,p,k) est la probabilite d'obtenir au plus k succes avec n essais. binomial_icdf(n,p,t) renvoie le plus petit k tel que binomial_cdf(n,p,k)>=t", "10,.5,4", 0, CAT_CATEGORY_PROBA | XCAS_ONLY},
+    {"bissectrice(A,B,C)", 0, "Bissectrice de l'angle AB,AC", "1,i,2+i", 0,CAT_CATEGORY_2D},
     {"bitxor", "bitxor", "Ou exclusif", "#bitxor(1,2)", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
     {"black", "black", "Option d'affichage", "#display=black", 0, CAT_CATEGORY_PROGCMD},
     {"blue", "blue", "Option d'affichage", "#display=blue", 0, CAT_CATEGORY_PROGCMD},
@@ -872,7 +910,9 @@ namespace giac {
     {"cache_tortue ", "cache_tortue ", "Cache la tortue apres avoir trace le dessin.", 0, 0, CAT_CATEGORY_LOGO},
     {"camembert(list)", 0, "Diagramme en camembert d'une serie statistique 1d.", "[[\"France\",6],[\"Allemagne\",12],[\"Suisse\",5]]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"ceil(x)", 0, "Partie entiere superieure", "1.2", 0, CAT_CATEGORY_REAL},
-    {"cercle(centre,rayon)", 0, "Cercle donne par centre et rayon ou par un diametre", "2+i,3", "1-i,1+i", CAT_CATEGORY_PROGCMD | XCAS_ONLY},
+    {"centre(objet)", 0, "Centre d'un cercle ou d'une sphere. Pour une conique a centre, renvoie le centre, un foyer et un point de la conique. Pour une parabole, renvoie le foyer et le sommet.", "cercle(0,1)", "sphere([0,0,0],[1,1,1])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
+    {"cercle(centre,rayon)", 0, "Cercle donne par centre et rayon ou par un diametre", "2+i,3", "1-i,1+i", CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
+    {"circonscrit(A,B,C)", 0, "Cercle circonscrit", "-1,2+i,3", 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
     {"cfactor(p)", 0, "Factorisation sur C.", "x^4-1", 0, CAT_CATEGORY_ALGEBRA | (CAT_CATEGORY_COMPLEXNUM << 8) | XCAS_ONLY},
     {"char(liste)", 0, "Chaine donnee par une liste de code ASCII", "[97,98,99]", 0, CAT_CATEGORY_ARIT},
     {"charpoly(M,x)", 0, "Polynome caracteristique de la matrice M en la variable x.", "[[1,2],[3,4]],x", 0, CAT_CATEGORY_MATRIX | XCAS_ONLY},
@@ -880,6 +920,9 @@ namespace giac {
     {"coeff(p,x,n)", 0, "Coefficient de x^n dans le polynome p.", "(1+x)^6,x,3", 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
     {"comb(n,k)", 0, "Renvoie k parmi n.", "10,4", 0, CAT_CATEGORY_PROBA | XCAS_ONLY},
     {"cond(A,[1,2,inf])", 0, "Nombre de condition d'une matrice par rapport a la norme specifiee (par defaut 1)", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX | XCAS_ONLY},
+    {"cone(A,v,theta,[h])", 0, "Cone de sommet A, axe v, angle theta, hauteur h optionnelle", "[0,0,0],[0,0,1],pi/6", "[0,0,0],[0,0,1],pi/6,4", CAT_CATEGORY_3D},
+    {"conique(expression)", 0, "Conique donnee par une equation polynomiale de degre 2 ou passant par 5 points", "x^2+x*y+y^2=5", "1,i,2+i,3-i,4+2i", CAT_CATEGORY_2D},
+    {"coordonnees(object)", 0, "Coordonnees (cartesiennes)", "point(1,2)", "point(1,2,3)", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"conj(z)", 0, "Conjugue complexe de z.", "1+i", 0, CAT_CATEGORY_COMPLEXNUM},
     {"correlation(l1,l2)", 0, "Correlation listes l1 et l2", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"covariance(l1,l2)", 0, "Covariance listes l1 et l2", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
@@ -887,8 +930,10 @@ namespace giac {
     {"crayon ", "crayon ", "Couleur de trace de la tortue", "#crayon rouge", 0, CAT_CATEGORY_LOGO},
     {"cross(u,v)", 0, "Produit vectoriel de u et v.","[1,2,3],[0,1,3]", 0, CAT_CATEGORY_LINALG},
     {"csolve(equation,x)", 0, "Resolution exacte dans C d'une equation en x (ou d'un systeme polynomial).","x^2+x+1=0", 0, CAT_CATEGORY_SOLVE | (CAT_CATEGORY_COMPLEXNUM << 8) | XCAS_ONLY},
+    {"cube(A,B,C)", 0, "Cube d'arete AB avec une face dans le plan ABC", "[0,0,0],[1,0,0],[0,1,0]","[0,0,0],[0,2,sqrt(5)/2+3/2],[0,0,1]", CAT_CATEGORY_3D},
     {"curl(u,vars)", 0, "Rotationnel du vecteur u.", "[2*x*y,x*z,y*z],[x,y,z]", 0, CAT_CATEGORY_LINALG | XCAS_ONLY},
     {"cyan", "cyan", "Option d'affichage", "#display=cyan", 0, CAT_CATEGORY_PROGCMD},
+    {"cylinder(A,v,r,[h])", 0, "Cylindre d'axe A,v de rayon r et de hauteur optionnelle h", "[0,0,0],[0,1,0],2", "[0,0,0],[0,1,0],2,3", CAT_CATEGORY_3D},
     {"debug(f(args))", 0, "Execute la fonction f en mode pas a pas.", 0, 0, CAT_CATEGORY_PROG | XCAS_ONLY},
     {"degree(p,x)", 0, "Degre du polynome p en x.", "x^4-1", 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
     {"denom(x)", 0, "Denominateur de l'expression x.", "3/4", 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
@@ -898,6 +943,7 @@ namespace giac {
     {"display", "display", "Option d'affichage", "#display=red", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
     {"disque n", "disque ", "Cercle rempli tangent a la tortue, de rayon n. Utiliser disque n,theta pour remplir un morceau de camembert ou disque n,theta,segment pour remplir un segment de disque", "#disque 30", "#disque(30,90)", CAT_CATEGORY_LOGO},
     {"dot(a,b)", 0, "Produit scalaire de 2 vecteurs. Raccourci: *", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_LINALG},
+    {"dodecahedron(A,B,C)", 0, "Dodecaedre d'arete AB avec une face dans le plan ABC", "[0,0,0],[0,2,sqrt(5)/2+3/2],[0,0,1]", 0, CAT_CATEGORY_3D},
     {"draw_arc(x1,y1,rx,ry,theta1,theta2,c)", 0, "Arc d'ellipse pixelise.", "100,100,60,80,0,pi,magenta", 0, CAT_CATEGORY_PROGCMD},
     {"draw_circle(x1,y1,r,c)", 0, "Cercle pixelise. Option filled pour le remplir.", "100,100,60,cyan+filled", 0, CAT_CATEGORY_PROGCMD},
     {"draw_line(x1,y1,x2,y2,c)", 0, "Droite pixelisee.", "100,50,300,200,blue", 0, CAT_CATEGORY_PROGCMD},
@@ -905,7 +951,7 @@ namespace giac {
     {"draw_polygon([[x1,y1],...],c)", 0, "Polygone pixelise.", "[[100,50],[30,20],[60,70]],red+filled", 0, CAT_CATEGORY_PROGCMD},
     {"draw_rectangle(x,y,w,h,c)", 0, "Rectangle pixelise.", "100,50,30,20,red+filled", 0, CAT_CATEGORY_PROGCMD},
     {"draw_string(s,x,y,c)", 0, "Affiche la chaine s en x,y", "\"Bonjour\",80,60", 0, CAT_CATEGORY_PROGCMD},
-    {"droite(equation)", 0, "Droite donnee par une equation ou 2 points", "y=2x+1", "1+i,2-i", CAT_CATEGORY_PROGCMD | XCAS_ONLY},
+    {"droite(equation)", 0, "Droite donnee par une equation ou 2 points", "y=2x+1", "1+i,2-i", CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | (CAT_CATEGORY_2D << 16) | XCAS_ONLY},
     {"ecris ", "ecris ", "Ecrire a la position de la tortue", "#ecris \"coucou\"", 0, CAT_CATEGORY_LOGO},
     {"efface", "efface", "Remise a zero de la tortue", 0, 0, CAT_CATEGORY_LOGO | XCAS_ONLY},
     {"egcd(A,B)", 0, "Cherche des polynomes U,V,D tels que A*U+B*V=D=gcd(A,B)","x^2+3x+1,x^2-5x-1", 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
@@ -913,6 +959,8 @@ namespace giac {
     {"eigenvects(A)", 0, "Vecteurs propres de la matrice A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
     {"elif (test)", "elif", "Tests en cascade", 0, 0, CAT_CATEGORY_PROG | XCAS_ONLY},
 				     //{"end", "end", "Fin de bloc", 0, 0, CAT_CATEGORY_PROG},
+    {"ellipse(F1,F2,M)", 0, "Ellipse donnee par les 2 foyers et un point", "-1,1,2", 0, CAT_CATEGORY_2D},
+    {"equation(objet)", 0, "Equation cartesienne. Utiliser parameq pour parametrique.", "circle(0,1)", "ellipse(-1,1,3)", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"erf(x)", 0, "Fonction erreur en x.", "1.2", 0, CAT_CATEGORY_PROBA},
     {"erfc(x)", 0, "Fonction erreur complementaire en x.", "1.2", 0, CAT_CATEGORY_PROBA},
     {"euler(n)",0,"Indicatrice d'Euler: nombre d'entiers < n premiers avec n","25",0,CAT_CATEGORY_ARIT},
@@ -945,21 +993,28 @@ namespace giac {
     {"gl_y", "gl_y", "Reglage graphique Y gl_y=ymin..ymax", "#gl_y=-1..1", 0, CAT_CATEGORY_PROGCMD << 8 | XCAS_ONLY},
     {"green", "green", "Option d'affichage", "#display=green", 0, CAT_CATEGORY_PROGCMD},
     {"halftan(expr)", 0, "Exprime cos, sin, tan avec tan(angle/2).","cos(x)", 0, CAT_CATEGORY_TRIG | XCAS_ONLY},
+    {"hauteur(A,B,C)", 0, "Hauteur du triangle ABC issue de A", "1,i,2+i", 0,CAT_CATEGORY_2D},
     {"hermite(n)", 0, "n-ieme polynome de Hermite", "10", "10,t", CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
     {"hilbert(n)", 0, "Matrice de Hilbert de taille n.", "4", 0, CAT_CATEGORY_MATRIX | XCAS_ONLY},
     {"histogram(list,min,size)", 0, "Histogramme d'une liste de donneees, classes commencant a min de taille size.","ranv(100,uniformd,0,1),0,0.1", 0, CAT_CATEGORY_STATS | (CAT_CATEGORY_PLOT<<8)},
+    {"homothetie(centre,rapport,objet)", 0, "Image de l'objet par homothetie de rapport", "0,2,circle(1,1)", 0, CAT_CATEGORY_2D },
+    {"hyperbole(F1,F2,M)", 0, "Hyperbole donnee par 2 foyers et un point", "-2-i,2+i,1", 0, CAT_CATEGORY_2D},
     {"iabcuv(a,b,c)", 0, "Cherche 2 entiers u,v tels que a*u+b*v=c","23,13,15", 0, CAT_CATEGORY_ARIT | XCAS_ONLY},
     {"ichinrem([a,m],[b,n])", 0,"Restes chinois entiers de a mod m et b mod n.", "[3,13],[2,7]", 0, CAT_CATEGORY_ARIT | XCAS_ONLY},
+    {"icosahedron(A,B,C)", 0, "Icosaedre de centre A, de sommet B où le plan ABC contient le sommet le plus proche (parmi les 5) de B", "[0,0,0],[sqrt(5),0,0],[1,2,0]", 0, CAT_CATEGORY_3D},
     {"idivis(n)", 0, "Liste des diviseurs d'un entier n.", "10", 0, CAT_CATEGORY_ARIT},
     {"idn(n)", 0, "matrice identite n * n", "4", 0, CAT_CATEGORY_MATRIX},
     {"iegcd(a,b)", 0, "Determine les entiers u,v,d tels que a*u+b*v=d=gcd(a,b)","23,13", 0, CAT_CATEGORY_ARIT},
     {"ifactor(n)", 0, "Factorisation d'un entier (pas trop grand!). Raccourci n=>*", "1234", 0, CAT_CATEGORY_ARIT},
     {"ilaplace(f,s,x)", 0, "Transformee inverse de Laplace de f", "s/(s^2+1),s,x", 0, CAT_CATEGORY_CALCULUS | XCAS_ONLY},
     {"im(z)", 0, "Partie imaginaire (z.im en Python)", "1+i", 0, CAT_CATEGORY_COMPLEXNUM},
+    {"inscrit(A,B,C)", 0, "Cercle inscrit", "-1,2+i,3", 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
     {"inf", "inf", "Plus l'infini. Utiliser -inf pour moins l'infini ou infinity pour l'infini complexe. Raccourci shift INS.", "-inf", "infinity", CAT_CATEGORY_CALCULUS | XCAS_ONLY},
     {"input()", "input()", "Lire une chaine au clavier", "\"Valeur ?\"", 0, CAT_CATEGORY_PROG},
     {"integrate(f,x,[,a,b])", 0, "Primitive de f par rapport a la variable x, par ex. integrate(x*sin(x),x). Pour calculer une integrale definie, entrer les arguments optionnels a et b, par ex. integrate(x*sin(x),x,0,pi). Raccourci SHIFT F3.", "x*sin(x),x", "cos(x)/(1+x^4),x,0,inf", CAT_CATEGORY_CALCULUS | XCAS_ONLY},
     {"interp(X,Y[,interp])", 0, "Interpolation de Lagrange aux points (xi,yi) avec X la liste des xi et Y des yi. Renvoie la liste des differences divisees si interp est passe en parametre.", "[1,2,3,4,5],[0,1,3,4,4]", "[1,2,3,4,5],[0,1,3,4,4],interp", CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
+    {"inter(A,B)", 0, "Liste des intersections. Utiliser single_inter si l'intersection est unique.", "line(y=x),circle(0,1)", 0, CAT_CATEGORY_3D | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
+    {"inter_unique(A,B)", 0, "Premiere intersection. Utiliser inter pour une liste d'intersections.", "line(y=x),line(x+y=3)", 0, CAT_CATEGORY_3D | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
     {"inv(A)", 0, "Inverse de A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX|(CAT_CATEGORY_LINALG<<8)},
     {"inverser(v)", "inverser ", "La variable v est remplacee par son inverse", "#v:=3; inverser v", 0, CAT_CATEGORY_SOFUS | XCAS_ONLY},
     {"iquo(a,b)", 0, "Quotient euclidien de deux entiers.", "23,13", 0, CAT_CATEGORY_ARIT | XCAS_ONLY},
@@ -976,6 +1031,7 @@ namespace giac {
 #endif
     {"leve_crayon ", "leve_crayon ", "La tortue se deplace sans marquer son passage", 0, 0, CAT_CATEGORY_LOGO},
     {"limit(f,x=a)", 0, "Limite de f en x = a. Ajouter 1 ou -1 pour une limite a droite ou a gauche, limit(sin(x)/x,x=0) ou limit(abs(x)/x,x=0,1). Raccourci: SHIFT MIXEDFRAC", "sin(x)/x,x=0", "exp(-1/x),x=0,1", CAT_CATEGORY_CALCULUS | XCAS_ONLY},
+    {"droite(A,B)", 0, "Droite donnee par equation ou 2 points", "y=x-1", "[0,0,0],[1,-2,3]", CAT_CATEGORY_2D | XCAS_ONLY},
     {"line_width_", "line_width_", "Prefixe d'epaisseur (2 a 8)", 0, 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
     {"linear_regression(Xlist,Ylist)", 0, "Regression lineaire.", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"linear_regression_plot(Xlist,Ylist)", 0, "Graphe d'une regression lineaire.", "#X,Y:=[1,2,3,4,5],[0,1,3,4,4];linear_regression_plot(X,Y);", 0, CAT_CATEGORY_STATS | (CAT_CATEGORY_PLOT<<8)},
@@ -990,6 +1046,9 @@ namespace giac {
     {"matrix(l,c,func)", 0, "Matrice de terme general donne.", "2,3,(j,k)->j^k", 0, CAT_CATEGORY_MATRIX},
     {"mean(l)", 0, "Moyenne arithmetique liste l", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"median(l)", 0, "Mediane", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
+    {"mediane(A,B,C)", 0, "Mediane du triangle ABC issue de A", "1,i,2+i", 0,CAT_CATEGORY_2D},
+    {"mediatrice(A,B)", 0, "Mediatrice du segment AB", "1,i", 0,CAT_CATEGORY_2D},
+    {"milieu(A,B)", 0, "Milieu de AB", "1,i", 0,CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8)},
     {"montre_tortue ", "montre_tortue ", "Affiche la tortue", 0, 0, CAT_CATEGORY_LOGO},
     {"mul(A,B)", 0, "En Python, multiplie des listes de listes u et v comme des matrices.","[[1,2],[3,4]],[5,6]", "[[1,2],[3,4]].[[5,6],[7,8]]", CAT_CATEGORY_LINALG},
     {"mult_c_conjugate", 0, "Multiplier par le conjugue complexe.", "1+2*i", 0,  (CAT_CATEGORY_COMPLEXNUM << 8) | XCAS_ONLY},
@@ -997,23 +1056,29 @@ namespace giac {
     {"normald([mu,sigma],x)", 0, "Loi normale, par defaut mu=0 et sigma=1. normald_cdf([mu,sigma],x) probabilite que \"loi normale <=x\" par ex. normald_cdf(1.96). normald_icdf([mu,sigma],t) renvoie x tel que \"loi normale <=x\" vaut t, par ex. normald_icdf(0.975) ", "1.2", 0, CAT_CATEGORY_PROBA | XCAS_ONLY},
     {"not(x)", 0, "Non logique.", 0, 0, CAT_CATEGORY_PROGCMD},
     {"numer(x)", 0, "Numerateur de x.", "3/4", 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
+    {"octahedron(A,B,C)", 0, "Octaedre d'arete AB avec une face dans le plan ABC", "[0,0,0],[3,0,0],[0,1,0]", 0, CAT_CATEGORY_3D},
     {"odesolve(f(t,y),[t,y],[t0,y0],t1)", 0, "Solution approchee d'equation differentielle y'=f(t,y) et y(t0)=y0, valeur en t1 (ajouter curve pour les valeurs intermediaires de y)", "sin(t*y),[t,y],[0,1],2", "0..pi,(t,v)->{[-v[1],v[0]]},[0,1]", CAT_CATEGORY_SOLVE | XCAS_ONLY},
+    {"parabole(F,A)", 0, "Parabole donnee par foyer et sommet", "-2-i,2+i", 0, CAT_CATEGORY_2D},
+    {"parameq(objet)", 0, "Equations parametriques. Utiliser equation pour une equation cartesienne", "circle(0,1)", "ellipse(-1,1,3)", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"partfrac(p,x)", 0, "Decomposition en elements simples. Raccourci p=>+", "1/(x^4-1)", 0, CAT_CATEGORY_ALGEBRA | XCAS_ONLY},
     {"pas_de_cote n", "pas_de_cote ", "Saut lateral de la tortue, par defaut n=10", "#pas_de_cote 30", 0, CAT_CATEGORY_LOGO},
-    {"plot(expr,x)", 0, "Xcas: graphe de fonction, par exemple plot(sin(x)), plot(ln(x),x.0,5). Python et Xcas: plot(Xlist,Ylist) ligne polygonale", "[1,2,3,4,5,6],[2,3,5,2,1,4]","ln(x),x=0..5,xstep=0.1", CAT_CATEGORY_PLOT},
+    {"plan(equation)", 0, "Plan donne par equation ou 3 points", "z=x+y-1", "[0,0,0],[1,0,0],[0,1,0]", CAT_CATEGORY_3D | XCAS_ONLY},
+    {"plot(expr,x)", 0, "Xcas: graphe de fonction, par exemple plot(sin(x)), plot(ln(x),x.0,5), plot(x^2-y^2), plot(x^2-y^2<1), plot(x^2-y^2=1). Python et Xcas: plot(Xlist,Ylist) ligne polygonale", "[1,2,3,4,5,6],[2,3,5,2,1,4]","ln(x),x=0..5,xstep=0.1", CAT_CATEGORY_PLOT },
+    {"plotfunc(expr,[x,y])", 0, "Xcas: graphe de fonction 3d", "x^2-y^2,[x,y]","x^2-y^2,[x=-2..2,y=-2..2],nstep=700", CAT_CATEGORY_PLOT | (CAT_CATEGORY_3D << 8) | XCAS_ONLY },
     {"plotarea(expr,x=a..b,[n,meth])", 0, "Aire sous la courbe selon une methode d'integration.", "1/x,x=1..5,4,rectangle_gauche", 0, CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plotcontour(expr,[x=xm..xM,y=ym..yM],niveaux)", 0, "Lignes de niveau de expr.", "x^2+2y^2, [x=-2..2,y=-2..2],[1,2]", 0, CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plotdensity(expr,[x=xm..xM,y=ym..yM])", 0, "Representation en niveaux de couleurs d'une expression de 2 variables.", "x^2-y^2,[x=-3..3,y=-2..2]", 0, CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plotfield(f(t,y), [t=tmin..tmax,y=ymin..ymax])", 0, "Champ des tangentes de y'=f(t,y), optionnellement graphe avec plotode=[t0,y0]", "sin(t*y), [t=-3..3,y=-3..3],plotode=[0,1]", "5*[-y,x], [x=-1..1,y=-1..1]", CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plotlist(list)", 0, "Graphe d'une liste", "[3/2,2,1,1/2,3,2,3/2]", "[1,13],[2,10],[3,15],[4,16]", CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plotode(f(t,y), [t=tmin..tmax,y],[t0,y0])", 0, "Graphe de solution d'equation differentielle y'=f(t,y), y(t0)=y0.", "sin(t*y),[t=-3..3,y],[0,1]", 0, CAT_CATEGORY_PLOT | XCAS_ONLY},
-    {"plotparam([x,y],t)", 0, "Graphe en parametriques. Par exemple plotparam([sin(3t),cos(2t)],t,0,pi) ou plotparam(exp(i*t),t,0,pi)", "[sin(3t),cos(2t)],t,0,pi", "[t^2,t^3],t=-1..1,tstep=0.1", CAT_CATEGORY_PLOT | XCAS_ONLY},
+    {"plotparam([x,y],t)", 0, "Graphe en parametriques. Par exemple plotparam([sin(3t),cos(2t)],t,0,pi) ou plotparam(exp(i*t),t,0,pi)", "[sin(3t),cos(2t)],t,0,pi", "[t^2,t^3],t=-1..1,tstep=0.1", CAT_CATEGORY_PLOT | (CAT_CATEGORY_3D << 8) | XCAS_ONLY},
     {"plotpolar(r,theta)", 0, "Graphe en polaire.","cos(3*x),x,0,pi", "1/(1+cos(x)),x=0..pi,xstep=0.05", CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plotseq(f(x),x=[u0,m,M],n)", 0, "Trace f(x) sur [m,M] et n termes de la suite recurrente u_{n+1}=f(u_n) de 1er terme u0.","sqrt(2+x),x=[6,0,7],5", 0, CAT_CATEGORY_PLOT | XCAS_ONLY},
     {"plus_point", "plus_point", "Option d'affichage", "#display=blue+plus_point", 0, CAT_CATEGORY_PROGCMD  | XCAS_ONLY},
-    {"point(x,y)", 0, "Point", "1,2", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
-    {"polygon(list)", 0, "Polygone ferme.", "1-i,2+i,3", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
+    {"point(x,y[,z])", 0, "Point", "1,2", "1,2,3", CAT_CATEGORY_PLOT | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
+    {"polygone(list)", 0, "Polygone ferme donne par la liste de ses sommets.", "1-i,2+i,3,3-2i", 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
     {"polygonscatterplot(Xlist,Ylist)", 0, "Nuage de points relies.", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
+    {"polyhedron(A,B,C,D,...)", 0, "Polyedre convexe dont les sommets sont parmi A,B,C,D,...", "[0,0,0],[0,5,0],[0,0,5],[1,2,6]", 0, CAT_CATEGORY_3D},
     {"polynomial_regression(Xlist,Ylist,n)", 0, "Regression polynomiale de degre <= n.", "[1,2,3,4,5],[0,1,3,4,4],2", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"polynomial_regression_plot(Xlist,Ylist,n)", 0, "Graphe d'une regression polynomiale de degre <= n.", "#X,Y:=[1,2,3,4,5],[0,1,3,4,4];polynomial_regression_plot(X,Y,2);scatterplot(X,Y);", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"pour (boucle Xcas)", "pour  de  to  faire  fpour;", "Boucle definie.","#pour j de 1 to 10 faire print(j,j^2); fpour;", 0, CAT_CATEGORY_PROG | XCAS_ONLY},
@@ -1022,17 +1087,21 @@ namespace giac {
     {"pow(a,n,p)", 0, "Renvoie a^n mod p","123,456,789", 0, CAT_CATEGORY_ARIT},
     {"powmod(a,n,p[,P,x])", 0, "Renvoie a^n mod p, ou a^n mod un entier p et un polynome P en x.","123,456,789", "x+1,452,19,x^4+x+1,x", CAT_CATEGORY_ARIT | XCAS_ONLY},
     {"print(expr)", 0, "Afficher dans la console", 0, 0, CAT_CATEGORY_PROG},
+    {"projection(obj1,obj2)", 0, "Projection sur obj1 de obj2", "line(y=x),point(2,3)", 0, CAT_CATEGORY_2D },
     {"pcoeff(p)", 0, "Polynome unitaire dont on donne la liste des racines (fonction reciproque de proot)", "[1,2,3]", 0, CAT_CATEGORY_POLYNOMIAL},
     {"peval(p,x)", 0, "Valeur d'un polynome en un point", "[1,2,3],4", 0, CAT_CATEGORY_POLYNOMIAL},
     {"proot(p)", 0, "Racines reelles et complexes approchees d'un polynome. Exemple proot([1,2.1,3,4.2]) ou proot(x^3+2.1*x^2+3x+4.2)", "[1.,2.1,3,4.2]","x^3+2.1*x^2+3x+4.2", CAT_CATEGORY_POLYNOMIAL|(CAT_CATEGORY_SOLVE<<8)},
     {"purge(x)", 0, "Purge le contenu de la variable x. Raccourci SHIFT-FORMAT", 0, 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_SOFUS<<8) | XCAS_ONLY},
+    {"pyramid(A,B,C)", 0, "Tetraedre d'arete AB avec une face dans le plan ABC", "[0,0,0],[3,0,0],[0,1,0]", "[0,0,0],[3,0,0],[0,3,0],[0,0,4]", CAT_CATEGORY_3D},
     {"python(f)", 0, "Affiche la fonction f en syntaxe Python.", 0, 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
     {"python_compat(0|1|2|4)", 0, "python_compat(0) syntaxe Xcas, python_compat(1) syntaxe Python avec ^ interprete comme puissance, python_compat(2) ^ interprete comme ou exclusif bit a bit", "0", "1", CAT_CATEGORY_PROG | XCAS_ONLY},
     {"qr(A)", 0, "Factorisation A=Q*R avec Q orthogonale et R triangulaire superieure", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX | XCAS_ONLY},
+    {"quadric(equation)", 0, "Quadrique donnee par une equation (ou 9 points)", "x^2-y^2+z^2", "x^2+x*y+y^2+z^2-3", CAT_CATEGORY_3D},
     {"quartile1(l)", 0, "1er quartile", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"quartile3(l)", 0, "3eme quartile", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"quo(p,q,x)", 0, "Quotient de division euclidienne polynomiale en x.", 0, 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
     {"quote(x)", 0, "Renvoie l'expression x non evaluee.", 0, 0, CAT_CATEGORY_ALGEBRA | XCAS_ONLY},
+    {"rayon(objet)", 0, "Rayon d'un cercle ou d'une sphere", "circle(0,1)", "sphere([0,0,0],[1,1,1])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"rand()", "rand()", "Reel aleatoire entre 0 et 1", 0, 0, CAT_CATEGORY_PROBA},
     {"randint(a,b)", 0, "Entier aleatoire entre a et b. En Xcas, avec un seul argument n, entier entre 1 et n.", "5,20", "6", CAT_CATEGORY_PROBA},
     {"ranm(n,m,[loi,parametres])", 0, "Matrice aleatoire a coefficients entiers ou selon une loi de probabilites (ranv pour un vecteur). Exemples ranm(2,3), ranm(3,2,binomial,20,.3), ranm(4,2,normald,0,1)", "3,3","4,2,normald,0,1",  CAT_CATEGORY_MATRIX},
@@ -1043,6 +1112,7 @@ namespace giac {
     {"rectangle_plein a,b", "rectangle_plein ", "Rectangle direct rempli depuis la tortue de cotes a et b (si b est omis, la tortue remplit un carre)", "#rectangle_plein 30", "#rectangle_plein(20,40)", CAT_CATEGORY_LOGO | XCAS_ONLY},
     {"recule n", "recule ", "La tortue recule de n pas, par defaut n=10", "#recule 30", 0, CAT_CATEGORY_LOGO},
     {"red", "red", "Option d'affichage", "#display=red", 0, CAT_CATEGORY_PROGCMD},
+    {"reflection(obj1,obj2)", 0, "Symetrique de obj2", "line(y=x),cercle(1,1)", 0, CAT_CATEGORY_2D },
     {"rem(p,q,x)", 0, "Reste de division euclidienne polynomiale en x", 0, 0, CAT_CATEGORY_POLYNOMIAL | XCAS_ONLY},
     {"repete(n,...)", "repete( ", "Repete plusieurs fois les instructions", "#repete(4,avance,tourne_gauche)", 0, CAT_CATEGORY_LOGO | XCAS_ONLY},
 #ifdef RELEASE
@@ -1053,19 +1123,23 @@ namespace giac {
     {"rgb(r,g,b)", 0, "couleur definie par niveau de rouge, vert, bleu entre 0 et 255", "255,0,255", 0, CAT_CATEGORY_PROGCMD},
     {"rhombus_point", "rhombus_point", "Option d'affichage", "#display=magenta+rhombus_point", 0, CAT_CATEGORY_PROGCMD  | XCAS_ONLY},
     {"rond n", "rond ", "Cercle tangent a la tortue de rayon n. Utiliser rond n,theta pour un arc de cercle.", "#rond 30", "#rond(30,90)", CAT_CATEGORY_LOGO},
+    {"rotation(centre,angle,objet)", 0, "Image de l'objet par la rotation de centre et angle donnes en argyment", "2-i,pi/2,circle(0,1)", "sphere([0,0,0],[1,1,1])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"rref(M)","rref","Reduction d'une matrice par le pivot de Gauss.","[[1,2,3],[4,5,6]]",0,CAT_CATEGORY_MATRIX|(CAT_CATEGORY_LINALG<<8)},
     {"rsolve(equation,u(n),[init])", 0, "Expression d'une suite donnee par une recurrence.","u(n+1)=2*u(n)+3,u(n),u(0)=1", "([u(n+1)=3*v(n)+u(n),v(n+1)=v(n)+u(n)],[u(n),v(n)],[u(0)=1,v(0)=2]", CAT_CATEGORY_SOLVE | XCAS_ONLY},
     {"saute n", "saute ", "La tortue fait un saut de n pas, par defaut n=10", "#saute 30", 0, CAT_CATEGORY_LOGO},
     {"scatterplot(Xlist,Ylist)", 0, "Nuage de points (scatter en Python)", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS| (CAT_CATEGORY_PLOT<<8)},
-    {"segment(A,B)", 0, "Segment", "1,2+i", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
+    {"segment(A,B)", 0, "Segment", "1,2+i", "[1,2,1],[-1,3,2]", CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
     {"seq(expr,var,a,b[,pas])", 0, "Liste de terme general donne.","j^2,j,1,10", "j^2,j,1,10,2", CAT_CATEGORY_LIST | XCAS_ONLY},
     {"si (test Xcas)", "si  alors  sinon  fsi;", "Test.", "#f(x):=si x>0 alors x; sinon -x; fsi;", 0, CAT_CATEGORY_PROG | XCAS_ONLY},
     {"sign(x)", 0, "Renvoie -1 si x est negatif, 0 si x est nul et 1 si x est positif.", 0, 0, CAT_CATEGORY_REAL | XCAS_ONLY},
+    {"similitude(centre,rapport,angle,objet)", 0, "Image de l'objet par similitude", "0,2,pi/2,circle(1,1)", 0, CAT_CATEGORY_2D },
     {"simplify(expr)", 0, "Renvoie en general expr sous forme simplifiee. Raccourci expr=>/", "sin(3x)/sin(x)", "ln(4)-ln(2)", CAT_CATEGORY_ALGEBRA | XCAS_ONLY},
     {"sin_regression(Xlist,Ylist)", 0, "Regression trigonometrique.", "[1,2,3,4,5,6,7,8,9,10,11,12,13,14],[0.1,0.5,0.8,1,0.7,0.5,0.05,-.5,-.75,-1,-.7,-.4,0.1,.5]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
     {"sin_regression_plot(Xlist,Ylist)", 0, "Graphe d'une regression trigonometrique.", "#X,Y:=[1,2,3,4,5,6,7,8,9,10,11,12,13,14],[0.1,0.5,0.8,1,0.7,0.5,0.05,-.5,-.75,-1,-.7,-.4,0.1,.5];sin_regression_plot(X,Y);", 0, CAT_CATEGORY_STATS  | XCAS_ONLY},
     {"solve()", 0, "Xcas: solve(equation,x) resolution exacte d'une equation en x (ou d'un systeme polynomial). Utiliser csolve pour les solutions complexes, linsolve pour un systeme lineaire. Python et Xcas: solve(A,b) resolution d'un systeme de Cramer A*x=b", "x^2-x-1=0,x", "[x^2-y^2=0,x^2-z^2=0],[x,y,z]", CAT_CATEGORY_SOLVE},
+    {"sommets(objet)", 0, "Liste des sommets d'un polygone ou polyedre", "triangle(1,i,2)", "cube([0,0,0],[1,0,0],[0,1,0])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
     {"sorted(l)", 0, "Trie une liste.","[3/2,2,1,1/2,3,2,3/2]", "[[1,2],[2,3],[4,3]],(x,y)->when(x[1]==y[1],x[0]>y[0],x[1]>y[1]", CAT_CATEGORY_LIST},
+    {"sphere(A,r)", 0, "Sphere de centre A et rayon r ou de diametre AB", "[0,0,0],1", "[0,0,0],[1,1,1]", CAT_CATEGORY_3D},
     {"square_point", "square_point", "Option d'affichage", "#display=cyan+square_point", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY },
     {"star_point", "star_point", "Option d'affichage", "#display=magenta+star_point", 0, CAT_CATEGORY_PROGCMD  | XCAS_ONLY},
     {"stddev(l)", 0, "Ecart-type d'une liste l", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS | XCAS_ONLY},
@@ -1086,6 +1160,8 @@ namespace giac {
     {"tourne_gauche n", "tourne_gauche ", "La tortue tourne de n degres, par defaut n=90", "#tourne_gauche 45", 0, CAT_CATEGORY_LOGO},
     {"trace(A)", 0, "Trace de la matrice A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
     {"transpose(A)", 0, "Transposee de la matrice A. Pour la transconjuguee utiliser trn(A) ou A^*.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
+    {"translation(vect,obj)", 0, "Translation par vect de obj", "[1,2],cercle(0,1)", 0, CAT_CATEGORY_2D },
+    {"triangle(A,B,C)", 0, "Triangle donne par 3 sommets", "1+i,1-i,-1", "A,B,C", CAT_CATEGORY_2D},
     {"triangle_point", "triangle_point", "Option d'affichage", "#display=yellow+triangle_point", 0, CAT_CATEGORY_PROGCMD | XCAS_ONLY},
     {"trig2exp(expr)", 0, "Convertit les fonctions trigonometriques en exponentielles.","cos(x)^3", 0, CAT_CATEGORY_TRIG | XCAS_ONLY},
     {"trigcos(expr)", 0, "Exprime sin^2 et tan^2 avec cos^2.","sin(x)^4", 0, CAT_CATEGORY_TRIG | XCAS_ONLY},
@@ -1208,8 +1284,10 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"a or b", " or ", "Logical or", 0, 0, CAT_CATEGORY_PROGCMD},
   {"abcuv(a,b,c)", 0, "Find 2 polynomial u,v such that a*u+b*v=c","x+1,x^2-2,x", 0, CAT_CATEGORY_POLYNOMIAL},
   {"abs(x)", 0, "Absolute value or norm of x x", "-3", "[1,2,3]", CAT_CATEGORY_COMPLEXNUM | (CAT_CATEGORY_REAL<<8)},
+  {"altitude(A,B,C)", 0, "Altitude in triangle ABC from A", "1,i,2+i", 0,CAT_CATEGORY_2D},
   {"append", 0, "Adds an element at the end of a list","#l.append(x)", 0, CAT_CATEGORY_LIST},
   {"approx(x)", 0, "Approx. value x. Shortcut S-D", "pi", 0, CAT_CATEGORY_REAL},
+  {"area(objet)", 0, "Algebric area", "circle(0,1)", "triangle(-1,1+i,3)", CAT_CATEGORY_2D  },
   {"arg(z)", 0, "Angle of complex z.", "1+i", 0, CAT_CATEGORY_COMPLEXNUM},
   {"asc(string)", 0, "List of ASCII codes os a string", "\"Hello\"", 0, CAT_CATEGORY_ARIT},
   {"assume(hyp)", 0, "Assumption on variable.", "x>1", "x>-1 and x<1", CAT_CATEGORY_PROGCMD|(CAT_CATEGORY_SOFUS<<8)},
@@ -1217,21 +1295,28 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"axes", "axes", "Axes visible or not axes=1 or 0", "#axes=0", 0, CAT_CATEGORY_PROGCMD << 8|XCAS_ONLY},
   {"baisse_crayon ", "baisse_crayon ", "Turtle moves with the pen writing.", 0, 0, CAT_CATEGORY_LOGO},
   {"barplot(list)", 0, "Bar plot of 1-d statistic series data in list.", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS},
+  {"barycenter([pnt,coeff],...)", 0, "Barycenter of a sequence of [point,coefficient]. Run isobarycenter if all coefficients are equal", "[1,1],[i,1],[2,3]", 0, CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"binomial(n,p,k)", 0, "binomial(n,p,k) probability to get k success with n trials where p is the probability of success of 1 trial. binomial_cdf(n,p,k) is the probability to get at most k successes. binomial_icdf(n,p,t) returns the smallest k such that binomial_cdf(n,p,k)>=t", "10,.5,4", 0, CAT_CATEGORY_PROBA},
+    {"bisector(A,B,C)", 0, "Bisector of angle AB,AC", "1,i,2+i", 0,CAT_CATEGORY_2D},
   {"bitxor", "bitxor", "Exclusive or", "#bitxor(1,2)", 0, CAT_CATEGORY_PROGCMD},
   {"black", "black", "Display option", "#display=black", 0, CAT_CATEGORY_PROGCMD},
   {"blue", "blue", "Display option", "#display=blue", 0, CAT_CATEGORY_PROGCMD},
   {"camembert(list)", 0, "Camembert pie-chart of a 1-d statistical series.", "[[\"France\",6],[\"Germany\",12],[\"Switzerland\",5]]", 0, CAT_CATEGORY_STATS},
   {"cache_tortue ", "cache_tortue ", "Hide turtle (once the picture has been drawn).", 0, 0, CAT_CATEGORY_LOGO},
   {"ceil(x)", 0, "Smallest integer not less than x", "1.2", 0, CAT_CATEGORY_REAL},
+  {"center(objet)", 0, "Circle or sphere center. For ellipse or hyperbola, returns center, one focus and a point on the conic. For a parabola, returns focus and vertex.", "circle(0,1)", "sphere([0,0,0],[1,1,1])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"cfactor(p)", 0, "Factorization over C.", "x^4-1", 0, CAT_CATEGORY_ALGEBRA | (CAT_CATEGORY_COMPLEXNUM << 8)},
   {"char(liste)", 0, "Converts a list of ASCII codes to a string.", "[97,98,99]", 0, CAT_CATEGORY_ARIT},
   {"charpoly(M,x)", 0, "Characteristic polynomial of matrix M in variable x.", "[[1,2],[3,4]],x", 0, CAT_CATEGORY_MATRIX},
-  {"circle(center,radius)", 0, "Circle", "2+i,3", "1-i,1+i", CAT_CATEGORY_PROGCMD},
+  {"circle(center,radius)", 0, "Circle", "2+i,3", "1-i,1+i", CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8)},
+  {"circumcircle(A,B,C)", 0, "Circumcircle", "-1,2+i,3", 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
   {"clearscreen()", "clearscreen()", "Clear screen.", 0, 0, CAT_CATEGORY_PROGCMD|XCAS_ONLY},
   {"coeff(p,x,n)", 0, "Coefficient of x^n in polynomial p.", 0, 0, CAT_CATEGORY_POLYNOMIAL},
   {"comb(n,k)", 0, "Returns nCk", "10,4", 0, CAT_CATEGORY_PROBA},
   {"cond(A,[1,2,inf])", 0, "Nombre de condition d'une matrice par rapport a la norme specifiee (par defaut 1)", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
+  {"cone(A,v,theta,[h])", 0, " cone with vertex A, direction v, and with half_angle t [and with altitudes h and -h]", "[0,0,0],[0,0,1],pi/6", "[0,0,0],[0,0,1],pi/6,4", CAT_CATEGORY_3D},
+  {"conic(expression)", 0, "Conic given by a polynomial equation of degree 2 or by 5 vertices", "x^2+x*y+y^2=5", "1,i,2+i,3-i,4+2i", CAT_CATEGORY_2D},
+  {"coordinates(object)", 0, "Coordonnees (cartesian))", "point(1,2)", "point(1,2,3)", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"conj(z)", 0, "Complex conjugate of z.", "1+i", 0, CAT_CATEGORY_COMPLEXNUM},
   {"correlation(l1,l2)", 0, "Correlation of lists l1 and l2", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS},
   {"covariance(l1,l2)", 0, "Covariance of lists l1 and l2", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS},
@@ -1239,8 +1324,10 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"crayon ", "crayon ", "Turtle drawing color", "#crayon red", 0, CAT_CATEGORY_LOGO},
   {"cross(u,v)", 0, "Cross product of vectors u and v.","[1,2,3],[0,1,3]", 0, CAT_CATEGORY_LINALG},
   {"csolve(equation,x)", 0, "Solve equation (or polynomial system) in exact mode over the complex numbers.","x^2+x+1=0", 0, CAT_CATEGORY_SOLVE| (CAT_CATEGORY_COMPLEXNUM << 8)},
+  {"cube(A,B,C)", 0, "Cube of edge AB with one face in plane ABC", "[0,0,0],[1,0,0],[0,1,0]","[0,0,0],[0,2,sqrt(5)/2+3/2],[0,0,1]", CAT_CATEGORY_3D},
   {"curl(u,vars)", 0, "Curl of vector u.", "[2*x*y,x*z,y*z],[x,y,z]", 0, CAT_CATEGORY_LINALG},
   {"cyan", "cyan", "Display option", "#display=cyan", 0, CAT_CATEGORY_PROGCMD},
+  {"cylinder(A,v,r,[h])", 0, "Cylinder of axis A,v and radius r [and optional altitude h]", "[0,0,0],[0,1,0],2", "[0,0,0],[0,1,0],2,3", CAT_CATEGORY_3D},
   {"debug(f(args))", 0, "Runs user function f in step by step mode.", 0, 0, CAT_CATEGORY_PROG},
   {"degree(p,x)", 0, "Degre of polynomial p in x.", "x^4-1", 0, CAT_CATEGORY_POLYNOMIAL},
   {"denom(x)", 0, "Denominator of expression x.", "3/4", 0, CAT_CATEGORY_POLYNOMIAL},
@@ -1249,6 +1336,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"diff(f,var,[n])", 0, "Derivative of expression f with respect to var (order n, n=1 by default), for example diff(sin(x),x) or diff(x^3,x,2). For derivation with respect to x, run f' (shortcut F3). For the gradient of f, var is the list of variables.", "sin(x),x", "sin(x^2),x,3", CAT_CATEGORY_CALCULUS},
   {"display", "display", "Display option", "#display=red", 0, CAT_CATEGORY_PROGCMD},
   {"disque n", "disque ", "Filled circle tangent to the turtle, radius n. Run disque n,theta for a filled arc of circle, theta in degrees, or disque n,theta,segment for a segment of circle.", "#disque 30", "#disque(30,90)", CAT_CATEGORY_LOGO},
+  {"dodecahedron(A,B,C)", 0, "Dodecahedron of edge AB with one face in plane ABC", "[0,0,0],[0,2,sqrt(5)/2+3/2],[0,0,1]", 0, CAT_CATEGORY_3D},
   {"dot(a,b)", 0, "Dot product of 2 vectors. Shortcut: *", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_LINALG},
   {"draw_arc(x1,y1,rx,ry,theta1,theta2,c)", 0, "Pixelised arc of ellipse.", "100,100,60,80,0,pi,magenta", 0, CAT_CATEGORY_PROGCMD},
   {"draw_circle(x1,y1,r,c)", 0, "Pixelised circle. Option: filled", "100,100,60,cyan+filled", 0, CAT_CATEGORY_PROGCMD},
@@ -1263,8 +1351,10 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"efface", "efface", "Reset turtle", 0, 0, CAT_CATEGORY_LOGO},
   {"egcd(A,B)", 0, "Find polynomials U,V,D such that A*U+B*V=D=gcd(A,B)","x^2+3x+1,x^2-5x-1", 0, CAT_CATEGORY_POLYNOMIAL},
   {"elif test", "elif ", "Test cascade", 0, 0, CAT_CATEGORY_PROG},
+  {"ellipse(F1,F2,M)", 0, "Ellipse given by 2 focus and one point", "-1,1,2", 0, CAT_CATEGORY_2D},
   {"eigenvals(A)", 0, "Eigenvalues of matrix  A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX |XCAS_ONLY},
   {"eigenvects(A)", 0, "Eigenvectors of matrix A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
+  {"equation(object)", 0, "Cartesian equation. Run parameq for parametric equation", "circle(0,1)", "ellipse(-1,1,3)", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"erf(x)", 0, "Error function of x.", "1.2", 0, CAT_CATEGORY_PROBA},
   {"erfc(x)", 0, "Complementary error function of x.", "1.2", 0, CAT_CATEGORY_PROBA},
   {"euler(n)",0,"Euler indicatrix: number of integers < n coprime with n","25",0,CAT_CATEGORY_ARIT},
@@ -1296,18 +1386,23 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"hermite(n)", 0, "n-th Hermite polynomial", "10", 0, CAT_CATEGORY_POLYNOMIAL},
   {"hilbert(n)", 0, "Hilbert matrix of order n.", "4", 0, CAT_CATEGORY_MATRIX},
   {"histogram(list,min,size)", 0, "Histogram of data in list, classes begin at min of size size.","ranv(100,uniformd,0,1),0,0.1", 0, CAT_CATEGORY_STATS},
+  {"homothety(center,ratio,object)", 0, "Image of object by homothety of ratio", "0,2,circle(1,1)", 0, CAT_CATEGORY_2D },
+  {"hyperbola(F1,F2,M)", 0, "Hyperbola given by 2 focus and one point", "-2-i,2+i,1", 0, CAT_CATEGORY_2D},
   {"iabcuv(a,b,c)", 0, "Find 2 integers u,v such that a*u+b*v=c","23,13,15", 0, CAT_CATEGORY_ARIT},
   {"ichinrem([a,m],[b,n])", 0,"Integer chinese remainder of a mod m and b mod n.", "[3,13],[2,7]", 0, CAT_CATEGORY_ARIT},
-  {"idivis(n)", 0, "Returns the list of divisors of an integer n.", "10", 0, CAT_CATEGORY_ARIT},
+  {"icosahedron(A,B,C)", 0, "Icosahedron with center A, vertex B and such that the plane ABC contains one vertex among the 5 nearest vertices from B ", "[0,0,0],[sqrt(5),0,0],[1,2,0]", 0, CAT_CATEGORY_3D},
+   {"idivis(n)", 0, "Returns the list of divisors of an integer n.", "10", 0, CAT_CATEGORY_ARIT},
   {"idn(n)", 0, "Identity matrix of order n", "4", 0, CAT_CATEGORY_MATRIX},
   {"iegcd(a,b)", 0, "Find integers u,v,d such that a*u+b*v=d=gcd(a,b)","23,13", 0, CAT_CATEGORY_ARIT},
   {"ifactor(n)", 0, "Factorization of an integer (not too large!). Shortcut n=>*", 0, 0, CAT_CATEGORY_ARIT},
   {"ilaplace(f,s,x)", 0, "Inverse Laplace transform of f", "s/(s^2+1),s,x", 0, CAT_CATEGORY_CALCULUS},
   {"im(z)", 0, "Imaginary part.", "1+i", 0, CAT_CATEGORY_COMPLEXNUM},
+  {"incircle(A,B,C)", 0, "Incircle", "-1,2+i,3", 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
   {"inf", "inf", "Plus infinity. -inf for minus infinity and infinity for unsigned/complex infinity. Shortcut shift INS.", "oo", 0, CAT_CATEGORY_CALCULUS},
   {"input()", "input()", "Read a string from keyboard", 0, 0, CAT_CATEGORY_PROG},
   {"integrate(f,x,[a,b])", 0, "Antiderivative of f with respect to x, like integrate(x*sin(x),x). For definite integral enter optional arguments a and b, like integrate(x*sin(x),x,0,pi). Shortcut SHIFT F3.", "x*sin(x),x", "cos(x)/(1+x^4),x,0,inf", CAT_CATEGORY_CALCULUS},
   {"interp(X,Y)", 0, "Lagrange interpolation at points (xi,yi) where X is the list of xi and Y of yi. If interp is passed as 3rd argument, returns the divided differences list.", "[1,2,3,4,5],[0,1,3,4,4]", "[1,2,3,4,5],[0,1,3,4,4],interp", CAT_CATEGORY_POLYNOMIAL},
+  {"inter(A,B)", 0, "Intersections list. Run single_inter if intersection is unique.", "line(y=x),circle(0,1)", 0, CAT_CATEGORY_3D | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
   {"inv(A)", 0, "Inverse of A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
   {"iquo(a,b)", 0, "Integer quotient of a and b.", "23,13", 0, CAT_CATEGORY_ARIT},
   {"irem(a,b)", 0,"Integer remainder of a and b.", "23,13", 0, CAT_CATEGORY_ARIT},
@@ -1323,7 +1418,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 #endif
   {"leve_crayon ", "leve_crayon ", "Turtle moves without trace.", 0, 0, CAT_CATEGORY_LOGO},
   {"limit(f,x=a)", 0, "Limit of f at x = a. Add 1 or -1 for unidirectional limits, e.g. limit(sin(x)/x,x=0) or limit(abs(x)/x,x=0,1). Shortcut: SHIFT MIXEDFRAC", "sin(x)/x,x=0", "exp(-1/x),x=0,1", CAT_CATEGORY_CALCULUS},
-  {"line(equation)", 0, "Line of equation", "y=2x+1", 0, CAT_CATEGORY_PROGCMD},
+  {"line(equation)", 0, "Line of equation", "y=2x+1", "[0,0,0],[1,-2,3]", CAT_CATEGORY_PROGCMD |(CAT_CATEGORY_2D << 8)|(CAT_CATEGORY_2D << 16)},
   {"line_width_", "line_width_", "Width prefix (2 to 8)", 0, 0, CAT_CATEGORY_PROGCMD},
   {"linear_regression(Xlist,Ylist)", 0, "Linear regression.", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS},
   {"linear_regression_plot(Xlist,Ylist)", 0, "Linear regression plot.", "#X,Y:=[1,2,3,4,5],[0,1,3,4,4];linear_regression_plot(X,Y);scatterplot(X,Y)", 0, CAT_CATEGORY_STATS},
@@ -1338,30 +1433,39 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"matrix(r,c,func)", 0, "Matrix from a defining function.", "2,3,(j,k)->j^k", 0, CAT_CATEGORY_MATRIX},
   {"mean(l)", 0, "Arithmetic mean of list l", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS},
   {"median(l)", 0, "Median", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS},
+  {"median_line(A,B,C)", 0, "Median line of triangle ABC from vertex A", "1,i,2+i", 0,CAT_CATEGORY_2D},
+  {"midpoint(A,B)", 0, "Midpoint of segment AB", "1,i", 0,CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8)},
   {"montre_tortue ", "montre_tortue ", "Displays the turtle", 0, 0, CAT_CATEGORY_LOGO},
   {"mult_c_conjugate", 0, "Multiplier par le conjugue complexe.", "1+2*i", 0,  (CAT_CATEGORY_COMPLEXNUM << 8)},
   {"mult_conjugate", 0, "Multiplier par le conjugue (sqrt).", "sqrt(2)-sqrt(3)", 0, CAT_CATEGORY_ALGEBRA},
   {"normald([mu,sigma],x)", 0, "Normal distribution probability density, by default mu=0 and sigma=1. normald_cdf([mu,sigma],x) probability that \"normal distribution <=x\" e.g. normald_cdf(1.96). normald_icdf([mu,sigma],t) returns x such that \"normal distribution <=x\" has probability t, e.g. normald_icdf(0.975) ", "1.2", 0, CAT_CATEGORY_PROBA},
   {"not(x)", 0, "Logical not.", 0, 0, CAT_CATEGORY_PROGCMD},
   {"numer(x)", 0, "Numerator of x.", "3/4", 0, CAT_CATEGORY_POLYNOMIAL},
+  {"octahedron(A,B,C)", 0, "Octahedron of edge AB with one face in plane ABC", "[0,0,0],[3,0,0],[0,1,0]", 0, CAT_CATEGORY_3D},
   {"odesolve(f(t,y),[t,y],[t0,y0],t1)", 0, "Approx. solution of differential equation y'=f(t,y) and y(t0)=y0, value for t=t1 (add curve to get intermediate values of y)", "sin(t*y),[t,y],[0,1],2", "0..pi,(t,v)->{[-v[1],v[0]]},[0,1]", CAT_CATEGORY_SOLVE},
+  {"parabola(F,A)", 0, "Parabola given by focus and vertex", "-2-i,2+i", 0, CAT_CATEGORY_2D},
+  {"parameq(object)", 0, "Parametric equations. Run equation for cartesian equation", "circle(0,1)", "ellipse(-1,1,3)", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"partfrac(p,x)", 0, "Partial fraction expansion. Shortcut p=>+", "1/(x^4-1)", 0, CAT_CATEGORY_ALGEBRA},
   {"pas_de_cote n", "pas_de_cote ", "Turtle side jump from n steps, by default n=10", "#pas_de_cote 30", 0, CAT_CATEGORY_LOGO},
-  {"plot(expr,x)", 0, "Plot an expression. For example plot(sin(x)), plot(ln(x),x.0,5)", "ln(x),x,0,5", "1/x,x=1..5,xstep=1", CAT_CATEGORY_PLOT},
+  {"perpen_bisector(A,B)", 0, "Perpendicular bisector of segment AB", "1,i", 0,CAT_CATEGORY_2D},
+  {"plane(equation)", 0, "Plane given by equation or by 3 points", "z=x+y-1", "[0,0,0],[1,0,0],[0,1,0]", CAT_CATEGORY_3D | XCAS_ONLY},
+  {"plot(expr,x)", 0, "Plot an expression. For example plot(sin(x)), plot(ln(x),x.0,5), plot(x^2-y^2), plot(x^2-y^2<1), plot(x^2-y^2=1)", "ln(x),x,0,5", "1/x,x=1..5,xstep=1", (CAT_CATEGORY_PLOT << 8) | (CAT_CATEGORY_3D)},
 #ifdef RELEASE
   {"plotarea(expr,x=a..b,[n,meth])", 0, "Area under curve with specified quadrature.", "1/x,x=1..3,2,trapezoid", 0, CAT_CATEGORY_PLOT},
 #endif
   {"plotcontour(expr,[x=xm..xM,y=ym..yM],levels)", 0, "Levels of expr.", "x^2+2y^2,[x=-2..2,y=-2..2],[1,2]", 0, CAT_CATEGORY_PLOT},
   {"plotfield(f(t,y),[t=tmin..tmax,y=ymin..ymax])", 0, "Plot field of differential equation y'=f(t,y), an optionally one solution by adding plotode=[t0,y0]", "sin(t*y),[t=-3..3,y=-3..3],plotode=[0,1]", 0, CAT_CATEGORY_PLOT},
+  {"plotfunc(expr,[x,y])", 0, "Xcas: graph of a 3d function", "x^2-y^2,[x,y]","x^2-y^2,[x=-2..2,y=-2..2],nstep=700", CAT_CATEGORY_PLOT | (CAT_CATEGORY_3D << 8) | XCAS_ONLY },
   {"plotlist(list)", 0, "Plot a list", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_PLOT},
   {"plotode(f(t,y),[t=tmin..tmax,y],[t0,y0])", 0, "Plot solution of differential equation y'=f(t,y), y(t0)=y0.", "sin(t*y),[t=-3..3,y],[0,1]", 0, CAT_CATEGORY_PLOT},
   {"plotparam([x,y],t)", 0, "Parametric plot. For example plotparam([sin(3t),cos(2t)],t,0,pi) or plotparam(exp(i*t),t,0,pi)", "[sin(3t),cos(2t)],t,0,pi", "[t^2,t^3],t=-1..1,tstep=0.1", CAT_CATEGORY_PLOT},
   {"plotpolar(r,theta)", 0, "Polar plot.","cos(3*x),x,0,pi", "1/(1+cos(x)),x=0..pi,xstep=0.05", CAT_CATEGORY_PLOT},
   {"plotseq(f(x),x=[u0,m,M],n)", 0, "Plot f(x) on [m,M] and n terms of the sequence defined by u_{n+1}=f(u_n) and u0.","sqrt(2+x),x=[6,0,7],5", 0, CAT_CATEGORY_PLOT},
   {"plus_point", "plus_point", "Display option", "#display=blue+plus_point", 0, CAT_CATEGORY_PROGCMD},
-  {"point(x,y)", 0, "Point", "1,2", 0, CAT_CATEGORY_PLOT},
-  {"polygon(list)", 0, "Closed polygon.", "1-i,2+i,3", 0, CAT_CATEGORY_PROGCMD},
+  {"point(x,y[,z])", 0, "Point", "1,2", "1,2,3", CAT_CATEGORY_PLOT | (CAT_CATEGORY_2D << 8)},
+  {"polygon(list)", 0, "Closed polygon given by a list of vertices.", "1-i,2+i,3,3-2i", 0, CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) },
   {"polygonscatterplot(Xlist,Ylist)", 0, "Plot points and polygonal line.", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS},
+  {"polyhedron(A,B,C,D,...)", 0, "Convex polyhedron of vertices in A,B,C,D,...", "[0,0,0],[0,5,0],[0,0,5],[1,2,6]", 0, CAT_CATEGORY_3D},
   {"polynomial_regression(Xlist,Ylist,n)", 0, "Polynomial regression, degree <= n.", "[1,2,3,4,5],[0,1,3,4,4],2", 0, CAT_CATEGORY_STATS},
   {"polynomial_regression_plot(Xlist,Ylist,n)", 0, "Polynomial regression plot, degree <= n.", "#X,Y:=[1,2,3,4,5],[0,1,3,4,4];polynomial_regression_plot(X,Y,2);scatterplot(X,Y)", 0, CAT_CATEGORY_STATS},
   //{"pour", "pour j de 1 jusque  faire  fpour;", "For loop.","#pour j de 1 jusque 10 faire print(j,j^2); fpour;", 0, CAT_CATEGORY_PROG},
@@ -1369,15 +1473,18 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"power_regression_plot(Xlist,Ylist,n)", 0, "Power regression graph", "#X,Y:=[1,2,3,4,5],[0,1,3,4,4];power_regression_plot(X,Y);scatterplot(X,Y)", 0, CAT_CATEGORY_STATS},
   {"powmod(a,n,p)", 0, "Returns a^n mod p.","123,456,789", 0, CAT_CATEGORY_ARIT},
   {"print(expr)", 0, "Print expr in console", 0, 0, CAT_CATEGORY_PROG},
+  {"projection(obj1,obj2)", 0, "Projection on obj1 of obj2", "line(y=x),point(2,3)", 0, CAT_CATEGORY_2D },
   {"proot(p)", 0, "Returns real and complex roots, of polynomial p. Exemple proot([1,2.1,3,4.2]) or proot(x^3+2.1*x^2+3x+4.2)", "x^3+2.1*x^2+3x+4.2", 0, CAT_CATEGORY_POLYNOMIAL},
   {"purge(x)", 0, "Clear assigned variable x. Shortcut SHIFT-FORMAT", 0, 0, CAT_CATEGORY_PROGCMD|(CAT_CATEGORY_SOFUS<<8)},
   {"python(f)", 0, "Displays f in Python syntax.", 0, 0, CAT_CATEGORY_PROGCMD},
   {"python_compat(0|1|2)", 0, "python_compat(0) Xcas syntax, python_compat(1) Python syntax with ^ interpreted as power, python_compat(2) ^ as bit xor", "0", "1", CAT_CATEGORY_PROG},
   {"qr(A)", 0, "A=Q*R factorization with Q orthogonal and R upper triangular", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
+  {"quadric(equation)", 0, "Quadric given by equation (or 9 points)", "x^2-y^2+z^2", "x^2+x*y+y^2+z^2-3", CAT_CATEGORY_3D},
   {"quartile1(l)", 0, "1st quartile", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS},
   {"quartile3(l)", 0, "3rd quartile", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS},
   {"quo(p,q,x)", 0, "Quotient of synthetic division of polynomials p and q (variable x).", 0, 0, CAT_CATEGORY_POLYNOMIAL},
   {"quote(x)", 0, "Returns expression x unevaluated.", 0, 0, CAT_CATEGORY_ALGEBRA},
+  {"radius(objet)", 0, "Radius of a circle or sphere", "circle(0,1)", "sphere([0,0,0],[1,1,1])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"rand()", "rand()", "Random real between 0 and 1", 0, 0, CAT_CATEGORY_PROBA},
   {"randint(a,b)", 0, "Random integer between a and b. With 1 argument in Xcas, random integer between 1 and n.", "5,25", "6", CAT_CATEGORY_PROBA},
   {"ranm(n,m,[loi,parametres])", 0, "Random matrix with integer coefficients or according to a probability law (ranv for a vector). Examples ranm(2,3), ranm(3,2,binomial,20,.3), ranm(4,2,normald,0,1)", "3,3","4,2,normald,0,1",  CAT_CATEGORY_MATRIX},
@@ -1388,6 +1495,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"rectangle_plein a,b", "rectangle_plein ", "Direct filled rectangle from turtle position, if b is omitted b==a", "#rectangle_plein 30","#rectangle_plein 20,40", CAT_CATEGORY_LOGO},
   {"recule n", "recule ", "Turtle backward n steps, n=10 by default", "#recule 30", 0, CAT_CATEGORY_LOGO},
   {"red", "red", "Display option", "#display=red", 0, CAT_CATEGORY_PROGCMD},
+  {"reflection(obj1,obj2)", 0, "Reflection or symmetrical of obj2", "line(y=x),cercle(1,1)", 0, CAT_CATEGORY_2D },
   {"rem(p,q,x)", 0, "Remainder of synthetic division of polynomials p and q (variable x)", 0, 0, CAT_CATEGORY_POLYNOMIAL},
 #ifdef RELEASE
   {"residue(f(z),z,z0)", 0, "Residue of an expression at z0.", "1/(x^2+1),x,i", 0, CAT_CATEGORY_COMPLEXNUM},
@@ -1397,16 +1505,20 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"rgb(r,g,b)", 0, "color defined from red, green, blue from 0 to 255", "255,0,255", 0, CAT_CATEGORY_PROGCMD},
   {"rhombus_point", "rhombus_point", "Display option", "#display=magenta+rhombus_point", 0, CAT_CATEGORY_PROGCMD},
   {"rond n", "rond ", "Circle tangent to the turtle, radius n. Run rond n,theta for an arc of circle of theta degrees", 0, 0, CAT_CATEGORY_LOGO},
+  {"rotation(center,angle,objcet)", 0, "Image of object by rotation", "2-i,pi/2,circle(0,1)", "sphere([0,0,0],[1,1,1])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   {"rsolve(equation,u(n),[init])", 0, "Solve a recurrence relation.","u(n+1)=2*u(n)+3,u(n),u(0)=1", "([u(n+1)=3*v(n)+u(n),v(n+1)=v(n)+u(n)],[u(n),v(n)],[u(0)=1,v(0)=2]", CAT_CATEGORY_SOLVE},
   {"saute n", "saute ", "Turtle jumps n steps, by default n=10", "#saute 30", 0, CAT_CATEGORY_LOGO},
   {"scatterplot(Xlist,Ylist)", 0, "Draws points", "[1,2,3,4,5],[0,1,3,4,4]", 0, CAT_CATEGORY_STATS},
-  {"segment(A,B)", 0, "Segment", "1,2+i", 0, CAT_CATEGORY_PROGCMD},
+  {"segment(A,B)", 0, "Segment", "1,2+i", "[1,2,1],[-1,3,2]", CAT_CATEGORY_PROGCMD | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
   {"seq(expr,var,a,b)", 0, "Generates a list from an expression.","j^2,j,1,10", 0, CAT_CATEGORY_PROGCMD},
   //{"si", "si  alors  sinon  fsi;", "Test.", "#f(x):=si x>0 alors x; sinon -x; fsi;// valeur absolue", 0, CAT_CATEGORY_PROG},
   {"sign(x)", 0, "Returns -1 if x is negative, 0 if x is zero and 1 if x is positive.", 0, 0, CAT_CATEGORY_REAL|XCAS_ONLY},
+  {"similarity(center,ratio,angle,object)", 0, "Image of object by similarity", "0,2,pi/2,circle(1,1)", 0, CAT_CATEGORY_2D },
   {"simplify(expr)", 0, "Returns x in a simpler form. Shortcut expr=>/", "sin(3x)/sin(x)", 0, CAT_CATEGORY_ALGEBRA},
+  {"single_inter(A,B)", 0, "First intersection. Run inter for a list of intersections.", "line(y=x),line(x+y=3)", 0, CAT_CATEGORY_3D | (CAT_CATEGORY_2D << 8) | XCAS_ONLY},
   {"solve(equation,x)", 0, "Exact solving of equation w.r.t. x (or of a polynomial system). Run csolve for complex solutions, linsolve for a linear system. Shortcut SHIFT XthetaT", "x^2-x-1=0,x", "[x^2-y^2=0,x^2-z^2=0],[x,y,z]", CAT_CATEGORY_SOLVE},
   {"sorted(l)", 0, "Sorts a list.","[3/2,2,1,1/2,3,2,3/2]", "[[1,2],[2,3],[4,3]],(x,y)->when(x[1]==y[1],x[0]>y[0],x[1]>y[1]", CAT_CATEGORY_LIST},
+  {"sphere(A,r)", 0, "Sphere of center A and radius r or diameter AB", "[0,0,0],1", "[0,0,0],[1,1,1]", CAT_CATEGORY_3D},
   {"square_point", "square_point", "Display option", "#display=cyan+square_point", 0, CAT_CATEGORY_PROGCMD},
   {"star_point", "star_point", "Display option", "#display=magenta+star_point", 0, CAT_CATEGORY_PROGCMD},
   {"stddev(l)", 0, "Standard deviation of list l", "[3/2,2,1,1/2,3,2,3/2]", 0, CAT_CATEGORY_STATS},
@@ -1426,12 +1538,15 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   {"tourne_gauche n", "tourne_gauche ", "Turtle turns left n degrees, n=90 by default", 0, 0, CAT_CATEGORY_LOGO},
   {"trace(A)", 0, "Trace of the matrix A.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
   {"transpose(A)", 0, "Transposes matrix A. Transconjugate command is trn(A) or A^*.", "[[1,2],[3,4]]", 0, CAT_CATEGORY_MATRIX},
+  {"translation(vect,obj)", 0, "Translate by vect obj", "[1,2],cercle(0,1)", 0, CAT_CATEGORY_2D },
+  {"triangle(A,B,C)", 0, "Triangle given by 3 vertices", "1+i,1-i,-1", "A,B,C", CAT_CATEGORY_2D},
   {"triangle_point", "triangle_point", "Display option", "#display=yellow+triangle_point", 0, CAT_CATEGORY_PROGCMD},
   {"trig2exp(expr)", 0, "Convert complex exponentials to trigonometric functions","cos(x)^3", 0, CAT_CATEGORY_TRIG},
   {"trigcos(expr)", 0, "Convert sin^2 and tan^2 to cos^2.","sin(x)^4", 0, CAT_CATEGORY_TRIG},
   {"trigsin(expr)", 0, "Convert cos^2 and tan^2 to sin^2.","cos(x)^4", 0, CAT_CATEGORY_TRIG},
   {"trigtan(expr)", 0, "Convert cos^2 and sin^2 to tan^2.","cos(x)^4", 0, CAT_CATEGORY_TRIG},
   {"uniformd(a,b,x)", "uniformd", "uniform law on [a,b] of density 1/(b-a)", 0, 0, CAT_CATEGORY_PROBA},
+  {"vertices(objet)", 0, "List of vertices of a polygon or polyhedra", "triangle(1,i,2)", "cube([0,0,0],[1,0,0],[0,1,0])", CAT_CATEGORY_2D | (CAT_CATEGORY_3D << 8) },
   //{"version", "version()", "Khicas 1.5.0, (c) B. Parisse et al. www-fourier.ujf-grenoble.fr/~parisse\nLicense GPL version 2. Interface adapted from Eigenmath for Casio, G. Maia, http://gbl08ma.com. Do not use if CAS calculators are forbidden.", 0, 0, CAT_CATEGORY_PROGCMD},
   {"write(\"filename\",var)", "write(\"", "Save 1 or more variables in a file. For example f(x):=x^2; write(\"func_f\",f).",  0, 0, CAT_CATEGORY_PROGCMD},
   {"yellow", "yellow", "Display option", "#display=yellow", 0, CAT_CATEGORY_PROGCMD},
@@ -1516,7 +1631,9 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     menuitems[CAT_CATEGORY_SOFUS].text = (char*)((lang==1)?"Modifier variables (tan)":"Change variables (tan)");
     menuitems[CAT_CATEGORY_PHYS].text = (char*)((lang==1)?"Constantes physique (pi)":"Physics constants (pi)");
     menuitems[CAT_CATEGORY_UNIT].text = (char*)((lang==1)?"Unites physiques (sqrt)":"Units (sqrt)");
-    menuitems[CAT_CATEGORY_LOGO].text = (char*)((lang==1)?"Tortue (x^2)":"Turtle (x^2)");
+    menuitems[CAT_CATEGORY_2D].text = (char*)((lang==1)?"Geometrie (x^2)":"Geometry (x^2)");
+    menuitems[CAT_CATEGORY_3D].text = (char*)((lang==1)?"3D (()":"3D (()");
+    menuitems[CAT_CATEGORY_LOGO].text = (char*)((lang==1)?"Tortue ())":"Turtle ())");
   
     Menu menu;
     menu.items=menuitems;
@@ -1583,7 +1700,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   }
 
   // back is the number of char that should be deleted before inserting
-  string help_insert(const char * cmdline,int & back,int exec,GIAC_CONTEXT){
+  string help_insert(const char * cmdline,int & back,int exec,GIAC_CONTEXT,bool warn){
     if (exec==KEY_CTRL_OK)
       exec=MENU_RETURN_SELECTION;
     back=0;
@@ -1614,7 +1731,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 #endif
     const catalogFunc * completeCat=(lang==1)?completeCatfr:completeCaten;
     for (;iii<nfunc;++iii){
-      if (xcas_python_eval && (completeCat[iii].category & XCAS_ONLY) )
+      if (xcas_python_eval>0 && (completeCat[iii].category & XCAS_ONLY) )
 	continue;
       const char * name=completeCat[iii].name;
       while (*name==' ')
@@ -1633,7 +1750,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     char fbuf[1024];
     if (iii==nfunc){
       if (!has_static_help(cmdname,exec?(lang==0?-2:-lang):lang,fhowto,fsyntax,fexamples,frelated)){
-	confirm("Pas d'aide disponible pour",cmdname,true);
+	if (warn) confirm("Pas d'aide disponible pour",cmdname,true);
 	return "";
       }
       cf=frelated;
@@ -1795,7 +1912,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 	  //if (catf && s[s.size()-1]!=')') s += ")";
 	}
       }
-      if (python_compat(contextptr) & 4){
+      if (python_compat(contextptr)<0 || (python_compat(contextptr) & 4)){
 	// replace := by =
 	for (int i=1;i<s.size();++i){
 	  if (s[i]=='=' && s[i-1]==':')
@@ -1806,6 +1923,10 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     }
     return "";
   }
+
+#if 0 // def NUMWORKS
+#define MENUITEM_MALLOC
+#endif
 
   // 0 on exit, 1 on success
   int doCatalogMenu(char* insertText, const char* title, int category,GIAC_CONTEXT) {
@@ -1818,7 +1939,9 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       const int CAT_COMPLETE_COUNT=((lang==1)?CAT_COMPLETE_COUNT_FR:CAT_COMPLETE_COUNT_EN);
       int nitems = isall? allcmds:(isopt?allopts:CAT_COMPLETE_COUNT);
 #ifdef MENUITEM_MALLOC
-      MenuItem *menuitems=(MenuItem *) malloc(sizeof(MenuItem)*nitems);
+      int memsize=sizeof(MenuItem)*nitems;
+      *logptr(contextptr) << "malloc " << memsize << ' ' << (size_t) &memsize << '\n';
+      MenuItem *menuitems=(MenuItem *) malloc(memsize);
       if (!menuitems)
 	return 0;
 #else
@@ -1826,7 +1949,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 #endif
       int cur = 0,curmi = 0,i=0;
 #ifdef MICROPY_LIB
-      if (xcas_python_eval)
+      if (xcas_python_eval==1)
 	micropy_ck_eval("1");
 #endif
       gen g;
@@ -1836,7 +1959,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 	if (isall || isopt) {
 	  const char * text=isall?(builtin_lexer_functions_begin()+cur)->first:(lexer_tab_int_values_begin+curmi)->keyword;
 #ifdef MICROPY_LIB
-	  if (xcas_python_eval && xcas::find_color(text,contextptr)!=3){
+	  if (xcas_python_eval==1 && xcas::find_color(text,contextptr)!=3){
 	    ++cur;
 	    continue;
 	  }
@@ -1867,7 +1990,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 	else {
 	  int cat=completeCat[cur].category;
 	  if (
-	      (!xcas_python_eval || !(cat & XCAS_ONLY) ) &&
+	      (xcas_python_eval==0 || !(cat & XCAS_ONLY) ) &&
 	      ((cat & 0xff) == category ||
 	       (cat & 0xff00) == (category<<8) ||
 	       (cat & 0xff0000) == (category <<16) )
@@ -1894,7 +2017,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       while(1) {
 	drawRectangle(0,200,LCD_WIDTH_PX,22,giac::_WHITE);
 #ifdef NSPIRE_NEWLIB
-	PrintMini(0,200,(category==CAT_CATEGORY_ALL?"doc: help | tab: ex1 | enter: ex2":"doc: help | enter ex1 | tab ex2"),4,33333,giac::_WHITE);
+	PrintMini(0,200,(category==CAT_CATEGORY_ALL?"menu: help | ret: ex1 | tab: ex2":"menu: help | ret ex1 | tab ex2"),4,33333,giac::_WHITE);
 #else
 	PrintMini(0,200,(category==CAT_CATEGORY_ALL?"Toolbox help | Ans ex1 | EXE  ex2":"Toolbox help | EXE ex1 | Ans ex2"),4,33333,giac::_WHITE);
 #endif
@@ -1973,7 +2096,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 	    }
 	  }
 #ifdef NSPIRE_NEWLIB
-	  std::string ex("enter: ");
+	  std::string ex("ret: ");
 #else
 	  std::string ex("EXE: ");
 #endif
@@ -2082,7 +2205,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       title="CATALOG";
       category=0;
     } // end endless for
-    return 0;
+    return 0; // never reached
   }
 
   int trialpha(const void *p1,const void * p2){
@@ -2092,6 +2215,35 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 
   gen select_var(GIAC_CONTEXT){
     kbd_interrupted=giac::ctrl_c=giac::interrupted=false;
+#ifdef QUICKJS
+    if (xcas_python_eval<0){
+      update_js_vars();
+      size_t vs=js_vars.size();
+      char s[vs+1];
+      strcpy(s,js_vars.c_str());
+      unsigned n=0,N=0;
+      for (size_t i=0;i<vs;++i){
+	if (s[i]==' ') 
+	  ++N;
+      }
+      const char * tab[N+1];
+      tab[0]=s;
+      for (size_t i=0;i<js_vars.size();++i){
+	if (s[i]==' '){
+	  s[i]=0;
+	  ++i; ++n;
+	  tab[n]=s+i;
+	}
+      }
+      tab[N]=0;
+      qsort(tab,N,sizeof(char *),trialpha);
+      int i=select_item(tab,"VARS",true);
+      gen g=undef;
+      if (i>=0 && tab[i])
+	g=string2gen(tab[i],false);
+      return g;
+    }
+#endif
 #ifdef MICROPY_LIB
     if (xcas_python_eval==1){
       micropy_ck_eval("");
@@ -2114,7 +2266,9 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     }
 #endif
     gen g(_VARS(0,contextptr));
-    if (g.type!=_VECT || g._VECTptr->empty()){
+    if (g.type!=_VECT
+	//|| g._VECTptr->empty()
+	){
       confirm((lang==1)?"Pas de variables. Exemples pour en creer":"No variables. Examples to create",(lang==1)?"a=1 ou f(x):=sin(x^2)":"a=1 or f(x):=sin(x^2)",true);
       return undef;
     }
@@ -2162,7 +2316,12 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     smallmenu.height=12;
     smallmenu.scrollbar=1;
     smallmenu.scrollout=1;
-    smallmenu.title = (char*)"Variables";
+    string vars="Variables";
+#if defined NUMWORKS && defined DEVICE
+    vars += ", free >= ";
+    vars += print_INT_(_heap_size-((int)_heap_ptr-(int)_heap_base));
+#endif
+    smallmenu.title = (char*) vars.c_str();
     //MsgBoxPush(5);
     int sres = doMenu(&smallmenu);
     //MsgBoxPop();
@@ -2352,6 +2511,8 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 	beg=pos-12;
       if (int(s.size())-beg<36)
 	beg=giac::giacmax(0,int(s.size())-36);
+      if (beg>pos)
+	beg=pos;
       textX=X1;
 #if 0
       os_draw_string_(textX,textY,(s.substr(beg,pos-beg)+"|"+s.substr(pos,s.size()-pos)).c_str());
@@ -2432,9 +2593,9 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   }
 
 #ifdef NSPIRE_NEWLIB
-  const int MAX_LOGO=2048; 
+  const int MAX_LOGO=8192; 
 #else
-  const int MAX_LOGO=368; // 512;
+  const int MAX_LOGO=368; // 512?
 #endif
 
   std::vector<logo_turtle> & turtle_stack(){
@@ -2461,7 +2622,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       i=i >> 1;
       t.direct = (i%2)!=0;
       i=i >> 1;
-      t.turtle_length = i & 0xff;
+      t.turtle_width = i & 0xff;
       i=i >> 8;
       t.color = i;
       t.radius = v[4].val;
@@ -2478,7 +2639,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   }
 
   static int turtle_status(const logo_turtle & turtle){
-    int status= (turtle.color << 11) | ( (turtle.turtle_length & 0xff) << 3) ;
+    int status= (turtle.color << 11) | ( (turtle.turtle_width & 0xff) << 3) ;
     if (turtle.direct)
       status += 4;
     if (turtle.visible)
@@ -2487,6 +2648,24 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       status += 1;
     return status;
   }
+
+#if defined NUMWORKS && defined DEVICE
+  bool ck_turtle_size(){
+    vector<logo_turtle> & v=turtle_stack();
+    if (v.size()<v.capacity())
+      return true;
+    int l=2*v.size();
+    if (1024+l*sizeof(logo_turtle)<_heap_size-((int)_heap_ptr-(int)_heap_base))
+      return true;
+    ctrl_c=interrupted=true;
+    return false;
+  }
+
+#else
+  int ck_turtle_size(){
+      return 1;
+  }
+#endif
 
   bool set_turtle_state(const vecteur & v,GIAC_CONTEXT){
     if (v.size()>=2 && v[0].type==_DOUBLE_ && v[1].type==_DOUBLE_){
@@ -2500,6 +2679,8 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 	w.push_back(0);
       if (w[2].type==_DOUBLE_ && w[3].type==_INT_ && w[4].type==_INT_){
 	(*turtleptr)=vecteur2turtle(w);
+	if (!ck_turtle_size())
+	  return false;
 #ifdef TURTLETAB
 	turtle_stack_push_back(*turtleptr);
 #else
@@ -2520,6 +2701,14 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
   }
 
   static gen update_turtle_state(bool clrstring,GIAC_CONTEXT){
+#if defined NUMWORKS && defined DEVICE
+    if (!ck_turtle_size()){
+      if (ctrl_c || interrupted)
+	return undef;
+      ctrl_c=true; interrupted=true;
+      return gensizeerr("Not enough memory");
+    }
+#else
 #ifdef TURTLETAB
     if (turtle_stack_size>=MAX_LOGO)
       return gensizeerr("Not enough memory");
@@ -2529,14 +2718,25 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       return gensizeerr("Not enough memory");
     }
 #endif
+#endif
     if (clrstring)
       (*turtleptr).s=-1;
     (*turtleptr).theta = (*turtleptr).theta - floor((*turtleptr).theta/360)*360;
+    bool push=true;
+    if (push){
 #ifdef TURTLETAB
-    turtle_stack_push_back((*turtleptr));
+      turtle_stack_push_back((*turtleptr));
 #else
-    turtle_stack().push_back((*turtleptr));
+      if (!turtle_stack().empty()){
+	logo_turtle & t=turtle_stack().back();
+	if (t.equal_except_angle(*turtleptr)){
+	  t.theta=turtleptr->theta;
+	  push=false;
+	}
+      }
+      turtle_stack().push_back((*turtleptr));
 #endif
+    }
     gen res=turtle_state(contextptr);
 #if defined EMCC || defined (EMCC2) // should directly interact with canvas
     return gen(turtlevect2vecteur(turtle_stack()),_LOGO__VECT);
@@ -2567,7 +2767,7 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     double i;
     if (g.type!=_INT_){
       if (g.type==_VECT)
-	i=(*turtleptr).turtle_length;
+	i=turtle_length;
       else {
 	gen g1=evalf_double(g,1,contextptr);
 	if (g1.type==_DOUBLE_)
@@ -2595,12 +2795,26 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
     if ( g.type==_STRNG && g.subtype==-1) return  g;
     // logo instruction
     if (g.type==_VECT)
-      return _avance(-(*turtleptr).turtle_length,contextptr);
+      return _avance(-turtle_length,contextptr);
     return _avance(-g,contextptr);
   }
   static const char _recule_s []="recule";
   static define_unary_function_eval2 (__recule,&_recule,_recule_s,&printastifunction);
   define_unary_function_ptr5( at_recule ,alias_at_recule,&__recule,0,T_LOGO);
+
+  gen _towards(const gen & g,GIAC_CONTEXT){
+    // logo instruction
+    if (g.type!=_VECT || g._VECTptr->size()!=2)
+      return gensizeerr(contextptr);
+    gen z=g._VECTptr->front()-(*turtleptr).x+cst_i*(g._VECTptr->back()-(*turtleptr).y);
+    int m=get_mode_set_radian(contextptr);
+    z=arg(z,contextptr);
+    angle_mode(m,contextptr);
+    return 180/M_PI*z;
+  }
+  static const char _towards_s []="towards";
+  static define_unary_function_eval2 (__towards,&_towards,_towards_s,&printastifunction);
+  define_unary_function_ptr5( at_towards ,alias_at_towards,&__towards,0,T_LOGO);
 
   static const char _backward_s []="backward";
   static define_unary_function_eval (__backward,&_recule,_backward_s);
@@ -2859,7 +3073,13 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
       res.subtype=_INT_COLOR;
       return res;
     }
-    (*turtleptr).color=g.val;
+    if (g.val<0){
+      if (g.val<-64)
+	return (*turtleptr).turtle_width;
+      (*turtleptr).turtle_width=-g.val;
+    }
+    else
+      (*turtleptr).color=g.val;
     (*turtleptr).radius = 0;
     return update_turtle_state(true,contextptr);
   }
@@ -3089,10 +3309,51 @@ const catalogFunc completeCaten[] = { // list of all functions (including some n
 
   gen _polygone_rempli(const gen & g,GIAC_CONTEXT){
     if ( g.type==_STRNG && g.subtype==-1) return  g;
-    if (g.type==_INT_){
-      (*turtleptr).radius=-absint(g.val);
-      if ((*turtleptr).radius<-1)
-	return update_turtle_state(true,contextptr);
+    static int turtle_fill_begin=-1,turtle_fill_color=-1;
+    if (g.type==_VECT && g._VECTptr->size()==3){
+      turtle_fill_color=_rgb(g,contextptr).val;
+      return change_subtype(turtle_fill_color,_INT_COLOR);
+    }
+    if (g.type==_VECT && !g._VECTptr->empty() && g._VECTptr->front().type==_INT_){
+      if (g._VECTptr->front().val>=0)
+	turtle_fill_color= g._VECTptr->front().val;
+      return change_subtype(turtle_fill_color,_INT_COLOR);
+    }
+    if (g.type==_INT_ 
+	//&& g.subtype==_INT_COLOR
+	){
+      if (g.val<-1 && g.val>-1024){
+	(*turtleptr).radius=-absint(g.val);
+	if ((*turtleptr).radius<-1)
+	  return update_turtle_state(true,contextptr);
+      }
+      turtle_fill_color= g.val;
+      return g;
+    }
+    if (g.type!=_VECT && is_zero(g)){ // 0.0
+      turtle_fill_begin=turtle_stack().size();
+      return 1;
+    }
+    if (g.type==_VECT && g._VECTptr->empty()){
+      if (turtle_fill_begin<0){
+	if (g.subtype==0)
+	  turtle_fill_begin=turtle_stack().size();
+	else
+	  return gensizeerr();
+	return 1;
+      }
+      int c=turtleptr->color;
+      if (turtle_fill_color>=0)
+	_crayon(turtle_fill_color,contextptr);
+      int n=turtle_stack().size()- turtle_fill_begin;
+      turtle_fill_begin=-1;
+      turtleptr->radius=-absint(n);
+      gen res=update_turtle_state(true,contextptr);
+      if (turtle_fill_color>=0){
+	turtleptr->radius=0;
+	_crayon(c,contextptr);
+      }
+      return res;
     }
     return gensizeerr(gettext("Integer argument >= 2"));
   }
@@ -4276,7 +4537,7 @@ namespace xcas {
       int x=0;
       int h=a.fontsize;
       int y=0;
-      bool py=python_compat(contextptr);
+      int py=python_compat(contextptr);
       int modsize=int(text_width(a.fontsize,(py?" mod":"%")))+4;
       bool paren=is_positive(-*g._MODptr,contextptr);
       int llp=int(text_width(a.fontsize,("(")));
@@ -4793,12 +5054,1417 @@ namespace xcas {
     return d;
   }
 
-  Graph2d::Graph2d(const giac::gen & g_,const giac::context * cptr):window_xmin(gnuplot_xmin),window_xmax(gnuplot_xmax),window_ymin(gnuplot_ymin),window_ymax(gnuplot_ymax),g(g_),display_mode(0x45),show_axes(1),show_names(1),labelsize(16),contextptr(cptr) {
-    update();
-    autoscale();
+  // check if point is inside triangle
+  inline bool inside(double x0,double x1,double x2,
+		     double y0,double y1,double y2,
+		     double x,double y){
+#if 1
+    double y02=y2-y0,y10=y0-y1;
+    double invarea = x0*(y1-y2) + x1*y02 + x2*y10;
+    if (invarea==0) return false;
+    invarea=1/invarea;
+    double yy0=y0-y, s=invarea*(x*y02 + x2*yy0 + x0*(y-y2));
+    if (s<-1e-12) return false;
+    double t = invarea*(x*y10 + x0*(y1-y) - x1*yy0);
+    return t>=-1e-12 && s+t<=1+1e-12;
+#else
+    double as_x = x-x0;
+    double as_y = y-y0;
+    bool s_01 = (x1-x0)*as_y-(y1-y0)*as_x>0; // dot product P0P1.P0P>0
+    if ( (x2-x0)*as_y-(y2-y0)*as_x>0 == s_01)
+      return false;
+    if ((x2-x1)*(y-y1)-(y2-y1)*(x-x1) > 0 != s_01)
+      return false;
+    return true;
+#endif
+  }
+
+  /* 3d rotation handling */
+  void normalize(double & a,double &b,double &c){
+    double n=std::sqrt(a*a+b*b+c*c);
+    a /= n;
+    b /= n;
+    c /= n;
+  }
+
+  inline int Min(int i,int j) {return i>j?j:i;}
+
+  inline int Max(int i,int j) {return i>j?i:j;}
+
+  quaternion_double::quaternion_double(double theta_x,double theta_y,double theta_z) { 
+    *this=euler_deg_to_quaternion_double(theta_x,theta_y,theta_z); 
+  }
+
+  quaternion_double euler_deg_to_quaternion_double(double a,double b,double c){
+    double phi=a*M_PI/180, theta=b*M_PI/180, psi=c*M_PI/180;
+    double c1 = std::cos(phi/2);
+    double s1 = std::sin(phi/2);
+    double c2 = std::cos(theta/2);
+    double s2 = std::sin(theta/2);
+    double c3 = std::cos(psi/2);
+    double s3 = std::sin(psi/2);
+    double c1c2 = c1*c2;
+    double s1s2 = s1*s2;
+    double w =c1c2*c3 - s1s2*s3;
+    double x =c1c2*s3 + s1s2*c3;
+    double y =s1*c2*c3 + c1*s2*s3;
+    double z =c1*s2*c3 - s1*c2*s3;
+    return quaternion_double(w,x,y,z);
+  }
+
+  void quaternion_double_to_euler_deg(const quaternion_double & q,double & phi,double & theta, double & psi){
+    double test = q.x*q.y + q.z*q.w;
+    if (test > 0.499) { // singularity at north pole
+      phi = 2 * atan2(q.x,q.w) * 180/M_PI;
+      theta = 90; 
+      psi = 0;
+      return;
+    }
+    if (test < -0.499) { // singularity at south pole
+      phi = -2 * atan2(q.x,q.w) * 180/M_PI;
+      theta = - 90;
+      psi = 0;
+      return;
+    }
+    double sqx = q.x*q.x;
+    double sqy = q.y*q.y;
+    double sqz = q.z*q.z;
+    phi = atan2(2*q.y*q.w-2*q.x*q.z , 1 - 2*sqy - 2*sqz) * 180/M_PI;
+    theta = asin(2*test) * 180/M_PI;
+    psi = atan2(2*q.x*q.w-2*q.y*q.z , 1 - 2*sqx - 2*sqz) * 180/M_PI;
+  }
+
+  quaternion_double operator * (const quaternion_double & q1,const quaternion_double & q2){ 
+    double z=q1.w*q2.z+q2.w*q1.z+q1.x*q2.y-q2.x*q1.y;
+    double x=q1.w*q2.x+q2.w*q1.x+q1.y*q2.z-q2.y*q1.z;
+    double y=q1.w*q2.y+q2.w*q1.y+q1.z*q2.x-q2.z*q1.x;
+    double w=q1.w*q2.w-q1.x*q2.x-q1.y*q2.y-q1.z*q2.z;
+    return quaternion_double(w,x,y,z);
+  }
+
+  // q must be a unit
+  void get_axis_angle_deg(const quaternion_double & q,double &x,double &y,double & z, double &theta){
+    double scale=1-q.w*q.w;
+    if (scale>1e-6){
+      scale=std::sqrt(scale);
+      theta=2*std::acos(q.w)*180/M_PI;
+      x=q.x/scale;
+      y=q.y/scale;
+      z=q.z/scale;
+    }
+    else {
+      x=0; y=0; z=1;
+      theta=0;
+    }
+  }
+
+  quaternion_double rotation_2_quaternion_double(double x, double y, double z,double theta){
+    double t=theta*M_PI/180;
+    double qx,qy,qz,qw,s=std::sin(t/2),c=std::cos(t/2);
+    qx=x*s;
+    qy=y*s;
+    qz=z*s;
+    qw=c;
+    double n=std::sqrt(qx*qx+qy*qy+qz*qz+qw*qw);
+    return quaternion_double(qw/n,qx/n,qy/n,qz/n);
+  }
+
+  // image of (x,y,z) by rotation around axis r(rx,ry,rz) of angle theta
+  void rotate(double rx,double ry,double rz,double theta,double x,double y,double z,double & X,double & Y,double & Z){
+    /*
+    quaternion_double q=rotation_2_quaternion_double(rx,ry,rz,theta);
+    quaternion_double qx(x,y,z,0);
+    quaternion_double qX=conj(q)*qx*q;
+    */
+    // r(rx,ry,rz) the axis, v(x,y,z) projects on w=a*r with a such that
+    // w.r=a*r.r=v.r
+    double r2=rx*rx+ry*ry+rz*rz;
+    double r=std::sqrt(r2);
+    double a=(rx*x+ry*y+rz*z)/r2;
+    // v=w+V, w remains stable, V=v-w=v-a*r rotates
+    // Rv=w+RV, where RV=cos(theta)*V+sin(theta)*(r cross V)/sqrt(r2)
+    double Vx=x-a*rx,Vy=y-a*ry,Vz=z-a*rz;
+    // cross product of k with V
+    double kVx=ry*Vz-rz*Vy, kVy=rz*Vx-rx*Vz,kVz=rx*Vy-ry*Vx;
+    double c=std::cos(theta),s=std::sin(theta);
+    X=a*rx+c*Vx+s*kVx/r;
+    Y=a*ry+c*Vy+s*kVy/r;
+    Z=a*rz+c*Vz+s*kVz/r;
+  }
+
+  int diffuse(int color_orig,double diffusionz){
+    if (diffusionz<1.1)
+      return color_orig;
+    int color=rgb565to888(color_orig);
+    int r=(color&0xff0000)>>16,g=(color & 0xff00)>>8,b=192;
+    double attenuate=(.3*(diffusionz-1));
+    attenuate=1.0/(1+attenuate*attenuate);
+    r*=attenuate; g*=attenuate; b*=attenuate;
+    return rgb888to565((r<<16)|(g<<8)|b);
   }
   
-  void Graph2d::zoomx(double d,bool round){
+  void glinter(double a,double b,double c,
+	       double xscale,double xc,double yscale,double yc,
+	       double *zmin,double *zmax,double ZMIN,double ZMAX,
+	       int i,int horiz,int j,int w,int h,int lcdz,
+	       int upcolor,int downcolor,int diffusionz,int diffusionz_limit,bool interval
+	       ){
+    double dz=lcdz*(a+b)*yscale-1;
+    //if (dz<-10 || dz>10) cout << "dz=" << dz << "\n";
+    // plane equation solved
+    if (//0
+	h==1 && w==1
+	){
+      int ih=i+horiz;
+      double x = yscale*j-xscale*i + xc;
+      // if (x<xmin) continue;
+      double y = yscale*j+xscale*i + yc;
+      // if (y<ymin) continue;
+      double z = (a*x+b*y+c);
+      z=LCD_HEIGHT_PX/2+j-lcdz*z;
+      if (ZMIN<z && z<ZMAX)
+	return;
+      bool intervalonly=false;
+      if (*zmax<*zmin || z<*zmin-lcdz || z>*zmax+lcdz)
+	*zmax=*zmin=z;
+      if (0 && (*zmax<50 || *zmin<50 || z<50))
+	cout << *zmax << " "; // debug
+      bool diffus=diffusionz<diffusionz_limit;
+      double deltaz;
+      if (interval){
+	if (z<0) {
+	  // return;
+	  z=0; intervalonly=true;
+	}
+	if (z>=LCD_HEIGHT_PX) {
+	  // return;
+	  z=LCD_HEIGHT_PX-1; intervalonly=true;
+	}
+	deltaz=diffus?1:diffusionz;
+	if (z>*zmax+deltaz){
+	  if (//0
+	      diffus
+	      )	  
+	    drawRectangle(ih,*zmax,1,std::ceil(z-*zmax),diffuse(downcolor,diffusionz));
+	  else {
+	    // draw interval
+	    int nstep=int(z-*zmax)/diffusionz;
+	    double zstep=(z-*zmax)/nstep;
+	    for (double zz=*zmax+zstep;zz<=z;zz+=zstep)
+	      os_set_pixel(ih,zz,downcolor);
+	  }
+	  if (intervalonly){
+	    *zmax=z;
+	    return;
+	  }
+	}
+	if (z<*zmin-deltaz){
+	  if (//0
+	      diffus
+	      )
+	    drawRectangle(ih,z,1,std::ceil(*zmin-z),diffuse(upcolor,diffusionz));
+	  else {
+	    // draw interval
+	    int nstep=int(*zmin-z)/diffusionz;
+	    double zstep=(z-*zmin)/nstep; // zstep<0
+	    for (double zz=*zmin+zstep;zz>=z;zz+=zstep)
+	      os_set_pixel(ih,zz,upcolor);
+	  }
+	  if (intervalonly){
+	    *zmin=z;
+	    return;
+	  }
+	}
+      } // end if interval
+      if (z>=0 &&  z<=LCD_HEIGHT_PX){
+	int color=-1;
+	if ( diffus && dz>0 && z>=*zmax){
+	  // mark all points with downcolor
+	  color=downcolor;
+	  deltaz=z-*zmax;
+	  *zmax=z;
+	}
+	if ( diffus && dz<0 && z<=*zmin){
+	  // mark all points with upcolor
+	  color=upcolor;
+	  deltaz=*zmin-z;
+	  *zmin=z;	  
+	}
+	if (color>=0){
+	  if (dz>0)
+	    drawRectangle(ih,z-std::ceil(deltaz),1,std::ceil(deltaz),diffuse(color,std::min(double(diffusionz),std::max(dz,1.0))));
+	  else {
+	    if (0 && deltaz>1)
+	      cout << ih << " " << z << " " << std::ceil(deltaz) << "\n";
+	    drawRectangle(ih,z,1,std::ceil(deltaz),diffuse(color,std::min(double(diffusionz),std::max(-dz,1.0))));
+	  }
+	  return;
+	}
+	if (z>=*zmax){ // mark only 1 point
+	  *zmax=z;
+	  color=downcolor;
+	}
+	if (z<=*zmin){ // mark 1 point
+	  *zmin=z;
+	  color=upcolor;
+	}
+	if (color>=0){
+	  os_set_pixel(ih,z,color);
+	}
+      }
+      return; // end h==1 and w==1
+    }
+    for (int I=i;I<i+w;++I,++zmax,++zmin){
+      int ih=I+horiz;
+      double x = yscale*j-xscale*I + xc;
+      // if (x<xmin) continue;
+      double y = yscale*j+xscale*I + yc;
+      // if (y<ymin) continue;
+      double z = (a*x+b*y+c);
+      bool intervalonly=false;
+      z=LCD_HEIGHT_PX/2+j-lcdz*z;
+      if (ZMIN<z && z<ZMAX)
+	return;
+      if (interval){
+	if (z<0) {
+	  z=0; intervalonly=true;
+	}
+	if (z>=LCD_HEIGHT_PX) {
+	  z=LCD_HEIGHT_PX-1; intervalonly=true;
+	}
+      }
+      if (i==0)
+	; // cout << "i=" << i << " j=" << j << ", zmin=" << *zmin << " z=" << z << " zmax=" << *zmax << " dz=" << dz << ", a=" << a << " b=" << b << " c=" << c <<"\n";
+      if (*zmax<*zmin || z<*zmin-lcdz || z>*zmax+lcdz)
+	*zmax=*zmin=z;
+      int deltaz=(diffusionz<diffusionz_limit?1:diffusionz);
+      if (interval && z>*zmax+deltaz){
+	if (//0
+	    diffusionz<diffusionz_limit
+	    )	  
+	  drawRectangle(ih,*zmax,1,std::ceil(z-*zmax),diffuse(downcolor,diffusionz));
+	else {
+	  // draw interval
+	  int nstep=int(z-*zmax)/diffusionz;
+	  double zstep=(z-*zmax)/nstep;
+	  for (double zz=*zmax+zstep;zz<=z;zz+=zstep)
+	    os_set_pixel(ih,zz,downcolor);
+	}
+	if (intervalonly){
+	  *zmax=z;
+	  continue;
+	}
+      }
+      if (interval && z<*zmin-deltaz){
+	if (//0
+	    diffusionz<diffusionz_limit
+	    )
+	  drawRectangle(ih,z,1,std::ceil(*zmin-z),diffuse(upcolor,diffusionz));
+	else {
+	  // draw interval
+	  int nstep=int(*zmin-z)/diffusionz;
+	  double zstep=(z-*zmin)/nstep; // zstep<0
+	  for (double zz=*zmin+zstep;zz>=z;zz+=zstep)
+	    os_set_pixel(ih,zz,upcolor);
+	}
+	if (intervalonly){
+	  *zmin=z;
+	  continue;
+	}
+      }
+      if (//x-(h-1)*yscale>xmin && y-(h-1)*yscale>ymin &&
+	  z>=0 && z+(h-1)*dz>=0 && z<=LCD_HEIGHT_PX && z+(h-1)*dz<=LCD_HEIGHT_PX
+	  ){
+	int color=-1;
+	if ( (h>1 || diffusionz<diffusionz_limit) && dz>0 && z>=*zmax){
+	  // mark all points with downcolor
+	  *zmax=z+(h-1)*dz;
+	  color=downcolor;
+	  if (diffusionz>=diffusionz_limit && dz>diffusionz){
+	    // draw interval
+	    int nstep=int(std::ceil((*zmax-z)/diffusionz));
+	    double zstep=(*zmax-z)/nstep;
+	    for (int i=0;i<=nstep;++i)
+	      os_set_pixel(ih,z+i*zstep,color);		    
+	    continue;
+	  }
+	}
+	if ( (h>1 || diffusionz<diffusionz_limit) && dz<0 && z<=*zmin){
+	  // mark all points with upcolor
+	  *zmin=z+(h-1)*dz;
+	  color=upcolor;
+	  if (diffusionz>=diffusionz_limit && dz<-diffusionz){
+	    // draw interval
+	    int nstep=int(std::ceil((z-*zmin)/diffusionz));
+	    double zstep=(*zmin-z)/nstep;
+	    for (int i=0;i<=nstep;++i)
+	      os_set_pixel(ih,z+i*zstep,color);
+	    continue;
+	  }
+	}
+	if (color>=0){
+	  if (diffusionz<diffusionz_limit){
+	    if (dz>0)
+	      drawRectangle(ih,z,1,std::ceil(h*dz),diffuse(color,std::min(double(diffusionz),std::max(dz,1.0))));
+	    else
+	      drawRectangle(ih,z-std::ceil(-h*dz),1,std::ceil(-h*dz),diffuse(color,std::min(double(diffusionz),std::max(-dz,1.0))));
+	    continue;
+	  }
+	  os_set_pixel(ih,z,color);
+	  if (h==1) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==2) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==3) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==4) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==5) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==6) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==7) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  if (h==8) continue;
+	  z += dz;
+	  os_set_pixel(ih,z,color);
+	  continue;
+	}
+	if (dz<=0 && z>=*zmax && z+(h-1)*dz>=*zmin){ // mark only 1 point
+	  *zmax=z;
+	  color=downcolor;
+	}
+	if (dz>=0 && z<=*zmin && z+(h-1)*dz<=*zmax){ // mark 1 point
+	  *zmin=z;
+	  color=upcolor;
+	}
+	if (color>=0){
+	  os_set_pixel(ih,z,color);
+	  continue;
+	}
+      }
+      for (int J=0;J<h
+	     // && x>=xmin && y>=ymin
+	     ;++J,z+=dz,x-=yscale,y-=yscale){
+	int color=-1;
+	if (z>*zmax){
+	  *zmax=z;
+	  color=downcolor;
+	}
+	if (z<*zmin){
+	  *zmin=z;
+	  color=upcolor;
+	}
+	if (z<=-0.5 || z>=LCD_HEIGHT_PX)
+	  continue;
+	if (color>=0)
+	  os_set_pixel(ih,z,color); // drawRectangle(i,z,w,h,color);
+      }
+    }
+  }
+
+  void find_abc(double x1,double x2,double x3,
+		double y1,double y2,double y3,
+		double z1,double z2,double z3,
+		double &a,double &b,double &c){
+    // solve([a*x1+b*y1+c=z1,a*x2+b*y2+c=z2,a*x3+b*y3+c=z3],[a,b,c])
+    // double d=(x1*y2-x1*y3-x2*y1+x2*y3+x3*y1-x3*y2);
+    double d=(x1*(y2-y3)+x2*(y3-y1)+x3*(y1-y2));
+    if (d==0) return;
+    d=1/d;
+    double z12=z2-z1,z23=z3-z2,z31=z1-z3;
+    //double a=(-y1*z2+y1*z3+y2*z1-y2*z3-y3*z1+y3*z2)/d;
+    a=d*(y1*z23+y2*z31+y3*z12);
+    // double b=(x1*z2-x1*z3-x2*z1+x2*z3+x3*z1-x3*z2)/d;
+    b=-d*(x1*z23+x2*z31+x3*z12);
+    //double c=(x1*y2*z3-x1*y3*z2-x2*y1*z3+x2*y3*z1+x3*y1*z2-x3*y2*z1)/d;
+    c=d*(x1*(y2*z3-y3*z2)+x2*(y3*z1-y1*z3)+x3*(y1*z2-y2*z1));
+  }
+
+  void glinter(double x1,double x2,double x3,
+	       double y1,double y2,double y3,
+	       double z1,double z2,double z3,
+	       double xscale,double xc,double yscale,double yc,
+	       double *zmin,double *zmax,double ZMIN,double ZMAX,
+	       int i,int horiz,int j,int w,int h,int lcdz,
+	       int upcolor,int downcolor,int diffusionz,int diffusionz_limit,bool interval
+	       ){
+    double a,b,c;
+    find_abc(x1,x2,x3,y1,y2,y3,z1,z2,z3,a,b,c);
+    glinter(a,b,c,xscale,xc,yscale,yc,zmin,zmax,ZMIN,ZMAX,i,horiz,j,w,h,lcdz,upcolor,downcolor,diffusionz,diffusionz_limit,interval);
+  }
+  
+  void update12(bool & found,bool &found2,
+		double x1,double x2,double x3,double y1,double y2,double y3,double z1,double z2,double z3,
+		int upcolor,int downcolor,int downupcolor,int downdowncolor,
+		double & curx1, double &curx2, double &curx3, double &cury1, double &cury2, double &cury3, double &curz1, double &curz2, double &curz3, 
+		double &cur2x1, double &cur2x2, double &cur2x3, double &cur2y1, double &cur2y2, double &cur2y3, double &cur2z1, double &cur2z2, double &cur2z3,
+		int & u,int & d,int & du,int & dd){
+    if (found){
+      if (z1+z2+z3<curz1+curz2+curz3){
+	// no need to update cur, perhaps cur2?
+	if (found2 && cur2z1+cur2z2+cur2z3<z1+z2+z3)
+	  return;
+	found2=true;
+	cur2x1=x1; cur2x2=x2; cur2x3=x3;
+	cur2y1=y1; cur2y2=y2; cur2y3=y3;
+	cur2z1=z1; cur2z2=z2; cur2z3=z3;
+	du=downupcolor; dd=downdowncolor;
+	return;
+      }
+      else { // need to update cur, and perhaps cur2
+	if (!found2 || curz1+curz2+curz3<cur2z1+cur2z2+cur2z3){
+	  found2=true;
+	  cur2x1=curx1; cur2x2=curx2; cur2x3=curx3;
+	  cur2y1=cury1; cur2y2=cury2; cur2y3=cury3;
+	  cur2z1=curz1; cur2z2=curz2; cur2z3=curz3;
+	  du=downupcolor; dd=downdowncolor;
+	}
+	curx1=x1; curx2=x2; curx3=x3;
+	cury1=y1; cury2=y2; cury3=y3;
+	curz1=z1; curz2=z2; curz3=z3;
+	u=upcolor; d=downcolor;
+	return;
+      }
+    }
+    found=true;
+    curx1=x1; curx2=x2; curx3=x3;
+    cury1=y1; cury2=y2; cury3=y3;
+    curz1=z1; curz2=z2; curz3=z3;
+    u=upcolor; d=downcolor;
+  }
+	      
+  void update12(bool & found,bool &found2,
+		double a,double b,double c,double z,
+		int upcolor,int downcolor,int downupcolor,int downdowncolor,
+		double & cura1,double & curb1,double & curc1,double & curz1,
+		double & cura2,double & curb2,double & curc2,double & curz2,
+		int & u,int & d,int & du,int & dd){
+    if (found){
+      if (z<curz1){
+	// no need to update cur, perhaps cur2?
+	if (found2 && curz2<z)
+	  return;
+	found2=true;
+	cura2=a; curb2=b; curc2=c; curz2=z;
+	du=downupcolor; dd=downdowncolor;
+	return;
+      }
+      else { // need to update cur, and perhaps cur2
+	if (!found2 || curz1<curz2){
+	  found2=true;
+	  cura2=cura1; curb2=curb1; curc2=curc1; curz2=curz1;
+	  du=downupcolor; dd=downdowncolor;
+	}
+	cura1=a; curb1=b; curc1=c; curz1=z;
+	u=upcolor; d=downcolor;
+	return;
+      }
+    }
+    found=true;
+    cura1=a; curb1=b; curc1=c; curz1=z;
+    u=upcolor; d=downcolor;
+  }
+	      
+  
+  // 3d demo prototype
+  void do_transform(const double mat[16],double x,double y,double z,double & X,double & Y,double &Z){
+    X=mat[0]*x+mat[1]*y+mat[2]*z+mat[3];
+    Y=mat[4]*x+mat[5]*y+mat[6]*z+mat[7];
+    Z=mat[8]*x+mat[9]*y+mat[10]*z+mat[11];
+    // double t=mat[12]*x+mat[13]*y+mat[14]*z+mat[15];
+    // X/=t; Y/=t; Z/=t;
+  }
+
+#if 1
+  bool inside(const vector<double3> & v,double x,double y){
+    int n=0;
+    for (int i=1;i<v.size();++i){
+      const double3 & prev=v[i-1];
+      const double3 & cur=v[i];
+      double prevx=prev.x,prevy=prev.y,curx=cur.x,cury=cur.y,m=cur.z;
+      if (prevx==curx){
+	if (x==curx && (y-prevy)*(cury-y)>0) // on vertical edge
+	  return false;
+	continue;
+      }
+      if (x==prevx) 
+	continue;
+      if ((x-prevx)*(curx-x)<0)
+	continue;
+      //double Y=cury+m*(x-curx);
+      double Y=cury+(cur.y-prev.y)/(cur.x-prev.x)*(x-curx);
+      if (Y>=y)
+	++n; 
+    }
+    if (n%2)
+      return true;
+    return false;
+  }
+#else
+  bool inside(const vector<double3> & v,double x,double y){
+    int n=0;
+    for (int i=1;i<v.size();++i){
+      double3 prev=v[i-1],cur=v[i];
+      double prevx=prev.x,prevy=prev.y,curx=cur.x,cury=cur.y,m=cur.z;
+      if (prevx==curx){
+	if (prevx!=x) continue;
+	if (y==cury || (y-prevy)*(cury-y)>0)
+	  ++n;
+	continue;
+      }
+      if (x==prevx || (x-prevx)*(curx-x)<0)
+	continue;
+      double Y=cury+m*(x-curx);
+      if (Y>=y)
+	++n; 
+    }
+    if (n%2)
+      return true;
+    return false;
+  }
+#endif
+  
+  // intersect plane x-y=xy with line m+t*v
+  // m.x+t*v.x-m.y-t*v.y=-xy
+  double intersect(const double3 & m,const double3 & v,double xy){
+    return (-xy+m.y-m.x)/(v.x-v.y);
+  }
+
+  void get_colors(gen attr,int & upcolor,int & downcolor,int & downupcolor,int & downdowncolor){
+    if (attr.is_symb_of_sommet(at_pnt)){
+      attr=attr[1];
+    }
+    if (attr.type==_INT_ && (attr.val & 0xffff)!=0){
+      upcolor=attr.val &0xffff;
+      int color=rgb565to888(upcolor);
+      int r=(color&0xff0000)>>16,g=(color & 0xff00)>>8,b=192;
+      r >>= 2;
+      g >>= 2;
+      downcolor=rgb888to565((r<<16)|(g<<8)|b);
+      r >>= 1;
+      g >>= 1;
+      downupcolor=rgb888to565((r<<16)|(g<<8)|b);
+      r >>= 2;
+      g >>= 2;
+      downdowncolor=rgb888to565((r<<16)|(g<<8)|b);
+    }
+  }
+
+#define ABC3D
+
+  // 2d coordinates of m+t*v
+  void grmtv2ij(const Graph2d & gr,const double3 & m,const double3 & v,double t,int & i,int & j){
+    double x=m.x+t*v.x;
+    double y=m.y+t*v.y;
+    double z=m.z+t*v.z;
+    gr.XYZ2ij(double3(x,y,z),i,j);
+  }    
+  
+  // hpersurface encoded as a matrix
+  // with lines containing 3 coordinates per point
+  bool Graph2d::glsurface(int w,int h,int lcdz,GIAC_CONTEXT,
+			  int upcolor_,int downcolor_,int downupcolor_,int downdowncolor_)  {
+    if (w>9) w=9;
+    if (h>9) h=9;
+    // save zmin/zmax on the stack (4K required)
+    const int jmintabsize=512;
+    short int *jmintab=(short int *)alloca(jmintabsize*sizeof(short int)), * jmaxtab=(short int *)alloca(jmintabsize*sizeof(short int)); // assumes LCD_WIDTH_PX<=jmintabsize
+    for (int i=0;i<jmintabsize;++i){
+      jmintab[i]=LCD_HEIGHT_PX;
+      jmaxtab[i]=0;
+    }
+    vecteur attrv(gen2vecteur(g));
+    std::vector< std::vector< vector<float3d> >::const_iterator > hypv; // 3 iterateurs per hypersurface
+    int upcolor,downcolor,downupcolor,downdowncolor;
+    for (int i=0;i<attrv.size();++i){
+      gen attr=attrv[i];
+      upcolor=upcolor_;downcolor=downcolor_;downupcolor=downupcolor_;downdowncolor=downdowncolor_;
+      get_colors(attrv[i],upcolor,downcolor,downupcolor,downdowncolor);
+    }
+    for (int i=0;i<surfacev.size();++i){
+      hypv.push_back(surfacev[i].begin());
+      hypv.push_back(surfacev[i].end());
+    }
+    int horiz=LCD_WIDTH_PX/2,vert=horiz/2;//LCD_HEIGHT_PX/2;
+    int imin=Ai,imax=Ai,itmp;
+    // 12 segments from cube visualization
+    double segments_x1[12]={Ai,Bi,Ei,Fi,Ai,Bi,Ci,Di,Ai,Ci,Ei,Gi};
+    double segments_x2[12]={Ci,Di,Gi,Hi,Ei,Fi,Gi,Hi,Bi,Di,Fi,Hi};
+    double segments_y1[12]={Aj,Bj,Ej,Fj,Aj,Bj,Cj,Dj,Aj,Cj,Ej,Gj};
+    double segments_y2[12]={Cj,Dj,Gj,Hj,Ej,Fj,Gj,Hj,Bj,Dj,Fj,Hj};
+    double segments_m[12];
+    for (int i=0;i<12;++i){
+      segments_m[i]=(segments_y2[i]-segments_y1[i])/(segments_x2[i]-segments_x1[i]);
+      itmp=segments_x1[i];
+      if (itmp<imin) imin=itmp; if (itmp>imax) imax=itmp;
+      itmp=segments_x2[i];
+      if (itmp<imin) imin=itmp; if (itmp>imax) imax=itmp;      
+    }
+    double xmin=-1,ymin=-1,xmax=1,ymax=1,xscale=0.6*(xmax-xmin)/horiz,yscale=0.6*(ymax-ymin)/vert,x,y,z,xc=(xmin+xmax)/2,yc=(ymin+ymax)/2;
+    drawRectangle(0,0,imin,LCD_HEIGHT_PX,COLOR_BLACK); // clear    
+    drawRectangle(imax,0,LCD_WIDTH_PX-imax,LCD_HEIGHT_PX,COLOR_BLACK); // clear
+    sync_screen();
+    int count=0;
+    for (int i=imin-horiz;i<imax-horiz;i+=w,++count){
+    //for (int i=-horiz;i<horiz;i+=w){
+#ifdef NSPIRE_NEWLIB
+      if (count%16==15)
+	sync_screen();
+      control_c();
+      if (ctrl_c || interrupted){
+	// w+=2; h+=2;
+	ctrl_c=interrupted=false;
+	return true;
+      }
+#endif
+#if defined NUMWORKS && defined DEVICE
+      if (iskeydown(KEY_CTRL_EXIT))
+	return true;
+      if (iskeydown(KEY_CTRL_OK)){
+	w++; h++;
+      }
+#endif
+      drawRectangle(i+horiz,0,w,LCD_HEIGHT_PX,COLOR_BLACK); // clear
+      // find min and max values for j using vertical intersections of line x=i
+      // with segments
+      int ih=i+horiz+w/2,jmin=RAND_MAX,jmax=-RAND_MAX;
+      for (int k=0;k<12;++k){
+	if ( !is_inf(segments_m[k]) && (ih-segments_x1[k])*(segments_x2[k]-ih)>=0 ){
+	  double y=segments_y1[k]+segments_m[k]*(ih-segments_x1[k]);
+	  if (y<=jmin)
+	    jmin=std::floor(y);
+	  if (y>=jmax)
+	    jmax=std::ceil(y);
+	}
+      }
+      if (jmin>jmax) continue;
+      if (jmin<0) jmin=0;
+      if (jmax>LCD_HEIGHT_PX) jmax=LCD_HEIGHT_PX;
+      jmin -= LCD_HEIGHT_PX/2;
+      jmax -= LCD_HEIGHT_PX/2;      
+      double zmin[10]={220.220,220,220,220,220,220,220,220,220},
+	zmax[10]={0,0,0,0,0,0,0,0,0,0},
+	zmin2[10]={220.220,220,220,220,220,220,220,220,220},
+	zmax2[10]={0,0,0,0,0,0,0,0,0,0}	; // initialize for these vertical lines
+#ifdef ABC3D
+      double cura1,cura2,curb1,curb2,curc1,curc2,curz1=-1e306,curz2=1e306;
+#else
+      double curx1,curx2,curx3,cury1,cury2,cury3,curz1=-1e306,curz2=-1e306,curz3=-1e306;
+      double cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1=-1e306,cur2z2=-1e306,cur2z3=-1e306;
+#endif
+      int u,d,du,dd;
+      // for (int j=vert;j>-vert;j-=h){
+      for (int j=jmax;j>=jmin;j-=h){
+	if (0 && i==-35 && j==-44)
+	  u=0; // debug
+	x = yscale*(j-(h-1)/2.0)-xscale*(i+(w-1)/2.0) + xc;
+	y = yscale*(j-(h-1)/2.0)+xscale*(i+(w-1)/2.0) + yc;
+	bool found=false,found2=false;
+	// Oxy clipping for surfaces
+	if (1 
+	    //x>=xmin && x<=xmax && y>=ymin && y<=ymax
+	    ){
+	  for (int k=0;k<hypv.size();k+=2){
+	    vector< vector<float3d> >::const_iterator sbeg=hypv[k],send=hypv[k+1],sprec,scur;
+	    vector<float3d>::const_iterator itprec,itcur,itprecend;
+	    int4 color=hyp_color[k]; 
+	    u=color.u; d=color.d; du=color.du; dd=color.dd;
+	    // find zxy intersections of vertical line (x,y,...) with surface
+	    // found will mark 1st intersection from above, found2 2nd
+	    for (sprec=sbeg,scur=sprec+1;scur<send;++sprec,++scur){
+	      itprec=sprec->begin(); 
+	      itprecend=sprec->end();
+	      itcur=scur->begin();
+	      double x1,x2=*itprec,x3,x4=*itcur;
+	      for (itprec+=3,itcur+=3;itprec<itprecend;itprec+=3,itcur+=3){
+		x1=x2;
+		x2=*itprec;
+		x3=x4;
+		x4=*itcur;
+		if (x<x1 && x<x2 && x<x3 && x<x4){
+		  // per iteration: 2 incr, 1 test, 2 equal, 2 read, 2 comp, && , test
+		  for (itprec+=3,itcur+=3;itprec<itprecend;itprec+=3,itcur+=3){
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x>=x2 || x>=x4 )
+		      break;
+		    itprec+=3;itcur+=3;
+		    if (itprec>=itprecend)
+		      break;
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x>=x2 || x>=x4 )
+		      break;
+		    itprec+=3;itcur+=3;
+		    if (itprec>=itprecend)
+		      break;
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x>=x2 || x>=x4 )
+		      break;
+		    itprec+=3;itcur+=3;
+		    if (itprec>=itprecend)
+		      break;
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x>=x2 || x>=x4 )
+		      break;
+		  }
+		  if (x<x2 && x<x4) continue;
+		}
+		else if (x>x1 && x>x2 && x>x3 && x>x4){
+		  for (itprec+=3,itcur+=3;itprec<itprecend;itprec+=3,itcur+=3){
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x<=x2 || x<=x4 )
+		      break;
+		    itprec+=3;itcur+=3;
+		    if (itprec>=itprecend)
+		      break;
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x<=x2 || x<=x4 )
+		      break;
+		    itprec+=3;itcur+=3;
+		    if (itprec>=itprecend)
+		      break;
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x<=x2 || x<=x4 )
+		      break;
+		    itprec+=3;itcur+=3;
+		    if (itprec>=itprecend)
+		      break;
+		    x1=x2;
+		    x2=*itprec;
+		    x3=x4;
+		    x4=*itcur;
+		    if (x<=x2 || x<=x4 )
+		      break;
+		  }
+		  if (x>x2 && x>x4) continue;
+		}
+		double y1=*(itprec-2),y2=*(itprec+1),y3=*(itcur-2),y4=*(itcur+1);
+		bool not123=(y<y1 && y<y2 && y<y3) || (y>y1 && y>y2 && y>y3);
+		bool not234=(y<y4 && y<y2 && y<y3) || (y>y4 && y>y2 && y>y3);
+		//std::cout << "check " << i << " " << j << " " << x << " " << y << "\n";
+		// if (i==65) ;//cout << 65 << "\n";
+		if (not123 && not234)
+		  continue;
+		// now find intersections with quad (cut in two triangles)
+		double z1=*(itprec-1),z2=*(itprec+2),z3=*(itcur-1),z4=*(itcur+2);
+		if (!not123){
+		  double x123=(x1+x2+x3)/3,y123=(y1+y2+y3)/3,z123=(z1+z2+z3)/3,X,Y,Z;
+		  do_transform(invtransform,x123,y123,z123,X,Y,Z);
+		  if (Z>=window_zmin && Z<=window_zmax && X>=window_xmin && X<=window_xmax && Y>=window_ymin && Y<=window_ymax &&  inside(x1,x2,x3,y1,y2,y3,x,y)){
+#ifdef ABC3D
+		    double a,b,c;
+		    find_abc(x1,x2,x3,y1,y2,y3,z1,z2,z3,a,b,c);
+		    update12(found,found2,
+			     a,b,c,z123,
+			     u,d,du,dd,
+			     cura1,curb1,curc1,curz1,
+			     cura2,curb2,curc2,curz2,
+			     upcolor,downcolor,downupcolor,downdowncolor);
+#else
+		    update12(found,found2,
+			     x1,x2,x3,y1,y2,y3,z1,z2,z3,
+			     u,d,du,dd,
+			     curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,
+			     cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,
+			     upcolor,downcolor,downupcolor,downdowncolor);
+#endif
+		    continue;
+		  } // end inside123
+		} // end if !not123
+		if (!not234){
+		  double x234=(x2+x3+x4)/3,y234=(y2+y3+y4)/3,z234=(z2+z3+z4)/3,X,Y,Z;
+		  do_transform(invtransform,x234,y234,z234,X,Y,Z);
+		  if (Z>=window_zmin && Z<=window_zmax && X>=window_xmin && X<=window_xmax && Y>=window_ymin && Y<=window_ymax &&  inside(x2,x3,x4,y2,y3,y4,x,y)){
+#ifdef ABC3D
+		    double a,b,c;
+		    find_abc(x2,x3,x4,y2,y3,y4,z2,z3,z4,a,b,c);
+		    update12(found,found2,
+			     a,b,c,z234,
+			     u,d,du,dd,
+			     cura1,curb1,curc1,curz1,
+			     cura2,curb2,curc2,curz2,
+			     upcolor,downcolor,downupcolor,downdowncolor);
+#else
+		    update12(found,found2,
+			     x2,x3,x4,y2,y3,y4,z2,z3,z4,u,d,du,dd,
+			     curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,
+			     cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,
+			     upcolor,downcolor,downupcolor,downdowncolor);
+#endif
+		  } // end if inside 234
+		} // end !not234
+	      } // end surface iterator in line loop
+	    } // end loop in surface
+	  } // end hypersurface loop
+	} // end if x,y in after transform clipping (disabled)
+	for (int k=0;k<polyedrev.size();++k){
+	  double facemin=polyedre_xyminmax[2*k],facemax=polyedre_xyminmax[2*k+1];
+	  if (y-x<facemin || y-x>facemax)
+	    continue;
+	  vector<double3> & cur=polyedrev[k];
+	  if (inside(cur,x,y)){
+	    double3 abc=polyedre_abcv[k];
+	    int4 color=polyedre_color[k];
+	    // std::cout << k << " " << x << " " << y << " " << color.u << "\n";
+	    double a=abc.x,b=abc.y,c=abc.z;
+	    z=a*x+b*y+c;
+	    double X,Y,Z;
+	    do_transform(invtransform,x,y,z,X,Y,Z);
+	    if (X>=window_xmin && X<=window_xmax && Y>=window_ymin && Y<=window_ymax && Z>=window_zmin && Z<=window_zmax){
+#ifdef ABC3D
+	      update12(found,found2,
+		       a,b,c,z,
+		       color.u,color.d,color.du,color.dd,
+		       cura1,curb1,curc1,curz1,
+		       cura2,curb2,curc2,curz2,
+		       upcolor,downcolor,downupcolor,downdowncolor);
+#else
+	      update12(found,found2,
+		       x-.5,x-.5,x+1,y+0.866,y-0.866,y,z-.5*a+.866*b,z-.5*a-.866*b,z+a,color.u,color.d,color.du,color.dd,
+		       curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,
+		       cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,
+		       upcolor,downcolor,downupcolor,downdowncolor);
+#endif
+	    }
+	  } // end if inside(cur,x,y)
+	}
+	for (int k=0;k<sphere_centerv.size();++k){
+	  double3 c=sphere_centerv[k];
+	  double R=sphere_radiusv[k];
+	  matrice & m=*sphere_quadraticv[k]._VECTptr;
+	  int4 color=sphere_color[k];
+	  vecteur & m0=*m[0]._VECTptr;
+	  vecteur & m1=*m[1]._VECTptr;
+	  vecteur & m2=*m[2]._VECTptr;
+	  double v0=x-c.x,v1=y-c.y,v2=0;
+	  double a=m2[2]._DOUBLE_val,b=2*m0[2]._DOUBLE_val*v0+2*m1[2]._DOUBLE_val*v1,C=m0[0]._DOUBLE_val*v0*v0+2*m0[1]._DOUBLE_val*v0*v1+m1[1]._DOUBLE_val*v1*v1-R*R;
+	  double delta=b*b-4*a*C;
+	  if (delta<0)
+	    continue;
+	  delta=std::sqrt(delta);
+	  double sol1,sol2;
+	  if (b>0){
+	    sol1=(-b-delta)/2/a;
+	    sol2=2*C/(-b-delta); // (-b+delta)/2/a;
+	  }
+	  else {
+	    sol1=2*C/(-b+delta);//(-b-delta)/2/a;
+	    sol2=(-b+delta)/2/a;
+	  }
+	  v2=sol1;
+	  z=v2+c.z;
+	  double X,Y,Z;
+	  do_transform(invtransform,x,y,z,X,Y,Z);
+	  if (X>=window_xmin && X<=window_xmax && Y>=window_ymin && Y<=window_ymax && Z>=window_zmin && Z<=window_zmax){
+	    double w0=v0*m0[0]._DOUBLE_val+v1*m1[0]._DOUBLE_val+v2*m2[0]._DOUBLE_val;
+	    double w1=v0*m0[1]._DOUBLE_val+v1*m1[1]._DOUBLE_val+v2*m2[1]._DOUBLE_val;
+	    double w2=v0*m0[2]._DOUBLE_val+v1*m1[2]._DOUBLE_val+v2*m2[2]._DOUBLE_val;
+#ifdef ABC3D
+	    double a=-w0/w2,b=-w1/w2,c=z-(a*x+b*y);
+	    update12(found,found2,
+		     a,b,c,z,
+		     color.u,color.d,color.du,color.dd,
+		     cura1,curb1,curc1,curz1,
+		     cura2,curb2,curc2,curz2,
+		     upcolor,downcolor,downupcolor,downdowncolor);
+#else
+	    update12(found,found2,
+		     //x-w2,x,x,y,y,y-w2,z+w0,z,z+w1,
+		     x-0.5,x-.5,x+1,y+.866,y-.866,y,z+.5*w0/w2-.866*w1/w2,z+.5*w0/w2+.866*w1/w2,z-w0/w2,
+		     color.u,color.d,color.du,color.dd,
+		     curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,
+		     cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,
+		     upcolor,downcolor,downupcolor,downdowncolor);
+#endif
+	  }
+	  v2=sol2;
+	  z=v2+c.z;
+	  do_transform(invtransform,x,y,z,X,Y,Z);
+	  if (delta>0 && X>=window_xmin && X<=window_xmax && Y>=window_ymin && Y<=window_ymax && Z>=window_zmin && Z<=window_zmax){
+	    double w0=v0*m0[0]._DOUBLE_val+v1*m1[0]._DOUBLE_val+v2*m2[0]._DOUBLE_val;
+	    double w1=v0*m0[1]._DOUBLE_val+v1*m1[1]._DOUBLE_val+v2*m2[1]._DOUBLE_val;
+	    double w2=v0*m0[2]._DOUBLE_val+v1*m1[2]._DOUBLE_val+v2*m2[2]._DOUBLE_val;
+#ifdef ABC3D
+	    double a=-w0/w2,b=-w1/w2,c=z-(a*x+b*y);
+	    update12(found,found2,
+		     a,b,c,z,
+		     color.u,color.d,color.du,color.dd,
+		     cura1,curb1,curc1,curz1,
+		     cura2,curb2,curc2,curz2,
+		     upcolor,downcolor,downupcolor,downdowncolor);
+#else
+	    update12(found,found2,
+		     //x-w2,x,x,y,y,y-w2,z+w0,z,z+w1,
+		     x-0.5,x-.5,x+1,y+.866,y-.866,y,z+.5*w0/w2-.866*w1/w2,z+.5*w0/w2+.866*w1/w2,z-w0/w2,
+		     color.u,color.d,color.du,color.dd,
+		     curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,
+		     cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,
+		     upcolor,downcolor,downupcolor,downdowncolor);
+#endif
+	  }
+	} // end hypersphere loop
+	for (int k=0;k<plan_abcv.size();++k){
+	  double3 abc=plan_abcv[k];
+	  int4 color=plan_color[k];
+	  // z=a*x+b*y+c
+	  double z=abc.x*x+abc.y*y+abc.z,X,Y,Z;
+	  do_transform(invtransform,x,y,z,X,Y,Z);
+	  if (X>=window_xmin && X<=window_xmax && Y>=window_ymin && Y<=window_ymax && Z>=window_zmin && Z<=window_zmax)
+#ifdef ABC3D
+	    update12(found,found2,
+		     abc.x,abc.y,abc.z,z,
+		     color.u,color.d,color.du,color.dd,
+		     cura1,curb1,curc1,curz1,
+		     cura2,curb2,curc2,curz2,
+		     upcolor,downcolor,downupcolor,downdowncolor);
+#else
+	    update12(found,found2,
+		     x-1,x,x,y,y,y+1,z-abc.x,z,z+abc.y,color.u,color.d,color.du,color.dd,
+		     curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,
+		     cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,
+		     upcolor,downcolor,downupcolor,downdowncolor);
+#endif
+	} // end hyperplan loop
+	if (found){
+#ifdef ABC3D
+	  if (found2){
+	    if (!hide2nd)
+	      glinter(cura2,curb2,curc2,xscale,xc,yscale,yc,zmin2,zmax2,zmin[0],zmax[0],i,horiz,j,w,h,lcdz,downupcolor,downdowncolor,diffusionz,diffusionz_limit,interval);
+	    glinter(cura1,curb1,curc1,xscale,xc,yscale,yc,zmin,zmax,1e307,-1e307,i,horiz,j,w,h,lcdz,upcolor,downcolor,diffusionz,diffusionz_limit,interval);
+	  }
+	  else
+	    glinter(cura1,curb1,curc1,xscale,xc,yscale,yc,zmin,zmax,1e307,-1e307,i,horiz,j,w,h,lcdz,upcolor,downcolor,diffusionz,diffusionz_limit,interval);
+#else
+	  if (found2){
+	    if (!hide2nd)
+	      glinter(cur2x1,cur2x2,cur2x3,cur2y1,cur2y2,cur2y3,cur2z1,cur2z2,cur2z3,xscale,xc,yscale,yc,zmin2,zmax2,zmin[0],zmax[0],i,horiz,j,w,h,lcdz,downupcolor,downdowncolor,diffusionz,diffusionz_limit,interval);
+	    glinter(curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,xscale,xc,yscale,yc,zmin,zmax,1e307,-1e307,i,horiz,j,w,h,lcdz,upcolor,downcolor,diffusionz,diffusionz_limit,interval);
+	  }
+	  else
+	    glinter(curx1,curx2,curx3,cury1,cury2,cury3,curz1,curz2,curz3,xscale,xc,yscale,yc,zmin,zmax,1e307,-1e307,i,horiz,j,w,h,lcdz,upcolor,downcolor,diffusionz,diffusionz_limit,interval);
+#endif
+	}
+	else {
+	  //std::cout << "not inside " << i << " " << j << " " << x << " " << y << "\n";	      
+	}
+      } // end pixel vertical loop on j
+      // update jmintab/jmaxtab
+      if (i+horiz+w<jmintabsize){
+	for (int I=0;I<w;++I){
+	  jmintab[i+horiz+I]=zmin[I];
+	  jmaxtab[i+horiz+I]=zmax[I];
+	}
+      }
+      // now render line/segments/curves: find intersection with plane
+      // y-x=yc-xc+xscale*(2*i+I), 0<=I<w
+      for (int j=0;j<curvev.size();++j){
+	vector<double3> & cur=curvev[j];
+	int s=cur.size();
+	if (s<2) continue;
+	int4 color=curve_color[j];
+	double xy=yc-xc+xscale*2*i;
+	for (int l=0;l<s-1;++l){
+	  double3 m=cur[l];
+	  double3 n=cur[l+1];
+	  double3 v(n.x-m.x,n.y-m.y,n.z-m.z);
+	  if (std::abs(v.y-v.x)<1e-4*(std::abs(v.y)+std::abs(v.x))){
+	    v.y=v.x+1e-4*(std::abs(v.y)+std::abs(v.x));
+	  }
+	  double t1=intersect(m,v,xy);
+	  if (t1<0 || t1>1)
+	    continue;
+	  double dt=2*xscale/(v.y-v.x); // di==1
+	  double x1=m.x+t1*v.x;
+	  double y1=m.y+t1*v.y;
+	  double z1=m.z+t1*v.z;
+	  double X1,Y1,Z1;
+	  do_transform(invtransform,x1,y1,z1,X1,Y1,Z1);
+	  if (X1<window_xmin || X1>window_xmax || Y1<window_ymin || Y1>window_ymax || Z1<window_zmin || Z1>window_zmax)
+	    continue;
+	  z1=LCD_HEIGHT_PX/2-lcdz*z1+(x1+y1)/2/yscale;
+	  double dz=-dt*v.z*lcdz+dt*(v.x+v.y)/2/yscale;
+	  int horiz=LCD_WIDTH_PX/2;
+	  for (int k=0;k<w;++k){
+	    double Z1=z1,Z2=z1+dz;
+	    z1=Z2;
+	    if (Z1>Z2) std::swap(Z1,Z2);
+	    // line [ (i+k,Z1), (i+k,Z2) ]
+	    if (Z2<zmin[k]){
+	      drawRectangle(i+horiz+k,Z1,1,std::ceil(Z2-Z1),color.u);
+	      continue;
+	    }
+	    if (Z1>zmax[k]){
+	      drawRectangle(i+horiz+k,Z1,1,std::ceil(Z2-Z1),color.d);
+	      continue;
+	    }
+	    drawRectangle(i+horiz+k,Z1,1,std::ceil(Z2-Z1),color.du);
+	    if (Z1<zmin[k])
+	      drawRectangle(i+horiz+k,Z1,1,std::ceil(zmin[k]-Z1),color.u);
+	    if (Z2>zmax[k])
+	      drawRectangle(i+horiz+k,zmax[k],1,std::ceil(Z2-zmax[k]),color.d);
+	  }
+	} // end l loop on curve discretization
+      } // end loop on curves
+#ifdef OLD_LINE_RENDERING
+      for (int j=0;j<linetypev.size();j++){
+	double3 m=linev[2*j];
+	double3 v=linev[2*j+1];
+	int4 color=line_color[j];
+	if (std::abs(v.y-v.x)<1e-4*(std::abs(v.y)+std::abs(v.x))){
+	  v.y=v.x+1e-6*(std::abs(v.y)+std::abs(v.x));
+	}
+	double xy=yc-xc+xscale*2*i;
+	double t1=intersect(m,v,xy);
+	// for halfline, t1 must be >=0, for segments between 0 and 1
+	if (linetypev[j]==_HALFLINE__VECT && t1<0)
+	  continue;
+	if (linetypev[j]==_GROUP__VECT && (t1<0 || t1>1))
+	  continue;
+	double dt=2*xscale/(v.y-v.x); // di==1
+	double x1=m.x+t1*v.x;
+	double y1=m.y+t1*v.y;
+	double z1=m.z+t1*v.z;
+	double X1,Y1,Z1;
+	do_transform(invtransform,x1,y1,z1,X1,Y1,Z1);
+	// int dbgi,dbgj; xyz2ij(double3(x1,y1,z1),dbgi,dbgj);
+	/// double x2=x1+dt*v.x,y2=y1+dt*v.y,z2=z1+dt*v.z;
+	if (X1<window_xmin || X1>window_xmax || Y1<window_ymin || Y1>window_ymax || Z1<window_zmin || Z1>window_zmax)
+	  continue;
+	z1=LCD_HEIGHT_PX/2-lcdz*z1+(x1+y1)/2/yscale;
+	double dz=-dt*v.z*lcdz+dt*(v.x+v.y)/2/yscale;
+	int horiz=LCD_WIDTH_PX/2;
+	for (int k=0;k<w;++k){
+	  double Z1=z1,Z2=z1+dz;
+	  z1=Z2;
+	  if (Z1>Z2) std::swap(Z1,Z2);
+	  // line [ (i+k,Z1), (i+k,Z2) ]
+	  if (Z2<zmin[k]){
+	    drawRectangle(i+horiz+k,Z1,1,std::ceil(Z2-Z1),color.u);
+	    continue;
+	  }
+	  if (Z1>zmax[k]){
+	    drawRectangle(i+horiz+k,Z1,1,std::ceil(Z2-Z1),color.d);
+	    continue;
+	  }
+	  drawRectangle(i+horiz+k,Z1,1,std::ceil(Z2-Z1),color.du);
+	  if (Z1<zmin[k])
+	    drawRectangle(i+horiz+k,Z1,1,std::ceil(zmin[k]-Z1),color.u);
+	  if (Z2>zmax[k])
+	    drawRectangle(i+horiz+k,zmax[k],1,std::ceil(Z2-zmax[k]),color.d);	    
+	}
+      } // end lines rendering
+#endif
+      // points rendering
+      for (int j=0;j<pointv.size();++j){
+	double3 m=pointv[j];
+	int4 c=point_color[j];
+	if (m.x<i+horiz || m.x>=i+horiz+w)
+	  continue;
+	int k=m.x-i-horiz,color=-1;
+	double mz=LCD_HEIGHT_PX/2-lcdz*m.z;
+	if (mz>=zmax[k])
+	  color=c.u;
+	else if (mz<=zmin[k])
+	  color=c.d;
+	else color=c.du;
+	drawRectangle(m.x,m.y,3,3,color);
+	if (points[j]){
+	  int dx=os_draw_string(0,0,color,0,points[j],true); // fake print
+	  os_draw_string(m.x-dx,m.y,c.u,0,points[j]);
+	}
+      } // end points rendering
+    } // end pixel horizontal loop on i
+#ifndef OLD_LINE_RENDERING
+    // new line rendering
+    for (int j=0;j<linetypev.size();j++){
+      double mx,my,mz,vx,vy,vz;
+      double3 m=linev[2*j];
+      do_transform(invtransform,m.x,m.y,m.z,mx,my,mz);
+      double3 v=linev[2*j+1];
+      do_transform(invtransform,m.x+v.x,m.y+v.y,m.z+v.z,vx,vy,vz);
+      vx -= mx; vy -= my; vz -= mz;
+      int4 color=line_color[j];
+      // find min/max parameter value for hidden/visible
+      double tmax=1e306,tmin=-1e306;
+      if (linetypev[j]==_HALFLINE__VECT){
+	tmin=0;
+      }
+      if (linetypev[j]==_GROUP__VECT){
+	tmin=0;
+	tmax=1;
+      }
+      if (vx!=0){ // intersect with x=window_xmin and x=window_xmax
+	// m.x+v.x*t=window_xmin/max
+	double t1=(window_xmin-mx)/vx;
+	double t2=(window_xmax-mx)/vx;
+	if (t1>t2)
+	  std::swap<double>(t1,t2);
+	if (t1>tmin)
+	  tmin=t1;
+	if (t2<tmax)
+	  tmax=t2;
+      }
+      if (vy!=0){ // intersect with y=window_ymin and y=window_ymax
+	double t1=(window_ymin-my)/vy;
+	double t2=(window_ymax-my)/vy;
+	if (t1>t2)
+	  std::swap<double>(t1,t2);
+	if (t1>tmin)
+	  tmin=t1;
+	if (t2<tmax)
+	  tmax=t2;
+      }
+      if (vz!=0){ // intersect with z=window_zmin and z=window_zmax
+	double t1=(window_zmin-mz)/vz;
+	double t2=(window_zmax-mz)/vz;
+	if (t1>t2)
+	  std::swap<double>(t1,t2);
+	if (t1>tmin)
+	  tmin=t1;
+	if (t2<tmax)
+	  tmax=t2;
+      }
+      // find which intersection we want
+      bool usetmax=v.x+v.y==0?v.z>=0:v.x+v.y>0; 
+      double tmin_=usetmax?tmin:tmax,
+	tmax_=usetmax?tmin:tmax;
+      for (int k=0;k<plan_abcv.size();++k){
+	// z >= z_plan=a*x+b*y+c where (x,y,z)=m+t*v
+	// m.z+t*v.z >= a*m.x+t*a*v.x+b*m.y+t*b*v.y+c
+	// t*(v.z-a*v.x-b.v.y) >= a*m.x+b*m.y+c-m.z
+	double3 abc=plan_abcv[k];
+	double A=v.z-abc.x*v.x-abc.y*v.y,B=abc.x*m.x+abc.y*m.y+abc.z-m.z;
+	if (A==0) continue;
+	double t=B/A;
+	if (t<=tmin || t>=tmax)
+	  continue;
+	if (tmax_<t)
+	  tmax_=t;
+	if (tmin_>t)
+	  tmin_=t;
+      }
+      for (int k=0;k<sphere_centerv.size();++k){
+	// sphere interesect line 
+	double3 c=sphere_centerv[k];
+	double R=sphere_radiusv[k];
+	int4 color=sphere_color[k];
+	double cx,cy,cz;
+	do_transform(invtransform,c.x,c.y,c.z,cx,cy,cz);
+	// (mx+t*vx-cx)^2+(my+t*vy-cy)^2+(mz+t*vz-cz)^2=R^2
+	double a=vx*vx+vy*vy+vz*vz,b=(vx*(mx-cx)+vy*(my-cy)+vz*(mz-cz)),C=(mx-cx)*(mx-cx)+(my-cy)*(my-cy)+(mz-cz)*(mz-cz)-R*R;
+	double deltaprime=b*b-a*C;
+	if (deltaprime>0){
+	  deltaprime=std::sqrt(deltaprime);
+	  double t1=(-b-deltaprime)/a,t2=(-b+deltaprime)/a;
+	  if (t1>t2)
+	    std::swap(t1,t2);
+	  if (t1<tmin || t1>tmax)
+	    t1=t2;
+	  if (t2<tmin || t2>tmax)
+	    t2=t1;
+	  double t=usetmax?t2:t1;
+	  if (t<=tmin || t>=tmax)
+	    continue;
+	  if (tmin_>t)
+	    tmin_=t;
+	  if (tmax_<t)
+	    tmax_=t;	  
+	}
+      }
+      vector<double> interpoly;
+      for (int k=0;k<polyedre_abcv.size();++k){
+	double3 abc=polyedre_abcv[k];
+	double a=abc.x,b=abc.y,c=abc.z;
+	// intersect z=a*x+b*y+c with line m+t*v
+	// m.z+t*v.z=a*(m.x+t*v.x)+b*(m.y+t*v.y)+c
+	double A=v.z-a*v.x-b*v.y,B=a*m.x+b*m.y+c-m.z;
+	if (A!=0){
+	  double t=B/A;
+	  double x=m.x+t*v.x;
+	  double y=m.y+t*v.y;
+	  if (t>tmin && t<tmax && inside(polyedrev[k],x,y)){
+	    interpoly.push_back(t);
+	  }
+	}
+      }
+      if (interpoly.size()>=1){
+	sort(interpoly.begin(),interpoly.end());
+	double t=usetmax?interpoly.back():interpoly.front();
+	if (tmin_>t)
+	  tmin_=t;
+	if (tmax_<t)
+	  tmax_=t;
+      }
+      vecteur sv(gen2vecteur(g));
+      for (int k=0;k<sv.size();++k){
+	gen surf=remove_at_pnt(sv[k]);
+	if (surf.is_symb_of_sommet(at_hypersurface)){
+	  const vecteur & hyp=*surf._SYMBptr->feuille._VECTptr;
+	  if (hyp.size()>2 && !is_undef(hyp[1])){
+	    gen eq=hyp[1],vars=hyp[2];
+	    if (_is_polynomial(makesequence(eq,vars[0]),contextptr)==1 && _is_polynomial(makesequence(eq,vars[1]),contextptr)==1 && _is_polynomial(makesequence(eq,vars[2]),contextptr)==1){
+	      vecteur V(makevecteur(mx+vx*t__IDNT_e,my+vy*t__IDNT_e,mz+vz*t__IDNT_e));
+	      gen eqt=subst(eq,vars,V,false,contextptr);
+	      gen gradeq=subst(derive(eq,vars,contextptr),vars,V,false,contextptr); // not used
+	      vecteur tval_=gen2vecteur(_sort(solve(eqt,t__IDNT_e,0,contextptr),contextptr));
+	      int s=tval_.size();
+	      vector<double> tval;
+	      for (int l=0;l<s;++l){
+		gen tg=evalf_double(tval_[l],1,contextptr);
+		if (tg.type==_DOUBLE_){
+		  double t=tg._DOUBLE_val;
+		  if (t>=tmin && t<=tmax){
+		    if (tval.size()>1)
+		      tval.back()=t;
+		    else
+		      tval.push_back(t);
+		  }
+		}
+	      }
+#if 1
+	      if (!tval.empty()){
+		double t=usetmax?tval.back():tval.front();
+		if (tmin_>t)
+		  tmin_=t;
+		if (tmax_<t)
+		  tmax_=t;
+	      }
+#else
+	      if (tval.size()==1){
+		// grad of eq dot [vx,vy.vz] is positive if entering surface
+		gen gradt=subst(gradeq,t__IDNT_e,tval[0],false,contextptr);
+		gen dotp=dotvecteur(gen2vecteur(gradt),makevecteur(vx,vy,vz));
+		if (is_positive(dotp,contextptr)){
+		  if (tmin_>tval[0])
+		    tmin_=tval[0];
+		  tmax_=tmax;
+		}
+		else {
+		  if (tmax_<tval[0])
+		    tmax_=tval[0];
+		  tmin_=tmin;
+		}
+	      }
+	      else if (tval.size()==2){
+		if (tmin_>tval[0])
+		  tmin_=tval[0];
+		if (tmax_<tval[1])
+		  tmax_=tval[1];
+	      }
+#endif
+	    } // end polynomial hypersurface
+	  }
+	} // end hypersurface	
+      }
+      int i1,j1,i2,j2;
+      grmtv2ij(*this,m,v,tmin,i1,j1);
+      grmtv2ij(*this,m,v,tmax,i2,j2);
+      if (tmin==tmin_ && tmax==tmax_){
+	int curcolor=color.u;
+	if (0 && i1<jmintabsize){
+	  if (jmaxtab[i1]>=jmintab[i1] && j1>=jmaxtab[i1] )
+	    curcolor=color.d;
+	}
+	drawLine(i1,j1,i2,j2,curcolor);
+      }
+      else {
+	int curcolor=color.d;
+	if (0 && i1<jmintabsize){
+	  if (jmaxtab[i1]>=jmintab[i1] && j1<jmintab[i1])
+	    curcolor=color.u;
+	}
+	drawLine(i1,j1,i2,j2,curcolor | 0x400000);
+      }
+      bool name=show_names && lines[j];
+      if (tmin<tmin_){
+	grmtv2ij(*this,m,v,tmin,i1,j1);
+	grmtv2ij(*this,m,v,tmin_,i2,j2);
+	int curcolor=color.u;
+	if (0 && i1<jmintabsize){
+	  if (jmaxtab[i1]>=jmintab[i1] && j1>=jmaxtab[i1] )
+	    curcolor=color.d;
+	}
+	drawLine(i1,j1,i2,j2,curcolor);
+	if (name){
+	  os_draw_string(i1,j1,color.u,0,lines[j]);
+	  name=false;
+	}
+	if (tmin_!=tmax) os_fill_rect(i2-2,j2-2,4,4,curcolor);
+      }
+      if (tmax>tmax_){
+	grmtv2ij(*this,m,v,tmax_,i1,j1);
+	grmtv2ij(*this,m,v,tmax,i2,j2);
+	int curcolor=color.u;
+	if (0 && i1<jmintabsize){
+	  if (jmaxtab[i1]>=jmintab[i1] && j1>=jmaxtab[i1] )
+	    curcolor=color.d;
+	}
+	drawLine(i1,j1,i2,j2,curcolor);
+	if (name){
+	  os_draw_string(i2,j2,color.u,0,lines[j]);
+	  name=false;
+	}
+	if (tmax_!=tmin) os_fill_rect(i1-2,j1-2,4,4,curcolor);
+      }
+    }
+#endif // OLD_LINE_RENDERING
+    sync_screen();
+    return true;
+  }
+
+  Graph2d::Graph2d(const giac::gen & g_,const giac::context * cptr):window_xmin(gnuplot_xmin),window_xmax(gnuplot_xmax),window_ymin(gnuplot_ymin),window_ymax(gnuplot_ymax),window_zmin(gnuplot_zmin),window_zmax(gnuplot_zmax),g(g_),display_mode(0x45),show_axes(1),show_edges(1),show_names(1),labelsize(16),precision(3),contextptr(cptr) {
+    diffusionz=5; diffusionz_limit=5; hide2nd=false; interval=false;
+    default_upcolor=giac3d_default_upcolor;
+    default_downcolor=giac3d_default_downcolor;
+    default_downupcolor=giac3d_default_downupcolor;
+    default_downdowncolor=giac3d_default_downdowncolor;
+    doprecise=false;
+    lcdz= LCD_HEIGHT_PX/4;
+    is3d=giac::is3d(g);
+    //theta_x=theta_y=theta_z=0;
+    q=quaternion_double(0,0,0);//rotation_2_quaternion_double(0.707,0.707,0,1); 
+    update_scales();
+    autoscale(false,!is3d);
+    if (is3d){
+      update_rotation();
+      if (surfacev.empty()){
+	// no hypersurface inside, 2 for polyhedron
+	precision=2;
+      }
+    }
+  }
+
+  // q=quaternion_double(dragi*180/h(),0,0)*rotation_2_quaternion_double(1,0,0,dragj*180/w())*q;
+  
+  void Graph2d::zoomx(double d,bool round,bool doupdate){
     double x_center=(window_xmin+window_xmax)/2;
     double dx=(window_xmax-window_xmin);
     if (dx==0)
@@ -4811,10 +6477,11 @@ namespace xcas {
     window_xmax = x_center + dx;
     if (round)
       window_xmax=int( window_xmax/x_tick +1)*x_tick;
-    update();
+    if (doupdate)
+      update();
   }
 
-  void Graph2d::zoomy(double d,bool round){
+  void Graph2d::zoomy(double d,bool round,bool doupdate){
     double y_center=(window_ymin+window_ymax)/2;
     double dy=(window_ymax-window_ymin);
     if (dy==0)
@@ -4827,23 +6494,47 @@ namespace xcas {
     window_ymax = y_center + dy;
     if (round)
       window_ymax=int( window_ymax/y_tick +1)*y_tick;
-    update();
+    if (doupdate)
+      update();
   }
 
-  void Graph2d::zoom(double d){ 
-    zoomx(d);
-    zoomy(d);
+  void Graph2d::zoomz(double d,bool round,bool doupdate){
+    double z_center=(window_zmin+window_zmax)/2;
+    double dz=(window_zmax-window_zmin);
+    if (dz==0)
+      dz=gnuplot_zmax-gnuplot_zmin;
+    dz *= d/2;
+    z_tick = find_tick(dz);
+    window_zmin = z_center - dz;
+    if (round) 
+      window_zmin=int( window_zmin/z_tick -1)*z_tick;
+    window_zmax = z_center + dz;
+    if (round)
+      window_zmax=int( window_zmax/z_tick +1)*z_tick;
+    if (doupdate)
+      update();
   }
 
-  void Graph2d::autoscale(bool fullview){
+  void Graph2d::zoom(double d,bool doupdate){ 
+    zoomx(d,false,false);
+    zoomy(d,false,false);
+    zoomz(d,false,false);
+    if (doupdate)
+      update();
+  }
+
+  void Graph2d::autoscale(bool fullview,bool doupdate){
     // Find the largest and lowest x/y/z in objects (except lines/plans)
     vector<double> vx,vy,vz;
     int s;
     bool ortho=autoscaleg(g,vx,vy,vz,contextptr);
     autoscaleminmax(vx,window_xmin,window_xmax,fullview);
-    zoomx(1.0);
+    double zf=1+1e-14;
+    zoomx(zf,false,false);
     autoscaleminmax(vy,window_ymin,window_ymax,fullview);
-    zoomy(1.0);
+    zoomy(zf,false,false);
+    autoscaleminmax(vz,window_zmin,window_zmax,fullview);
+    zoomz(zf,false,false);
     if (window_xmax-window_xmin<1e-100){
       window_xmax=gnuplot_xmax;
       window_xmin=gnuplot_xmin;
@@ -4851,6 +6542,10 @@ namespace xcas {
     if (window_ymax-window_ymin<1e-100){
       window_ymax=gnuplot_ymax;
       window_ymin=gnuplot_ymin;
+    }
+    if (window_zmax-window_zmin<1e-100){
+      window_zmax=gnuplot_zmax;
+      window_zmin=gnuplot_zmin;
     }
     bool do_ortho=ortho;
     if (!do_ortho){
@@ -4862,36 +6557,378 @@ namespace xcas {
 	do_ortho=true;
     }
     if (do_ortho )
-      orthonormalize();
+      orthonormalize(false);
     y_tick=find_tick(window_ymax-window_ymin);
-    update();
+    if (doupdate)
+      update();
   }
 
-  void Graph2d::orthonormalize(){ 
+  void Graph2d::orthonormalize(bool doupdate){
     // Center of the directions, orthonormalize
     double w=LCD_WIDTH_PX;
     double h=LCD_HEIGHT_PX-STATUS_AREA_PX;
     double window_w=window_xmax-window_xmin,window_h=window_ymax-window_ymin;
-    double window_hsize=h/w*window_w;
-    if (window_h > window_hsize*1.01){ // enlarge horizontally
+    if (is3d){
       double window_xcenter=(window_xmin+window_xmax)/2;
-      double window_wsize=w/h*window_h;
-      window_xmin=window_xcenter-window_wsize/2;
-      window_xmax=window_xcenter+window_wsize/2;
-    }
-    if (window_h < window_hsize*0.99) { // enlarge vertically
       double window_ycenter=(window_ymin+window_ymax)/2;
-      window_ymin=window_ycenter-window_hsize/2;
-      window_ymax=window_ycenter+window_hsize/2;
+      double window_zcenter=(window_zmin+window_zmax)/2;
+      double window_z=window_zmax-window_zmin;
+      double wmax=std::max(window_w,std::max(window_h,window_z));
+      window_xmin=window_xcenter-wmax/2;
+      window_xmax=window_xcenter+wmax/2;
+      window_ymin=window_ycenter-wmax/2;
+      window_ymax=window_ycenter+wmax/2;
+      window_zmin=window_zcenter-wmax/2;
+      window_zmax=window_zcenter+wmax/2;
+      z_tick=find_tick(window_zmax-window_zmin);
+    }
+    else {
+      double window_hsize=h/w*window_w;
+      if (window_h > window_hsize*1.01){ // enlarge horizontally
+	double window_xcenter=(window_xmin+window_xmax)/2;
+	double window_wsize=w/h*window_h;
+	window_xmin=window_xcenter-window_wsize/2;
+      window_xmax=window_xcenter+window_wsize/2;
+      }
+      if (window_h < window_hsize*0.99) { // enlarge vertically
+	double window_ycenter=(window_ymin+window_ymax)/2;
+	window_ymin=window_ycenter-window_hsize/2;
+	window_ymax=window_ycenter+window_hsize/2;
+      }
     }
     x_tick=find_tick(window_xmax-window_xmin);
     y_tick=find_tick(window_ymax-window_ymin);
-    update();
+    if (doupdate)
+      update();
+  }
+
+  void Graph2d::update_scales(){
+    if (is3d){
+      x_scale=1.414*(LCD_HEIGHT_PX-STATUS_AREA_PX)/(window_xmax-window_xmin);    
+      y_scale=1.414*(LCD_HEIGHT_PX-STATUS_AREA_PX)/(window_ymax-window_ymin);    
+      z_scale=(LCD_HEIGHT_PX-STATUS_AREA_PX)/(window_zmax-window_zmin);    
+    }
+    else {
+      x_scale=LCD_WIDTH_PX/(window_xmax-window_xmin);    
+      y_scale=(LCD_HEIGHT_PX-STATUS_AREA_PX)/(window_ymax-window_ymin);    
+    }
   }
 
   void Graph2d::update(){
-    x_scale=LCD_WIDTH_PX/(window_xmax-window_xmin);    
-    y_scale=(LCD_HEIGHT_PX-STATUS_AREA_PX)/(window_ymax-window_ymin);    
+    update_scales();
+    if (is3d) update_rotation();
+  }
+  
+  void mult4(double * c,double k,double * res){
+    for (int i=0;i<16;i++)
+      res[i]=k*c[i];
+  }
+  
+  double det4(double * c){
+    return c[0]*c[5]*c[10]*c[15]-c[0]*c[5]*c[14]*c[11]-c[0]*c[9]*c[6]*c[15]+c[0]*c[9]*c[14]*c[7]+c[0]*c[13]*c[6]*c[11]-c[0]*c[13]*c[10]*c[7]-c[4]*c[1]*c[10]*c[15]+c[4]*c[1]*c[14]*c[11]+c[4]*c[9]*c[2]*c[15]-c[4]*c[9]*c[14]*c[3]-c[4]*c[13]*c[2]*c[11]+c[4]*c[13]*c[10]*c[3]+c[8]*c[1]*c[6]*c[15]-c[8]*c[1]*c[14]*c[7]-c[8]*c[5]*c[2]*c[15]+c[8]*c[5]*c[14]*c[3]+c[8]*c[13]*c[2]*c[7]-c[8]*c[13]*c[6]*c[3]-c[12]*c[1]*c[6]*c[11]+c[12]*c[1]*c[10]*c[7]+c[12]*c[5]*c[2]*c[11]-c[12]*c[5]*c[10]*c[3]-c[12]*c[9]*c[2]*c[7]+c[12]*c[9]*c[6]*c[3];
+  }
+
+  void inv4(double * c,double * res){
+    res[0]=c[5]*c[10]*c[15]-c[5]*c[14]*c[11]-c[10]*c[7]*c[13]-c[15]*c[9]*c[6]+c[14]*c[9]*c[7]+c[11]*c[6]*c[13];
+    res[1]=-c[1]*c[10]*c[15]+c[1]*c[14]*c[11]+c[10]*c[3]*c[13]+c[15]*c[9]*c[2]-c[14]*c[9]*c[3]-c[11]*c[2]*c[13];
+    res[2]=c[1]*c[6]*c[15]-c[1]*c[14]*c[7]-c[6]*c[3]*c[13]-c[15]*c[5]*c[2]+c[14]*c[5]*c[3]+c[7]*c[2]*c[13];
+    res[3]=-c[1]*c[6]*c[11]+c[1]*c[10]*c[7]+c[6]*c[3]*c[9]+c[11]*c[5]*c[2]-c[10]*c[5]*c[3]-c[7]*c[2]*c[9];
+    res[4]=-c[4]*c[10]*c[15]+c[4]*c[14]*c[11]+c[10]*c[7]*c[12]+c[15]*c[8]*c[6]-c[14]*c[8]*c[7]-c[11]*c[6]*c[12];
+    res[5]=c[0]*c[10]*c[15]-c[0]*c[14]*c[11]-c[10]*c[3]*c[12]-c[15]*c[8]*c[2]+c[14]*c[8]*c[3]+c[11]*c[2]*c[12];
+    res[6]=-c[0]*c[6]*c[15]+c[0]*c[14]*c[7]+c[6]*c[3]*c[12]+c[15]*c[4]*c[2]-c[14]*c[4]*c[3]-c[7]*c[2]*c[12];
+    res[7]=c[0]*c[6]*c[11]-c[0]*c[10]*c[7]-c[6]*c[3]*c[8]-c[11]*c[4]*c[2]+c[10]*c[4]*c[3]+c[7]*c[2]*c[8];
+    res[8]=c[4]*c[9]*c[15]-c[4]*c[13]*c[11]-c[9]*c[7]*c[12]-c[15]*c[8]*c[5]+c[13]*c[8]*c[7]+c[11]*c[5]*c[12];
+    res[9]=-c[0]*c[9]*c[15]+c[0]*c[13]*c[11]+c[9]*c[3]*c[12]+c[15]*c[8]*c[1]-c[13]*c[8]*c[3]-c[11]*c[1]*c[12];
+    res[10]=c[0]*c[5]*c[15]-c[0]*c[13]*c[7]-c[5]*c[3]*c[12]-c[15]*c[4]*c[1]+c[13]*c[4]*c[3]+c[7]*c[1]*c[12];
+    res[11]=-c[0]*c[5]*c[11]+c[0]*c[9]*c[7]+c[5]*c[3]*c[8]+c[11]*c[4]*c[1]-c[9]*c[4]*c[3]-c[7]*c[1]*c[8];
+    res[12]=-c[4]*c[9]*c[14]+c[4]*c[13]*c[10]+c[9]*c[6]*c[12]+c[14]*c[8]*c[5]-c[13]*c[8]*c[6]-c[10]*c[5]*c[12];
+    res[13]=c[0]*c[9]*c[14]-c[0]*c[13]*c[10]-c[9]*c[2]*c[12]-c[14]*c[8]*c[1]+c[13]*c[8]*c[2]+c[10]*c[1]*c[12];
+    res[14]=-c[0]*c[5]*c[14]+c[0]*c[13]*c[6]+c[5]*c[2]*c[12]+c[14]*c[4]*c[1]-c[13]*c[4]*c[2]-c[6]*c[1]*c[12];
+    res[15]=c[0]*c[5]*c[10]-c[0]*c[9]*c[6]-c[5]*c[2]*c[8]-c[10]*c[4]*c[1]+c[9]*c[4]*c[2]+c[6]*c[1]*c[8];
+    double det=det4(c);
+    mult4(res,1/det,res);
+  }
+  
+  void Graph2d::xyz2ij(const double3 &d,int &i,int &j) const {
+    double X,Y,Z;
+    do_transform(transform,d.x,d.y,d.z,X,Y,Z);
+    i=LCD_WIDTH_PX/2+(Y-X)/4.8*LCD_WIDTH_PX;
+    j=LCD_HEIGHT_PX/2-Z*lcdz+(Y+X)/9.6*LCD_WIDTH_PX;    
+  }
+  
+  void Graph2d::xyz2ij(const double3 &d,double &i,double &j) const {
+    double X,Y,Z;
+    do_transform(transform,d.x,d.y,d.z,X,Y,Z);
+    i=LCD_WIDTH_PX/2+(Y-X)/4.8*LCD_WIDTH_PX;
+    j=LCD_HEIGHT_PX/2-Z*lcdz+(Y+X)/9.6*LCD_WIDTH_PX;    
+  }
+  
+  void Graph2d::XYZ2ij(const double3 &d,int &i,int &j) const {
+    double X=d.x,Y=d.y,Z=d.z;
+    i=LCD_WIDTH_PX/2+(Y-X)/4.8*LCD_WIDTH_PX;
+    j=LCD_HEIGHT_PX/2-Z*lcdz+(Y+X)/9.6*LCD_WIDTH_PX;    
+  }
+
+  void Graph2d::update_rotation(){
+    double rx,ry,rz,theta;
+    get_axis_angle_deg(q,rx,ry,rz,theta);
+    // rx=-0.51; ry=-.197; rz=-.835; theta=327.88;
+    // rx=0;ry=1;rz=0; //theta=60;
+    // cout << rx << " " << ry << " " << rz << " " << theta << "\n";
+    // rx=0;ry=0;rz=1;
+    // theta=10;
+    theta *= M_PI/180;
+    double r2=rx*rx+ry*ry+rz*rz,invr2=1/r2;
+    double r=std::sqrt(r2);
+    double c=std::cos(theta),s=std::sin(theta);
+    // mkisom([[rx,ry,rz],theta],1)
+    // 1/r2*[[rx*rx+ry*ry*c+rz*rz*c,rx*ry-rx*ry*c-rz*s*r,rx*rz-rx*rz*c+ry*s*r],[rx*ry-rx*ry*c+rz*s*r,ry*ry+rx*rx*c+rz*rz*c,ry*rz-rx*s*r-ry*rz*c],[rx*rz-rx*rz*c-ry*s*r,ry*rz+rx*s*r-ry*rz*c,rz*rz+rx*rx*c+ry*ry*c]]
+    double a11=invr2*(rx*rx+ry*ry*c+rz*rz*c),a12=invr2*(rx*ry-rx*ry*c-rz*s*r),a13=invr2*(rx*rz-rx*rz*c+ry*s*r);
+    double a21=invr2*(rx*ry-rx*ry*c+rz*s*r),a22=invr2*(ry*ry+rx*rx*c+rz*rz*c),a23=invr2*(ry*rz-rx*s*r-ry*rz*c);
+    double a31=invr2*(rx*rz-rx*rz*c-ry*s*r),a32=invr2*(ry*rz+rx*s*r-ry*rz*c),a33=invr2*(rz*rz+rx*rx*c+ry*ry*c);
+    double xt=(window_xmin+window_xmax)/2,xs=2.0/(window_xmax-window_xmin),yt=(window_ymin+window_ymax)/2,ys=2.0/(window_ymax-window_ymin),zt=(window_zmin+window_zmax)/2,zs=2.0/(window_zmax-window_zmin);
+    double mat[16]={a11*xs,a12*ys,a13*zs,-a11*xt*xs-a12*yt*ys-a13*zt*zs,
+		    a21*xs,a22*ys,a23*zs,-a21*xt*xs-a22*yt*ys-a23*zt*zs,
+		    a31*xs,a32*ys,a33*zs,-a31*xt*xs-a32*yt*ys-a33*zt*zs,
+		    0,0,0,1
+    };
+    for (int i=0;i<sizeof(mat)/sizeof(double);++i)
+      transform[i]=mat[i];
+    inv4(transform,invtransform);
+    surfacev.clear();
+    polyedrev.clear(); polyedre_xyminmax.clear(); polyedre_abcv.clear();// polyedre_normalv.clear();
+    plan_pointv.clear(); plan_abcv.clear();
+    sphere_centerv.clear(); sphere_radiusv.clear(); sphere_quadraticv.clear();
+    linev.clear(); linetypev.clear(); curvev.clear();
+    pointv.clear(); points.clear();
+    plan_color.clear();sphere_color.clear();polyedre_color.clear();line_color.clear();curve_color.clear(); hyp_color.clear(); point_color.clear();
+    // rotate+translate+scale g
+    vecteur v;
+    aplatir(gen2vecteur(g),v);
+    for (int i=0;i<v.size();++i){
+      int u=default_upcolor,d=default_downcolor,du=default_downupcolor,dd=default_downdowncolor;
+      const char * ptr=0;
+      if (v[i].is_symb_of_sommet(at_pnt)){
+	vecteur & attrv=*v[i]._SYMBptr->feuille._VECTptr;
+	if (attrv.size()>1){
+	  gen attr=attrv[1];
+	  get_colors(attr,u,d,du,dd);
+	  if (attrv.size()>2){
+	    attr=attrv[2];
+	    if (attr.type==_STRNG)
+	      ptr=attr._STRNGptr->c_str();
+	    if (attr.type==_IDNT)
+	      ptr=attr._IDNTptr->id_name;
+	  }
+	}
+      }
+      gen G=remove_at_pnt(v[i]);
+      if (G.is_symb_of_sommet(at_curve)){
+	gen f=G._SYMBptr->feuille;
+	f=f[0];
+	f=f[4];
+	if (ckmatrix(f)){
+	  vecteur v=*f._VECTptr;
+	  int n=v.size();
+	  curvev.push_back(vector<double3>(n));
+	  curve_color.push_back(int4(u,d,du,dd));
+	  vector<double3> & cur=curvev.back();
+	  for (int k=0;k<n;++k){
+	    gen P=v[k];
+	    if (P.type==_VECT && P._VECTptr->size()==3){
+	      double X,Y,Z;
+	      do_transform(transform,P[0]._DOUBLE_val,P[1]._DOUBLE_val,P[2]._DOUBLE_val,X,Y,Z);
+	      cur[k]=double3(X,Y,Z);
+	    }
+	  }
+	}
+	continue;
+      }
+      if (G.type==_VECT && G.subtype==_POINT__VECT){
+	gen m=evalf_double(G,1,contextptr);
+	if (m.type==_VECT && m._VECTptr->size()==3){
+	  vecteur & A=*m._VECTptr;
+	  if (A[0].type==_DOUBLE_ && A[1].type==_DOUBLE_ && A[2].type==_DOUBLE_ ){
+	    double X,Y,Z; int I,J;
+	    do_transform(transform,A[0]._DOUBLE_val,A[1]._DOUBLE_val,A[2]._DOUBLE_val,X,Y,Z);
+	    xyz2ij(double3(A[0]._DOUBLE_val,A[1]._DOUBLE_val,A[2]._DOUBLE_val),I,J);
+	    pointv.push_back(double3(I,J,Z));
+	    points.push_back(ptr);
+	    point_color.push_back(int4(u,d,du,dd));
+	  }
+	}
+	continue;
+      }
+      bool line=G.subtype==_LINE__VECT,halfline=G.subtype==_HALFLINE__VECT,segment= G.subtype==_GROUP__VECT;
+      if (G.type==_VECT && G._VECTptr->size()==2 && (line || halfline || segment)){
+	gen a=evalf_double(G._VECTptr->front(),1,contextptr),b=evalf_double(G._VECTptr->back(),1,contextptr);
+	if (a.type==_VECT && b.type==_VECT && a._VECTptr->size()==3 && b._VECTptr->size()==3){
+	  vecteur & A=*a._VECTptr;
+	  vecteur & B=*b._VECTptr;
+	  if (A[0].type==_DOUBLE_ && A[1].type==_DOUBLE_ && A[2].type==_DOUBLE_ && B[0].type==_DOUBLE_ && B[1].type==_DOUBLE_ && B[2].type==_DOUBLE_ ){
+	    lines.push_back(ptr);
+	    double x=A[0]._DOUBLE_val,y=A[1]._DOUBLE_val,z=A[2]._DOUBLE_val;
+#if 0 // ndef OLD_LINE_RENDERING
+	    double3 prev(x,y,z);
+	    linev.push_back(prev);
+#endif
+	    double X,Y,Z;
+	    do_transform(transform,x,y,z,X,Y,Z);
+	    double3 M(X,Y,Z);
+	    x=B[0]._DOUBLE_val;y=B[1]._DOUBLE_val;z=B[2]._DOUBLE_val;
+#if 0 // ndef OLD_LINE_RENDERING
+	    linev.push_back(double3(x-prev.x,y-prev.y,z-prev.z));
+#endif
+	    do_transform(transform,x,y,z,X,Y,Z);
+	    double3 N(X,Y,Z);
+	    double3 v(N.x-M.x,N.y-M.y,N.z-M.z);
+	    linev.push_back(M); linev.push_back(v);
+	    linetypev.push_back(G.subtype);
+	    line_color.push_back(int4(u,d,du,dd));
+	  }
+	}
+	continue;
+      }
+      if (G.is_symb_of_sommet(at_hypersphere)){
+	vecteur hyp=*G._SYMBptr->feuille._VECTptr;
+	gen c=evalf_double(hyp[0],1,contextptr);
+	double X,Y,Z;
+	do_transform(transform,c[0]._DOUBLE_val,c[1]._DOUBLE_val,c[2]._DOUBLE_val,X,Y,Z);
+	sphere_centerv.push_back(double3(X,Y,Z));
+	gen R=evalf(hyp[1],1,contextptr);
+	sphere_radiusv.push_back(R._DOUBLE_val);
+	double * mat=invtransform;
+	matrice qmat(makevecteur(
+				 makevecteur(mat[0],mat[4],mat[8]),
+				 makevecteur(mat[1],mat[5],mat[9]),
+				 makevecteur(mat[2],mat[6],mat[10])
+				 ));
+	qmat=mmult(mtran(qmat),qmat);
+	sphere_quadraticv.push_back(qmat);
+	sphere_color.push_back(int4(u,d,du,dd));
+	continue;
+      }
+      if (G.is_symb_of_sommet(at_hyperplan)){
+	vecteur hyp=*G._SYMBptr->feuille._VECTptr;
+	gen hyp1=evalf_double(hyp[1],1,contextptr);
+	vecteur & hyp1v=*hyp1._VECTptr;
+	double A,B,C,x,y,z,X,Y,Z;
+	A=hyp1v[0]._DOUBLE_val;B=hyp1v[1]._DOUBLE_val;C=hyp1v[2]._DOUBLE_val;
+	do_transform(transform,A,B,C,X,Y,Z);
+	gen hyp0=evalf_double(hyp[0],1,contextptr);
+	vecteur & hyp0v=*hyp0._VECTptr;
+	x=hyp0v[0]._DOUBLE_val;y=hyp0v[1]._DOUBLE_val;z=hyp0v[2]._DOUBLE_val;
+	double * mat=invtransform;
+	A=mat[0]*x+mat[4]*y+mat[8]*z;
+	B=mat[1]*x+mat[5]*y+mat[9]*z;
+	C=mat[2]*x+mat[6]*y+mat[10]*z;
+	double AB=std::abs(A)+std::abs(B);
+	if (std::abs(C)<1e-2*AB){
+	  // almost vertical plane, equation A*(x-X)+B*(y-Y)=0
+	  continue;
+	}
+	A/=C; B/=C;
+	plan_pointv.push_back(double3(X,Y,Z));	
+	plan_abcv.push_back(double3(-A,-B,Z+A*X+B*Y));
+	plan_color.push_back(int4(u,d,du,dd));
+	continue;
+      }
+      if (G.is_symb_of_sommet(at_hypersurface)){
+	const vecteur & hyp=*G._SYMBptr->feuille._VECTptr;
+	gen hyp0=hyp[0];
+	const vecteur & hyp0v=*hyp0._VECTptr;
+	gen h=hyp0v[4];
+	if (h.type==_VECT && h.subtype==_POLYEDRE__VECT)
+	  G=h;
+	else if (ckmatrix(h,true)){
+	  surfacev.push_back(vector< vector<float3d> >(0));
+	  vector< vector<float3d> > & S=surfacev.back();
+	  const vecteur & V=*h._VECTptr;
+	  S.reserve(V.size());
+	  for (int j=0;j<V.size();++j){
+	    gen Vj=V[j];
+	    vecteur vj=*Vj._VECTptr;
+	    S.push_back(vector<float3d>(0));
+	    vector<float3d> &S_=S.back();
+	    S_.reserve(vj.size());
+	    for (int k=0;k<vj.size();k+=3){
+	      double X,Y,Z;
+	      do_transform(mat,vj[k]._DOUBLE_val,vj[k+1]._DOUBLE_val,vj[k+2]._DOUBLE_val,X,Y,Z);
+	      vj[k]=X; vj[k+1]=Y; vj[k+2]=Z;
+	      S_.push_back(X); S_.push_back(Y); S_.push_back(Z);
+	    }
+	  }
+	  hyp_color.push_back(int4(u,d,du,dd));
+	  continue;
+	} // end quad hypersurface
+      } // end hypersurface
+      if (G.type==_VECT && G.subtype==_GROUP__VECT){
+	G=gen(makevecteur(G),_POLYEDRE__VECT);
+      }
+      if (G.type==_VECT && G.subtype==_POLYEDRE__VECT){
+	vecteur p=*G._VECTptr;
+	polyedrev.reserve(polyedrev.size()+p.size());
+	polyedre_color.reserve(polyedre_color.size()+p.size());
+	polyedre_xyminmax.reserve(polyedre_xyminmax.size()+2*p.size());
+	for (int j=0;j<p.size();++j){
+	  gen g=p[j];
+	  if (g.type==_VECT){
+	    vector<double3> cur;
+	    vecteur w=*g._VECTptr;
+	    cur.reserve(w.size()+1);
+	    for (int k=0;k<w.size();++k){
+	      gen P=evalf_double(w[k],1,contextptr);
+	      if (P.type==_VECT && P._VECTptr->size()==3){
+		double X,Y,Z;
+		do_transform(transform,P[0]._DOUBLE_val,P[1]._DOUBLE_val,P[2]._DOUBLE_val,X,Y,Z);
+		cur.push_back(double3(X,Y,Z));
+	      }
+	    }
+	    if (cur.size()>=3){
+	      double Z3;int l=0;
+	      for (;l<cur.size()-2;++l){
+		double x0=cur[l].x,y0=cur[l].y,z0=cur[l].z;
+		double x1=cur[l+1].x,y1=cur[l+1].y,z1=cur[l+1].z;
+		double x2=cur[l+2].x,y2=cur[l+2].y,z2=cur[l+2].z;
+		double X1=x1-x0,Y1=y1-y0,Z1=z1-z0;
+		double X2=x2-x0,Y2=y2-y0,Z2=z2-z0;
+		double X3=Y1*Z2-Y2*Z1,Y3=X2*Z1-X1*Z2;Z3=X1*Y2-X2*Y1;
+		double prec=1e-3;
+#if 1
+		if ( (X3!=0 || Y3!=0) && std::abs(Z3)<prec*(std::abs(X3)+std::abs(Y3))){
+		  Z3=1.0001*prec*(std::abs(X3)+std::abs(Y3));
+		}
+#endif
+		if (std::abs(Z3)>prec*(std::abs(X3)+std::abs(Y3))){
+		  // X3*(x-x0)+Y3*(y-y0)+Z3*(z-z0)=0
+		  X3/=Z3; Y3/=Z3;
+		  polyedre_abcv.push_back(double3(-X3,-Y3,z0+X3*x0+Y3*y0));
+		  break;
+		}
+	      }
+	      if (l==cur.size()-2)
+		continue;
+	      cur.push_back(cur.front());
+	      double facemin=1e306,facemax=-1e306;
+	      for (int l=1;l<cur.size();++l){
+		double xy=cur[l].y-cur[l].x;
+		if (xy<facemin)
+		  facemin=xy;
+		if (xy>facemax)
+		  facemax=xy;
+		// replace unused z coordinate by slope
+		// cur[l].z=(cur[l].y-cur[l-1].y)/(cur[l].x-cur[l-1].x);
+	      }
+	      polyedrev.push_back(vector<double3>(0)); polyedrev.back().swap(cur); // polyedrev.push_back(cur);
+	      polyedre_color.push_back(int4(u,d,du,dd));
+	      polyedre_xyminmax.push_back(facemin);
+	      polyedre_xyminmax.push_back(facemax);
+	    } // end cur.size()>=3
+	  } // end g.type==_VECT
+	}
+	continue;
+      }      
+    }
   }
 
   bool Graph2d::findij(const gen & e0,double x_scale,double y_scale,double & i0,double & j0,GIAC_CONTEXT) const {
@@ -4937,14 +6974,28 @@ namespace xcas {
     os_set_pixel(i0+delta_i,j0+delta_j,c);
   }
 
-  inline void fl_line(int x0,int y0,int x1,int y1,int c){
-    draw_line(x0,y0,x1,y1,c);
+  static unsigned short int fl_line_width=1;
+  void fl_line(int x0,int y0,int x1,int y1,int c){
+    if (fl_line_width==0)
+      return;
+    if (fl_line_width==1){
+      draw_line(x0,y0,x1,y1,c);
+      return;
+    }
+    double dx=x1-x0,dy=y1-y0;
+    double n=sqrt(dx*dx+dy*dy);
+    dx/=n; dy/=n;
+    for (int d=-fl_line_width/2;d<=(fl_line_width+1)/2;++d){
+      draw_line(x0-d*dy,y0+d*dx,x1-d*dy,y1+d*dx,c);
+    }
+    draw_filled_circle(x0,y0,(fl_line_width-1)/2,c,true,true);
+    draw_filled_circle(x1,y1,(fl_line_width-1)/2,c,true,true);
   }
 
   inline void fl_polygon(int x0,int y0,int x1,int y1,int x2,int y2,int c){
-    draw_line(x0,y0,x1,y1,c);
-    draw_line(x1,y1,x2,y2,c);
-    draw_line(x2,y2,x0,y0,c);
+    fl_line(x0,y0,x1,y1,c);
+    fl_line(x1,y1,x2,y2,c);
+    fl_line(x2,y2,x0,y0,c);
   }
 
   inline void check_fl_line(int i0,int j0,int i1,int j1,int imin,int jmin,int di,int dj,int delta_i,int delta_j,int c){
@@ -5270,7 +7321,7 @@ namespace xcas {
 	      y=j0save;
 	      h=j0-j0save;
 	    }
-	    draw_rectangle(deltax+x,deltay+y,w,h,couleur);
+	    draw_rectangle(deltax+x,deltay+y,w+1,h+1,couleur);
 	    if (!hidden_name)
 	      draw_legende(f,deltax+x,deltay+y,labelpos,&Mon_image,clip_x,clip_y,clip_w,clip_h,0,0,couleur,contextptr);
 	    return;
@@ -5415,7 +7466,289 @@ namespace xcas {
     return res;
   }
 
+  void normalize(double & x, double & y){
+    double fx=fabs(x),fy=fabs(y);
+    if (fx>fy){
+      y/=fx;
+      x/=fx;
+    }
+    else {
+      x/=fy;
+      y/=fy;
+    }
+    double n=std::sqrt(x*x+y*y);
+    x/=n; y/=n;
+  }
+
+  void Graph2d::addpolyg(vector<int2> & polyg,double x,double y,double z,int2 & IJmin) const {
+    int I,J;
+    xyz2ij(double3(x,y,z),I,J);
+    int2 IJ(I,J);
+    polyg.push_back(IJ);
+    if (IJ<IJmin)
+      IJmin=IJ;
+  }
+
   void Graph2d::draw(){
+    if (is3d){
+      if (lang==1)
+	statuslinemsg("Toolbox: aide");
+      else
+	statuslinemsg("Toolbox: help");
+      double3 A(window_xmin,window_ymin,window_zmin),
+	B(window_xmin,window_ymin,window_zmax),
+	C(window_xmax,window_ymin,window_zmin),
+	D(window_xmax,window_ymin,window_zmax),
+	E(window_xmin,window_ymax,window_zmin),
+	F(window_xmin,window_ymax,window_zmax),
+	G(window_xmax,window_ymax,window_zmin),
+	H(window_xmax,window_ymax,window_zmax);
+      xyz2ij(A,Ai,Aj);
+      xyz2ij(B,Bi,Bj);
+      xyz2ij(C,Ci,Cj);
+      xyz2ij(D,Di,Dj);
+      xyz2ij(E,Ei,Ej);
+      xyz2ij(F,Fi,Fj);
+      xyz2ij(G,Gi,Gj);
+      xyz2ij(H,Hi,Hj);
+      set_abort();
+      glsurface(precision,precision,lcdz,contextptr,default_upcolor,default_downcolor,default_downupcolor,default_downdowncolor);
+      clear_abort();
+      if (show_edges){
+	// polyhedrons
+	for (int k=0;k<polyedrev.size();++k){
+	  const vector<double3> & cur=polyedrev[k]; // current face
+	  int4 col=polyedre_color[k];
+	  for (int l=1;l<cur.size();++l){
+	    const double3 & p=cur[l-1];
+	    const double3 & c=cur[l];
+#if 1
+	    // is edge visible?
+	    double3 m(p.x/2+c.x/2,p.y/2+c.y/2,p.z/2+c.z/2);
+	    double xy=m.x+m.y;
+	    int mi,mj;
+	    XYZ2ij(m,mi,mj);
+	    int kk;
+	    for (kk=0;kk<polyedrev.size();++kk){
+	      if (k==kk)
+		continue;
+	      const vector<double3> & Cur=polyedrev[kk];
+	      int ll; int jmin=RAND_MAX,jmax=-RAND_MAX; 
+	      for (ll=1;ll<Cur.size();++ll){
+		const double3 & P=Cur[ll-1];
+		const double3 & C=Cur[ll];
+		double3 M(P.x/2+C.x/2,P.y/2+C.y/2,P.z/2+C.z/2);
+		if (M.x==m.x && M.y==m.y && M.z==m.z){
+		  ll=Cur.size()-1;
+		  continue; // edge PC has same midpoint, ignore face
+		}
+		if (M.x+M.y<xy){
+		  ll=Cur.size()-1;
+		  continue;
+		}
+		// intersect plane y-x=m.y-m.x with PC edge P+t*PC
+		double PCx=C.x-P.x,PCy=C.y-P.y,dPC=PCy-PCx;
+		// P.y-P.x + t*dPC=m.y-m.x
+		if (dPC==0)
+		  continue;
+		double t=((m.y-m.x)+(P.x-P.y))/dPC;
+		if (t<=0 || t>=1)
+		  continue;
+		double x=P.x+t*PCx;
+		double y=P.y+t*PCy;
+		double z=P.z+t*(C.z-P.z);
+		int i,j;
+		XYZ2ij(double3(x,y,z),i,j);
+		if (j<jmin) jmin=j;
+		if (j>jmax) jmax=j;
+		if (mj>jmin && mj<jmax)
+		  break;
+	      }
+	      if (ll<Cur.size()) // means edge is not visible
+		break;
+	    }
+	    if (kk<polyedrev.size())
+	      continue;
+#endif
+	    int i1,j1,i2,j2;
+	    XYZ2ij(p,i1,j1);
+	    XYZ2ij(c,i2,j2);
+	    drawLine(i1,j1,i2,j2,
+		     // col.d | 0x400000
+		     col.u | 0x400000
+		     );
+	  }
+	}
+      }
+      if (show_axes){
+	// cube A,B,C,D,E,F,G,H
+	// X
+	drawLine(Ai,Aj,Ci,Cj,COLOR_RED | 0x800000);
+	drawLine(Bi,Bj,Di,Dj,COLOR_RED | 0x800000);
+	drawLine(Ei,Ej,Gi,Gj,COLOR_RED | 0x800000);
+	drawLine(Fi,Fj,Hi,Hj,COLOR_RED | 0x800000);
+	// Y
+	drawLine(Ai,Aj,Ei,Ej,COLOR_GREEN | 0x800000);
+	drawLine(Bi,Bj,Fi,Fj,COLOR_GREEN | 0x800000);
+	drawLine(Ci,Cj,Gi,Gj,COLOR_GREEN | 0x800000);
+	drawLine(Di,Dj,Hi,Hj,COLOR_GREEN | 0x800000);
+	// Z
+	drawLine(Ai,Aj,Bi,Bj,12345 | 0x800000);
+	drawLine(Ci,Cj,Di,Dj,12345 | 0x800000);
+	drawLine(Ei,Ej,Fi,Fj,12345 | 0x800000);
+	drawLine(Gi,Gj,Hi,Hj,12345 | 0x800000);
+	// planes
+	vecteur attrv(gen2vecteur(g));
+	for (int i=0;i<attrv.size();++i){
+	  gen attr=attrv[i];
+	  gen cur=remove_at_pnt(attr);
+	  int upcolor=44444;
+	  const char * nameptr=0;
+	  if (attr.is_symb_of_sommet(at_pnt)){
+	    if (show_names && attr._SYMBptr->feuille.type==_VECT && attr._SYMBptr->feuille._VECTptr->size()==3){
+	      gen name=attr._SYMBptr->feuille._VECTptr->back();
+	      if (name.type==_IDNT)
+		nameptr=name._IDNTptr->id_name;
+	      if (name.type==_STRNG)
+		nameptr=name._STRNGptr->c_str();
+	    }
+	    attr=attr._SYMBptr->feuille[1];
+	    if (attr.type==_INT_ && (attr.val & 0xffff)!=0){
+	      upcolor=attr.val &0xffff;
+	    }
+	  }
+	  if (cur.is_symb_of_sommet(at_hyperplan)){
+	    vecteur & w=*cur._SYMBptr->feuille._VECTptr;
+	    gen m=evalf_double(w[1],1,contextptr),n=evalf_double(w[0],1,contextptr);
+	    double a=n[0]._DOUBLE_val,b=n[1]._DOUBLE_val,c=n[2]._DOUBLE_val;
+	    double x0=m[0]._DOUBLE_val,y0=m[1]._DOUBLE_val,z0=m[2]._DOUBLE_val;
+	    // a*(x-x0)+b*(y-y0)+c*(z-z0)=0
+	    // replace 2 coordinates of M with window_xyzminmax and find last coord
+	    vector<int2> polyg; int2 IJmin={RAND_MAX,RAND_MAX};
+	    // x
+	    if (a!=0){
+	      double x=x0-1/a*(b*(window_ymin-y0)+c*(window_zmin-z0));
+	      if (x>=window_xmin && x<=window_xmax)
+		addpolyg(polyg,x,window_ymin,window_zmin,IJmin);
+	      x=x0-1/a*(b*(window_ymin-y0)+c*(window_zmax-z0));
+	      if (x>=window_xmin && x<=window_xmax)
+		addpolyg(polyg,x,window_ymin,window_zmax,IJmin);
+	      x=x0-1/a*(b*(window_ymax-y0)+c*(window_zmin-z0));
+	      if (x>=window_xmin && x<=window_xmax)
+		addpolyg(polyg,x,window_ymax,window_zmin,IJmin);
+	      x=x0-1/a*(b*(window_ymax-y0)+c*(window_zmax-z0));
+	      if (x>=window_xmin && x<=window_xmax)
+		addpolyg(polyg,x,window_ymax,window_zmax,IJmin);
+	    }
+	    // y
+	    if (b!=0){
+	      double y=y0-1/b*(a*(window_xmin-x0)+c*(window_zmin-z0));
+	      if (y>=window_ymin && y<=window_ymax)
+		addpolyg(polyg,window_xmin,y,window_zmin,IJmin);
+	      y=y0-1/b*(a*(window_xmin-x0)+c*(window_zmax-z0));
+	      if (y>=window_ymin && y<=window_ymax)
+		addpolyg(polyg,window_xmin,y,window_zmax,IJmin);
+	      y=y0-1/b*(a*(window_xmax-x0)+c*(window_zmin-z0));
+	      if (y>=window_ymin && y<=window_ymax)
+		addpolyg(polyg,window_xmax,y,window_zmin,IJmin);
+	      y=y0-1/b*(a*(window_xmax-x0)+c*(window_zmax-z0));
+	      if (y>=window_ymin && y<=window_ymax)
+		addpolyg(polyg,window_xmax,y,window_zmax,IJmin);
+	    }
+	    // z
+	    if (c!=0){
+	      double z=z0-1/c*(a*(window_xmin-x0)+b*(window_ymin-y0));
+	      if (z>=window_zmin && z<=window_zmax)
+		addpolyg(polyg,window_xmin,window_ymin,z,IJmin);
+	      z=z0-1/c*(a*(window_xmin-x0)+b*(window_ymax-y0));
+	      if (z>=window_zmin && z<=window_zmax)
+		addpolyg(polyg,window_xmin,window_ymax,z,IJmin);
+	      z=z0-1/c*(a*(window_xmax-x0)+b*(window_ymin-y0));
+	      if (z>=window_zmin && z<=window_zmax)
+		addpolyg(polyg,window_xmax,window_ymin,z,IJmin);
+	      z=z0-1/c*(a*(window_xmax-x0)+b*(window_ymax-y0));
+	      if (z>=window_zmin && z<=window_zmax)
+		addpolyg(polyg,window_xmax,window_ymax,z,IJmin);
+	    }
+	    // sort list of arguments
+	    vector<int2_double2> p;
+	    for (int k=0;k<polyg.size();++k){
+	      int2 & cur=polyg[k];
+	      if (cur==IJmin){
+		int2_double2 id={cur.i,cur.j,0,0};
+		p.push_back(id);
+	      } else {
+		double di=cur.i-IJmin.i,dj=cur.j-IJmin.j;
+		int2_double2 id={cur.i,cur.j,atan2(di,dj),di*di+dj*dj};
+		p.push_back(id);
+	      }
+	    }
+	    sort(p.begin(),p.end());
+	    // draw polygon
+	    vector< vector<int> > P;
+	    for (int k=0;k<p.size();++k){
+	      vector<int> vi(2);
+	      vi[0]=p[k].i;
+	      vi[1]=p[k].j;
+	      P.push_back(vi);
+	    }
+	    draw_polygon(P,upcolor | 0x400000,contextptr);
+	    if (nameptr){
+	      int x=os_draw_string(0,0,0,upcolor,nameptr,true);
+	      os_draw_string(P[0][0]-x,P[0][1],upcolor,0,nameptr);
+	    }
+	  }
+	}
+	// frame
+	double xi=Ci-Ai,xj=Cj-Aj;
+	normalize(xi,xj);
+	drawLine(20,20,20+20*xi,20+20*xj,COLOR_RED);
+	os_draw_string_small(20+20*xi,20+20*xj,COLOR_RED,COLOR_BLACK,"x");
+	double yi=Ei-Ai,yj=Ej-Aj;
+	normalize(yi,yj);
+	drawLine(20,20,20+20*yi,20+20*yj,COLOR_GREEN);
+	os_draw_string_small(20+20*yi,20+20*yj,COLOR_GREEN,COLOR_BLACK,"y");
+	double zi=Bi-Ai,zj=Bj-Aj;
+	normalize(zi,zj);
+	drawLine(20,20,20+20*zi,20+20*zj,12345);
+	os_draw_string_small(20+20*zi,20+20*zj,12345,COLOR_BLACK,"z");
+      } // end show_axes
+      // now handle legend([x,y],string)
+      vecteur V(gen2vecteur(g));
+      for (int i=0;i<V.size();++i){
+	gen attr=V[i];
+	if (attr.is_symb_of_sommet(at_pnt)){
+	  attr=attr._SYMBptr->feuille;
+	  if (attr.type==_VECT && attr._VECTptr->size()>1){
+	    int color=65535;
+	    gen attr0=attr._VECTptr->front();
+	    attr=attr[1];
+	    if (attr.type==_INT_ && (attr.val & 0xffff)!=0){
+	      color=attr.val &0xffff;
+	    }
+	    if (attr0.is_symb_of_sommet(at_legende)){
+	      gen leg=attr0._SYMBptr->feuille;
+	      if (leg.type==_VECT && leg._VECTptr->size()>=2){
+		gen pos=leg._VECTptr->front();
+		leg=leg[1];
+		if (pos.type==_VECT && pos._VECTptr->size()==2 && leg.type==_STRNG){
+		  gen x=pos._VECTptr->front(),y=pos._VECTptr->back();
+		  if (x.type==_INT_ && y.type==_INT_)
+		    os_draw_string(x.val,y.val,color,0,leg._STRNGptr->c_str());
+		}
+	      }
+	    }
+	  }
+	}
+      }      
+#ifdef NSPIRE_NEWLIB
+      DefineStatusMessage((char*)"+-: zoom, pad: move, esc: quit", 1, 0, 0);
+#else
+      DefineStatusMessage((char*)"+-: zoom, pad: move, EXIT: quit", 1, 0, 0);
+#endif
+      DisplayStatusArea();
+      return;
+    }
     int save_clip_ymin=clip_ymin;
     clip_ymin=STATUS_AREA_PX;
     int horizontal_pixels=LCD_WIDTH_PX,vertical_pixels=LCD_HEIGHT_PX-STATUS_AREA_PX,deltax=0,deltay=STATUS_AREA_PX,clip_x=0,clip_y=0,clip_w=horizontal_pixels,clip_h=vertical_pixels;
@@ -5532,12 +7865,28 @@ namespace xcas {
     window_ymax -= d;
   }
 
+  void Graph2d::z_up(double d){ 
+    window_zmin += d;
+    window_zmax += d;
+  }
+
+  void Graph2d::z_down(double d){ 
+    window_zmin -= d;
+    window_zmax -= d;
+  }
+
   void Turtle::draw(){
     const int deltax=0,deltay=0;
     int horizontal_pixels=LCD_WIDTH_PX-2*giac::COORD_SIZE;
     // Check for fast redraw
     // Then redraw the background
     drawRectangle(deltax, deltay, LCD_WIDTH_PX, LCD_HEIGHT_PX,COLOR_WHITE);
+#ifdef TURTLETAB
+    if (turtleptr && turtle_stack_size==0){
+      turtleptr[0]=logo_turtle();
+      ++turtle_stack_size;
+    }
+#endif
     if (turtleptr &&
 #ifdef TURTLETAB
 	turtle_stack_size
@@ -5556,15 +7905,17 @@ namespace xcas {
       logo_turtle t=turtleptr->back();
 #endif
       double x=turtlezoom*(t.x-turtlex);
+      double y=turtlezoom*(t.y-turtley);
+#if 0
       if (x<0)
 	turtlex += int(x/turtlezoom);
       if (x>=LCD_WIDTH_PX-10)
 	turtlex += int((x-LCD_WIDTH_PX+10)/turtlezoom);
-      double y=turtlezoom*(t.y-turtley);
       if (y<0)
 	turtley += int(y/turtlezoom);
       if (y>LCD_HEIGHT_PX-10)
 	turtley += int((y-LCD_HEIGHT_PX+10)/turtlezoom);
+#endif
     }
 #if 0
     if (maillage & 0x3){
@@ -5617,6 +7968,7 @@ namespace xcas {
     }
     // draw turtle Logo
     if (turtleptr){
+      int save_width=fl_line_width;
 #ifdef TURTLETAB
       int l=turtle_stack_size;
 #else
@@ -5655,6 +8007,8 @@ namespace xcas {
 	  else
 #endif
 	    {
+	      int width=current.turtle_width & 0x1f;
+	      fl_line_width=width;
 	      if (current.radius>0){
 		int r=current.radius & 0x1ff; // bit 0-8
 		double theta1,theta2;
@@ -5683,14 +8037,26 @@ namespace xcas {
 		if (current.direct){
 		  if (rempli)
 		    fl_pie(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,theta1-90,theta2-90,current.color,seg);
-		  else
-		    fl_arc(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,theta1-90,theta2-90,current.color);
+		  else {
+		    for (int d=giacmax(1-r,-(width-1)/2);d<=width/2;++d){
+		      x=int(turtlezoom*(current.x-turtlex-r*std::cos(angle) - (r+d))+.5);
+		      y=int(turtlezoom*(current.y-turtley-r*std::sin(angle) + (r+d))+.5);
+		      R=int(2*turtlezoom*(r+d)+.5);
+		      fl_arc(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,theta1-90,theta2-90,current.color);
+		    }
+		  }
 		}
 		else {
 		  if (rempli)
 		    fl_pie(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,90+theta2,90+theta1,current.color,seg);
-		  else
-		    fl_arc(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,90+theta2,90+theta1,current.color);
+		  else {
+		    for (int d=giacmax(1-r,-(width-1)/2);d<=width/2;++d){
+		      x=int(turtlezoom*(current.x-turtlex+r*std::cos(angle) -(r+d))+.5);
+		      y=int(turtlezoom*(current.y-turtley+r*std::sin(angle) +(r+d))+.5);
+		      R=int(2*turtlezoom*(r+d)+.5);
+		      fl_arc(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,90+theta2,90+theta1,current.color);
+		    }
+		  }
 		}
 	      } // end radius>0
 	      else {
@@ -5707,6 +8073,21 @@ namespace xcas {
 #else
 		  logo_turtle & t=(*turtleptr)[k+i];
 #endif
+		  if (t.radius>0){
+		    int r=t.radius & 0x1ff; // bit 0-8
+		    int x,y,R;
+		    R=int(2*turtlezoom*r+.5);
+		    double angle = M_PI/180*(current.theta-90);
+		    if (t.direct){
+		      x=int(turtlezoom*(t.x-turtlex-r*std::cos(angle) - r)+.5);
+		      y=int(turtlezoom*(t.y-turtley-r*std::sin(angle) + r)+.5);
+		    }
+		    else {
+		      x=int(turtlezoom*(t.x-turtlex+r*std::cos(angle) -r)+.5);
+		      y=int(turtlezoom*(t.y-turtley+r*std::sin(angle) +r)+.5);
+		    }
+		    fl_pie(deltax+x,deltay+LCD_HEIGHT_PX-y,R,R,0,360,current.color,false);
+		  }
 		  vi[-i][0]=deltax+turtlezoom*(t.x-turtlex);
 		  vi[-i][1]=deltay+LCD_HEIGHT_PX+turtlezoom*(turtley-t.y);
 		  //*logptr(contextptr) << i << " " << vi[-i][0] << " " << vi[-i][1] << endl;
@@ -5726,8 +8107,8 @@ namespace xcas {
 	int y=int(turtlezoom*(t.y-turtley)+.5);
 	double cost=std::cos(t.theta*deg2rad_d);
 	double sint=std::sin(t.theta*deg2rad_d);
-	int Dx=int(turtlezoom*t.turtle_length*cost/2+.5);
-	int Dy=int(turtlezoom*t.turtle_length*sint/2+.5);
+	int Dx=int(turtlezoom*turtle_length*cost/2+.5);
+	int Dy=int(turtlezoom*turtle_length*sint/2+.5);
 	if (t.visible){
 	  fl_line(deltax+x+Dy,deltay+LCD_HEIGHT_PX-(y-Dx),deltax+x-Dy,deltay+LCD_HEIGHT_PX-(y+Dx),t.color);
 	  int c=t.color;
@@ -5737,6 +8118,7 @@ namespace xcas {
 	  fl_line(deltax+x-Dy,deltay+LCD_HEIGHT_PX-(y+Dx),deltax+x+3*Dx,deltay+LCD_HEIGHT_PX-(y+3*Dy),c);
 	}
       }
+      fl_line_width=save_width;
       return;
     } // End logo mode
   }  
@@ -5775,6 +8157,11 @@ namespace xcas {
 		  gr.window_ymax=b._DOUBLE_val;
 		  gr.update();
 		  break;
+		case _GL_Z:
+		  gr.window_zmin=a._DOUBLE_val;
+		  gr.window_zmax=b._DOUBLE_val;
+		  gr.update();
+		  break;
 		}
 	      }
 	    }
@@ -5788,9 +8175,19 @@ namespace xcas {
 #else
     DefineStatusMessage((char*)"+-: zoom, pad: move, EXIT: quit", 1, 0, 0);
 #endif
-    // EnableStatusArea(2);
+    DisplayStatusArea();
+    int saveprecision=gr.precision;
+    gr.precision += 2; // fast draw first
+    gr.draw();
+    gr.precision=saveprecision;    
     for (;;){
+      int saveprec=gr.precision;
+      if (gr.doprecise){
+	gr.doprecise=false;
+	gr.precision=1;//gr.precision-=2;
+      }
       gr.draw();
+      gr.precision=saveprec;
       DisplayStatusArea();
       // int x=0,y=LCD_HEIGHT_PX-STATUS_AREA_PX-17;
       // PrintMini(&x,&y,(unsigned char *)"menu",0x04,0xffffffff,0,0,COLOR_BLACK,COLOR_WHITE,1,0);
@@ -5800,7 +8197,7 @@ namespace xcas {
 	return key;
 #if 1
       if (key==KEY_CTRL_CATALOG || key==KEY_BOOK){
-	char menu_xmin[32],menu_xmax[32],menu_ymin[32],menu_ymax[32];
+	char menu_xmin[32],menu_xmax[32],menu_ymin[32],menu_ymax[32],menu_zmin[32],menu_zmax[32];
 	string s;
 	s="xmin "+print_DOUBLE_(gr.window_xmin,contextptr);
 	strcpy(menu_xmin,s.c_str());
@@ -5810,8 +8207,12 @@ namespace xcas {
 	strcpy(menu_ymin,s.c_str());
 	s="ymax "+print_DOUBLE_(gr.window_ymax,contextptr);
 	strcpy(menu_ymax,s.c_str());
+	s="zmin "+print_DOUBLE_(gr.window_zmin,contextptr);
+	strcpy(menu_zmin,s.c_str());
+	s="zmax "+print_DOUBLE_(gr.window_zmax,contextptr);
+	strcpy(menu_zmax,s.c_str());
 	Menu smallmenu;
-	smallmenu.numitems=12;
+	smallmenu.numitems=15;
 	MenuItem smallmenuitems[smallmenu.numitems];
 	smallmenu.items=smallmenuitems;
 	smallmenu.height=12;
@@ -5820,57 +8221,89 @@ namespace xcas {
 	smallmenuitems[1].text = (char *) menu_xmax;
 	smallmenuitems[2].text = (char *) menu_ymin;
 	smallmenuitems[3].text = (char *) menu_ymax;
-	smallmenuitems[4].text = (char*) "Orthonormalize /";
-	smallmenuitems[5].text = (char*) "Autoscale *";
-	smallmenuitems[6].text = (char *) ("Zoom in +");
-	smallmenuitems[7].text = (char *) ("Zoom out -");
-	smallmenuitems[8].text = (char *) ("Y-Zoom out (-)");
-	smallmenuitems[9].text = (char*) ((lang==1)?"Voir axes":"Show axes");
-	smallmenuitems[10].text = (char*) ((lang==1)?"Cacher axes":"Hide axes");
-	smallmenuitems[11].text = (char*)((lang==1)?"Quitter":"Quit");
+	smallmenuitems[4].text = (char *) menu_zmin;
+	smallmenuitems[5].text = (char *) menu_zmax;
+	smallmenuitems[6].text = (char*) "Orthonormalize /";
+	smallmenuitems[7].text = (char*) "Autoscale *";
+	smallmenuitems[8].text = (char *) ("Zoom in +");
+	smallmenuitems[9].text = (char *) ("Zoom out -");
+	smallmenuitems[10].text = (char *) ("Y-Zoom out (-)");
+	smallmenuitems[11].text = (char *) ((lang==1)?"raccourcis clavier":"3d shortcuts");
+	smallmenuitems[12].text = (char*) ((lang==1)?"Voir axes":"Show axes");
+	smallmenuitems[13].text = (char*) ((lang==1)?"Cacher axes":"Hide axes");
+	smallmenuitems[14].text = (char*)((lang==1)?"Quitter":"Quit");
 	int sres = doMenu(&smallmenu);
 	if(sres == MENU_RETURN_SELECTION || sres==KEY_CTRL_EXE) {
 	  const char * ptr=0;
 	  string s1; double d;
 	  if (smallmenu.selection==1){
+	    d=gr.window_xmin;
 	    if (inputdouble(menu_xmin,d,contextptr)){
 	      gr.window_xmin=d;
 	      gr.update();
 	    }
 	  }
 	  if (smallmenu.selection==2){
+	    d=gr.window_xmax;
 	    if (inputdouble(menu_xmax,d,contextptr)){
 	      gr.window_xmax=d;
 	      gr.update();
 	    }
 	  }
 	  if (smallmenu.selection==3){
+	    d=gr.window_ymin;
 	    if (inputdouble(menu_ymin,d,contextptr)){
 	      gr.window_ymin=d;
 	      gr.update();
 	    }
 	  }
 	  if (smallmenu.selection==4){
+	    d=gr.window_ymax;
 	    if (inputdouble(menu_ymax,d,contextptr)){
 	      gr.window_ymax=d;
 	      gr.update();
 	    }
 	  }
-	  if (smallmenu.selection==5)
-	    gr.orthonormalize();
-	  if (smallmenu.selection==6)
-	    gr.autoscale();	
+	  if (smallmenu.selection==5){
+	    d=gr.window_zmin;
+	    if (inputdouble(menu_zmin,d,contextptr)){
+	      gr.window_zmin=d;
+	      gr.update();
+	    }
+	  }
+	  if (smallmenu.selection==6){
+	    d=gr.window_zmax;
+	    if (inputdouble(menu_zmax,d,contextptr)){
+	      gr.window_zmax=d;
+	      gr.update();
+	    }
+	  }
 	  if (smallmenu.selection==7)
-	    gr.zoom(0.7);	
+	    gr.orthonormalize();
 	  if (smallmenu.selection==8)
-	    gr.zoom(1/0.7);	
+	    gr.autoscale();	
 	  if (smallmenu.selection==9)
-	    gr.zoomy(1/0.7);
+	    gr.zoom(0.7);	
 	  if (smallmenu.selection==10)
-	    gr.show_axes=true;	
+	    gr.zoom(1/0.7);	
 	  if (smallmenu.selection==11)
+	    gr.zoomy(1/0.7);
+	  if (smallmenu.selection==12){
+	    xcas::textArea text;
+	    text.editable=false;
+	    text.clipline=-1;
+	    text.title = (char*)((lang==1)?"Raccourcis clavier 3d":"3d Keyboard shortcuts");
+	    text.allowF1=false;
+	    text.python=false;
+	    add(&text,lang==1?"haut/bas/droit/gauche: change point de vue\ny^x ou e^x: trace precis\nON/Back: interrompt le trace en cours\n( et ): modifie le rendu des surfaces raides\n0: surfaces cachees ON/OFF\n.: remplissage surface raide ON/OFF\n5 reset view\n7,8,9,1,2,3: deplacement":"up/down/right/left: modify viewpoint\nON/Back: interrupt\ny^x or e^x: precise\n( and ): modify stiff surfaces rendering\n0: hidden surfaces ON/OFF\n.: fill stiff surfacesON/OFF\n5 reset view\n7,8,9,1,2,3: move view");
+	    int exec=doTextArea(&text,contextptr);
+	    // gr.q=quaternion_double(0,0,0); gr.update();
+	  }
+	  if (smallmenu.selection==13)
+	    gr.show_axes=true;	
+	  if (smallmenu.selection==14)
 	    gr.show_axes=false;	
-	  if (smallmenu.selection==12)
+	  if (smallmenu.selection==15)
 	    break;
 	}
       }
@@ -5879,13 +8312,115 @@ namespace xcas {
 	os_hide_graph();
 	break;
       }
-      if (key==KEY_CTRL_UP){ gr.up((gr.window_ymax-gr.window_ymin)/5); }
-      if (key==KEY_CTRL_PAGEUP) { gr.up((gr.window_ymax-gr.window_ymin)/2); }
-      if (key==KEY_CTRL_DOWN) { gr.down((gr.window_ymax-gr.window_ymin)/5); }
-      if (key==KEY_CTRL_PAGEDOWN) { gr.down((gr.window_ymax-gr.window_ymin)/2);}
-      if (key==KEY_CTRL_LEFT) { gr.left((gr.window_xmax-gr.window_xmin)/5); }
+      if (key==KEY_CHAR_NORMAL || key=='>'){ // shift-+
+	if (is3d && gr.precision<9)
+	  gr.precision++;
+      }
+      if (key=='\\' || key=='<'){ // shift--
+	if (is3d && gr.precision>1)
+	 gr.precision--;
+      }
+      if (key==KEY_CTRL_UP){
+	if (is3d){
+	  int curprec=gr.precision;
+	  gr.precision += 2;
+	  if (gr.precision>9) gr.precision=9;
+	  while (1){
+	    //double X,Y,Z;
+	    //do_transform(gr.invtransform,0.707,0.707,0,X,Y,Z);
+	    //normalize(X,Y,Z);
+	    //gr.q=rotation_2_quaternion_double(X,Y,Z,15)*gr.q;
+	    //gr.q=quaternion_double(15,0,15)*gr.q;
+	    gr.q=rotation_2_quaternion_double(0.707,0.707,0,15)*gr.q;// quaternion_double(15,0,0)*gr.q;
+	    gr.update_rotation();
+	    gr.draw();
+#ifndef SIMU
+	    if (!iskeydown(KEY_CTRL_UP))
+	      break;
+#else
+	    getkey(key); break;
+#endif
+	  }
+	  gr.precision=curprec;
+	  continue;
+	}
+	gr.up((gr.window_ymax-gr.window_ymin)/5);
+      }
+      if (key==KEY_CTRL_PAGEUP) {
+	gr.up((gr.window_ymax-gr.window_ymin)/2);
+      }
+      if (key==KEY_CTRL_DOWN) {
+	if (is3d){
+	  int curprec=gr.precision;
+	  gr.precision += 2;
+	  if (gr.precision>9) gr.precision=9;
+	  while (1){
+	    //double X,Y,Z;
+	    //do_transform(gr.invtransform,0.707,0.707,0,X,Y,Z);
+	    //normalize(X,Y,Z);
+	    //gr.q=rotation_2_quaternion_double(X,Y,Z,-15)*gr.q;
+	    // gr.q=quaternion_double(-15,0,-15)*gr.q;
+	    gr.q=rotation_2_quaternion_double(0.707,0.707,0,-15)*gr.q; // quaternion_double(-15,0,0)*gr.q;
+	    gr.update_rotation();
+	    gr.draw();
+#ifndef SIMU
+	    if (!iskeydown(KEY_CTRL_DOWN))
+	      break;
+#else
+	    getkey(key); break;
+#endif
+	  }
+	  gr.precision=curprec;
+	  continue;
+	}
+	gr.down((gr.window_ymax-gr.window_ymin)/5);
+      }
+      if (key==KEY_CTRL_PAGEDOWN) {
+	gr.down((gr.window_ymax-gr.window_ymin)/2);
+      }
+      if (key==KEY_CTRL_LEFT) {
+	if (is3d){
+	  int curprec=gr.precision;
+	  gr.precision += 2;
+	  if (gr.precision>9) gr.precision=9;
+	  while (1){
+	    gr.q=quaternion_double(0,15,0)*gr.q;
+	    gr.update_rotation();
+	    gr.draw();
+#ifndef SIMU
+	    if (!iskeydown(KEY_CTRL_LEFT))
+	      break;
+#else
+	    getkey(key); break;
+#endif
+	  }
+	  gr.precision=curprec;
+	  continue;
+	}
+	gr.left((gr.window_xmax-gr.window_xmin)/5);
+      }
       if (key==KEY_SHIFT_LEFT) { gr.left((gr.window_xmax-gr.window_xmin)/2); }
-      if (key==KEY_CTRL_RIGHT) { gr.right((gr.window_xmax-gr.window_xmin)/5); }
+      if (key==KEY_CTRL_RIGHT) {
+	if (is3d){
+	  int curprec=gr.precision;
+	  gr.precision += 2;
+	  if (gr.precision>9) gr.precision=9;
+	  while (1){
+	    gr.q=quaternion_double(0,-15,0)*gr.q;
+	    gr.update_rotation();
+	    gr.draw();
+#ifndef SIMU
+	    if (!iskeydown(KEY_CTRL_RIGHT))
+	      break;
+#else
+	    getkey(key); break;
+#endif
+	  }
+	  gr.precision=curprec;
+	  continue;
+	}
+	gr.right((gr.window_xmax-gr.window_xmin)/5);
+      }
       if (key==KEY_SHIFT_RIGHT) { gr.right((gr.window_xmax-gr.window_xmin)/5); }
       if (key==KEY_CHAR_PLUS) {
 	gr.zoom(0.7);
@@ -5901,6 +8436,51 @@ namespace xcas {
       }
       if (key==KEY_CHAR_DIV) {
 	gr.orthonormalize();
+      }
+      if (is3d){
+	if (key==KEY_CHAR_0){
+	  gr.hide2nd=!gr.hide2nd;
+	}
+	if (key==KEY_CHAR_DP){
+	  gr.interval=!gr.interval;
+	}
+	if (key==KEY_CHAR_ANS){
+	  gr.show_edges=!gr.show_edges;
+	}
+	if (key==KEY_CHAR_5){
+	  gr.q=quaternion_double(0,0,0);
+	  gr.update();
+	}	  
+	if (key==KEY_CHAR_8){
+	  gr.z_up((gr.window_zmax-gr.window_zmin)/5);
+	  gr.update_rotation();
+	}
+	if (key==KEY_CHAR_2){
+	  gr.z_down((gr.window_zmax-gr.window_zmin)/5);
+	  gr.update_rotation();
+	}
+	if (key==KEY_CHAR_1){
+	  gr.right((gr.window_xmax-gr.window_xmin)/5);
+	  gr.update_rotation();
+	}
+	if (key==KEY_CHAR_9){
+	  gr.left((gr.window_xmax-gr.window_xmin)/5);
+	  gr.update_rotation();
+	}
+	if (key==KEY_CHAR_3){
+	  gr.up((gr.window_ymax-gr.window_ymin)/5);
+	  gr.update_rotation();
+	}
+	if (key==KEY_CHAR_7){
+	  gr.down((gr.window_ymax-gr.window_ymin)/5);
+	  gr.update_rotation();
+	}
+	if (key==KEY_CHAR_POW || key==KEY_CHAR_EXPN)
+	  gr.doprecise=true;
+	if (key==KEY_CHAR_LPAR && gr.diffusionz<64)
+	  gr.diffusionz++;
+	if (key==KEY_CHAR_RPAR && gr.diffusionz>2)
+	  gr.diffusionz--;
       }
       if (key==KEY_CTRL_VARS) {
 	gr.show_axes=!gr.show_axes;
@@ -6041,7 +8621,6 @@ namespace xcas {
 	set_xcas_status();
 #else
       DefineStatusMessage((char*)"+-: zoom, pad: move, EXIT: quit", 1, 0, 0);
-      EnableStatusArea(2);
       DisplayStatusArea();
 #endif
       gen value;
@@ -6258,7 +8837,7 @@ namespace xcas {
 		  if (value.type==_EQW){
 		    value=value._EQWptr->g;
 		    // cout << goto_sel << " " << value << endl; continue;
-		    if (v.size()==2 && (opg==at_plus || opg==at_prod))
+		    if (v.size()==2 && (opg==at_plus || opg==at_prod || opg==at_pow))
 		      value=protecteval(value,1,contextptr);
 		    goto_sel.erase(goto_sel.begin());
 		    xcas::replace_selection(eq,value,gselparent,&goto_sel,contextptr);
@@ -6665,12 +9244,26 @@ namespace xcas {
 
   void switch_to_micropy(GIAC_CONTEXT){
     xcas_python_eval=1;
-    python_compat(4|python_compat(contextptr),contextptr);
+    int p=python_compat(contextptr);
+    if (p<0) p=0;
+    python_compat(4|p,contextptr);
     if (edptr)
       edptr->python=1;
     if (do_confirm((lang==1)?"Effacer les variables Xcas?":"Clear Xcas variables?"))
       do_restart(contextptr);
     *logptr(contextptr) << "Micropython interpreter\n";
+    Console_FMenu_Init(contextptr);
+  }
+
+  void switch_to_js(GIAC_CONTEXT){
+    //js_ck_eval("1",&global_js_context);
+    xcas_python_eval=-1;
+    python_compat(-1,contextptr);
+    if (edptr)
+      edptr->python=-1;
+    if (0 && do_confirm((lang==1)?"Effacer les variables Xcas?":"Clear Xcas variables?"))
+      do_restart(contextptr);
+    *logptr(contextptr) << "QuickJS interpreter\n";
     Console_FMenu_Init(contextptr);
   }
 
@@ -6935,9 +9528,9 @@ namespace xcas {
       int t=s.size();
       if (t<4 || s.substr(t-4,4)!=".tns")
 	continue;
-      if ( (s=="khicas.tns" || s=="luagiac.luax.tns" || s=="khicaslua.tns" || s=="ptt.tns" || s.substr(0,17)=="ndless_installer_" || s=="ndless_resources.tns" || s=="ndless.cfg.tns")){
+      if ( (s=="khicas.tns" || s=="luagiac.luax.tns" || s=="khicaslua.tns" || s=="ptt.tns" || s.substr(0,17)=="ndless_installer_" || s=="ndless_resources.tns" || s=="ndless.cfg.tns")){ // shakeys.tns is not copied, it is retrieved from non-exam mode
 	string ss=dirname+("/"+s);
-	*logptr(contextptr) << "copy " << s << " to exammode directory\n" ; //" " << ss << " " << (targetdirname+("/"+s)) << '\n';
+	*logptr(contextptr) << "processing " << s << "\n" ; //" " << ss << " " << (targetdirname+("/"+s)) << '\n';
 	if (1 || sha_check(ss.c_str(),nkeys,hash)){ // check done when setting exam mode
 	  cp(ss.c_str(),(targetdirname+("/"+s)).c_str());
 	}
@@ -7053,6 +9646,12 @@ namespace xcas {
     mpz_out_str(f,10,*key._ZINTptr);
     fclose(f);
     // main_ptt(1,0);
+#ifdef MICROPY_LIB
+    python_free();
+#endif   
+#ifdef QUICKJS
+    js_end(global_js_context);
+#endif
     int res=nl_exec(exec,2,args);
     //*logptr(contextptr) << "exam mode " << res << '\n';
     //int res=nl_exec(exec,1,0);
@@ -7067,6 +9666,27 @@ namespace xcas {
   }
 #endif
 #endif
+
+#if defined NUMWORKS && defined DEVICE
+  BYTE bootloader_hash[]={155,80,255,243,255,8,4,206,190,40,94,73,40,159,52,94,187,207,89,165,126
+			  ,57,88,197,125,135,209,126,107,23,17,154,};
+  const int bootloader_size=65480;
+  // check bootloade code, skipping exam mode buffer sector
+  bool bootloader_sha256_check(size_t addr){
+    BYTE buf[SHA256_BLOCK_SIZE];
+    SHA256_CTX ctx;
+    unsigned char * ptr=(unsigned char *)addr;
+    giac_sha256_init(&ctx);
+    giac_sha256_update(&ctx, ptr, 16*1024);
+    giac_sha256_update(&ctx, ptr+32*1024, bootloader_size-32*1024);
+    giac_sha256_final(&ctx, buf);
+    if (0) confirm(("@"+hexa_print_INT_(addr)).c_str(),("hash "+print_INT_(buf[0])+","+print_INT_(buf[1])).c_str());
+    if (!memcmp(bootloader_hash, buf, SHA256_BLOCK_SIZE))
+      return true;
+    return false;
+  }
+#endif
+  
   string print_duration(double & duration){
     if (duration<=0)
       return "";
@@ -7081,20 +9701,7 @@ namespace xcas {
     duration=h+m/100.0;
     return ch;
   }
-  bool islogo(const gen & g){
-    if (g.type!=_VECT || g._VECTptr->empty()) return false;
-    if (g.subtype==_LOGO__VECT) return true;
-    const vecteur & v=*g._VECTptr;
-    if (islogo(v.back()))
-      return true;
-    for (size_t i=0;i<v.size();++i){
-      if (v[i].type==_VECT && v[i].subtype==_LOGO__VECT)
-	return true;
-    }
-    return false;
-  }
-
-  const char conf_standard[] = "F1 algb\nsimplify(\nfactor(\npartfrac(\ntcollect(\ntexpand(\nsum(\noo\nproduct(\nF2 calc\n'\ndiff(\nintegrate(\nlimit(\nseries(\nsolve(\ndesolve(\nrsolve(\nF5  2d \nreserved\nF4 menu\nreserved\nF6 reg\nlinear_regression_plot(\nlogarithmic_regression_plot(\nexponential_regression_plot(\npower_regression_plot(\npolynomial_regression_plot(\nsin_regression_plot(\nscatterplot(\nmatrix(\nF< poly\nproot(\npcoeff(\nquo(\nrem(\ngcd(\negcd(\nresultant(\nGF(\nF9 arit\n mod \nirem(\nifactor(\ngcd(\nisprime(\nnextprime(\npowmod(\niegcd(\nF7 lin\nmatrix(\ndet(\nmatpow(\nranm(\nrref(\ntran(\negvl(\negv(\nF= list\nmakelist(\nrange(\nseq(\nlen(\nappend(\nranv(\nsort(\napply(\nF3 plot\nplot(\nplotseq(\nplotlist(\nplotparam(\nplotpolar(\nplotfield(\nhistogram(\nbarplot(\nF; real\nexact(\napprox(\nfloor(\nceil(\nround(\nsign(\nmax(\nmin(\nF> prog\n:\n&\n#\nhexprint(\nbinprint(\nf(x):=\ndebug(\npython(\nF8 cplx\nabs(\narg(\nre(\nim(\nconj(\ncsolve(\ncfactor(\ncpartfrac(\nF: misc\n!\nrand(\nbinomial(\nnormald(\nexponentiald(\n\\\n % \nperiodic_table\n";
+  const char conf_standard[] = "F1 algb\nsimplify(\nfactor(\npartfrac(\ntcollect(\ntexpand(\nsum(\noo\nproduct(\nF2 calc\n'\ndiff(\nintegrate(\nlimit(\nseries(\nsolve(\ndesolve(\nrsolve(\nF5  2d \nreserved\nF4 menu\nreserved\nF6 reg\nlinear_regression_plot(\nlogarithmic_regression_plot(\nexponential_regression_plot(\npower_regression_plot(\npolynomial_regression_plot(\nsin_regression_plot(\nscatterplot(\nmatrix(\nF< poly\nproot(\npcoeff(\nquo(\nrem(\ngcd(\negcd(\nresultant(\nGF(\nF9 arit\n mod \nirem(\nifactor(\ngcd(\nisprime(\nnextprime(\npowmod(\niegcd(\nF7 lin\nmatrix(\ndet(\nmatpow(\nranm(\nrref(\ntran(\negvl(\negv(\nF= list\nmakelist(\nrange(\nseq(\nlen(\nappend(\nranv(\nsort(\napply(\nF3 plot\nplot(\nplotseq(\nplotlist(\nplotparam(\nplotpolar(\nplotfield(\nhistogram(\nbarplot(\nF; real\nexact(\napprox(\nfloor(\nceil(\nround(\nsign(\nmax(\nmin(\nF> prog\n:\n&\n#\nhexprint(\nbinprint(\nf(x):=\ndebug(\npython(\nF8 cplx\nabs(\narg(\nre(\nim(\nconj(\ncsolve(\ncfactor(\ncpartfrac(\nF: misc\n!\nrand(\nbinomial(\nnormald(\nexponentiald(\n and \n or \nperiodic_table\nF? geo\npoint(\nline(\ncircle(\nplane(\nF@ color\ncolor=\nred\ncyan\ngreen\nblue\nmagenta\nyellow\n";
 
   const char python_conf_standard[] = "F1 misc\nprint(\ninput(\n;\n:\n[]\ndef f(x): return \ntime()\nfrom time import *\nF2 math\nfloor(\nceil(\nround(\nmin(\nmax(\nabs(\nsqrt(\nfrom math import *\nF3 c&rand\nrandint(\nrandom()\nchoice(\nfrom random import *\n.real\n.imag\nphase(\nfrom cmath import *;i=1j\nF4 menu\nreserved\nF5  2d\nreserved\nF6 tortue\nforward(\nbackward(\nleft(\nright(\npencolor(\ncircle(\nreset()\nfrom turtle import *\nF7 linalg\nmatrix(\nadd(\nsub(\nmul(\ninv(\nrref(\ntranspose(\nfrom linalg import *;i=1j\nF8 numpy\narray(\nreshape(\narange(\nlinspace(\nsolve(\neig(\ninv(\nfrom numpy import *;i=1j\nF9 arit\npow(\nisprime(\nnextprime(\nifactor(\ngcd(\nlcm(\niegcd(\nfrom arit import *\nF< color\nred\nblue\ngreen\ncyan\nyellow\nmagenta\nblack\nwhite\nF; draw\nclear_screen();\nshow_screen();\nset_pixel(\ndraw_line(\ndraw_rectangle(\n\ndraw_circle(\ndraw_string(\nfrom graphic import *\nF: plot\nclf()\nplot(\ntext(\narrow(\nscatter(\nbar(\nshow()\nfrom matplotl import *\nF= list\nlist(\nrange(\nlen(\nappend(\nzip(\nsorted(\nmap(\nreversed(\nF> prog\n|\n&\n#\nhex(\nbin(\ndebug(\nfrom cas import *\ncaseval(\"\")\n";
   
@@ -7172,6 +9779,16 @@ namespace xcas {
   }
 
   void warn_python(int mode,bool autochange){
+    if (mode==-1){
+      confirm((lang==1)?"Interpreteur Javascript":"Javascript interpreter",
+#ifdef NSPIRE_NEWLIB
+	      (lang==1)?"enter: ok":"enter: ok"
+#else
+	      (lang==1)?"OK: ok":"OK: ok"
+#endif	      
+	      );
+      return;
+    }
     if (mode==0)
       confirm(autochange?((lang==1)?"Source en syntaxe Xcas detecte.":"Xcas syntax source code detected."):((lang==1)?"Syntaxe Xcas.":"Xcas syntax."),
 #ifdef NSPIRE_NEWLIB
@@ -7248,29 +9865,6 @@ namespace xcas {
     return 0;
   }
 
-  void process_freeze(){
-    if (freezeturtle){
-      displaylogo();
-      freezeturtle=false;
-      return;
-    }
-    if (giac::freeze){
-      giac::freeze=false;
-      for (;;){
-#ifdef NSPIRE_NEWLIB
-	DefineStatusMessage((char*)((lang==1)?"Ecran fige. Taper esc":"Screen freezed. Press esc."), 1, 0, 0);
-#else
-	DefineStatusMessage((char*)((lang==1)?"Ecran fige. Taper clear":"Screen freezed. Press clear."), 1, 0, 0);
-#endif
-	DisplayStatusArea();
-	int key;
-	GetKey(&key);
-	if (key==KEY_CTRL_EXIT || key==KEY_CTRL_AC)
-	  break;
-      }
-    }
-  }    
-
   // called from editor, return 
   int check_parse(textArea * text,const std::vector<textElement> & v,int python,GIAC_CONTEXT){
     if (v.empty())
@@ -7279,6 +9873,29 @@ namespace xcas {
     for (int i=0;i<sizeof(status);++i)
       status[i]=0;
     int shift=0;
+#ifdef QUICKJS
+    if (xcas_python_eval==-1){
+      string s=merge_area(vector<textElement>(v.begin(),v.end()));
+      if (s.size() && s[0]=='@')
+	s=s.substr(1,s.size()-1);
+      else
+	s="\"use math\";"+s;
+      char * js=js_ck_eval(s.c_str(),&global_js_context);
+      if (js){
+	s=js;
+	free(js);
+	process_freeze();
+	update_js_vars();
+      }
+      else
+	s="Error";
+      if (s.size()>=sizeof(status))
+	s=s.substr(0,sizeof(status)-5)+"...";
+      sprintf(status,"%s",s.c_str());
+      DefineStatusMessage(status,1,0,0);
+      return 0;
+    }
+#endif
 #ifdef MICROPY_LIB
     if (xcas_python_eval==1){
 #if 0
@@ -7333,7 +9950,7 @@ namespace xcas {
 #endif
     std::string s=merge_area(v); 
     giac::python_compat(python,contextptr);
-    if (python) s="@@"+s; // force Python translation
+    if (python>0) s="@@"+s; // force Python translation
     freeze=true;
     giac::gen g(s,contextptr);
     freeze=false;
@@ -7346,7 +9963,7 @@ namespace xcas {
 	const std::string & err=v[lineerr-1].s;
 	if (pos>=err.size())
 	  pos=-1;
-	if (python){
+	if (python>0){
 	  // find 1st token, check if it's def/if/elseif/for/while
 	  size_t i=0,j=0;
 	  for (;i<err.size();++i){
@@ -7419,6 +10036,10 @@ namespace xcas {
 	if (ptr[i]==':' || ptr[i]=='{')
 	  return 1;
 	if (ptr[i]=='}')
+	  return -1;
+	if (i && ptr[i]==';' && ptr[i-1]=='}')
+	  return -1;
+	if (i>=2 && ptr[i]==';' && ptr[i-1]==':' && ptr[i-2]=='}')
 	  return -1;
 	break;
       }
@@ -7632,10 +10253,15 @@ namespace xcas {
 #ifndef NSPIRE_NEWLIB
 	status += (xthetat?" t":" x");
 #endif
-	if (text->python & 4)
-	  status += " MicroPython ";
-	else
-	  status += text->python?(text->python==2?" Py ^xor ":" Py ^=** "):" Xcas ";
+	if (text->python<0){
+	  status += " QuickJS ";
+	}
+	else {
+	  if (text->python & 4)
+	    status += " MicroPython ";
+	  else
+	    status += text->python?(text->python==2?" Py ^xor ":" Py ^=** "):" Xcas ";
+	}
 	status += giac::remove_extension(text->filename.c_str());
 	status += text->changed?" * ":" - ";
 	status += giac::printint(text->line+1);
@@ -7876,10 +10502,14 @@ namespace xcas {
   }
 
   void change_mode(textArea * text,int flag,GIAC_CONTEXT){
-    if (bool(text->python)!=bool(flag)){
+    if (text->python==-1 || text->python==4)
+      return;
+    if (text->python!=flag){
       text->python=flag;
       python_compat(text->python,contextptr);
-      if (text->python & 4)
+      if (text->python<0)
+	xcas_python_eval=-1;
+      else if (text->python & 4)
 	xcas_python_eval=1;
       show_status(text,"","");
       warn_python(flag,true);
@@ -7920,7 +10550,7 @@ namespace xcas {
     }
     strncpy(buf,s,ptr-s);
     buf[ptr-s]=0;
-    if (strcmp(buf,"def")==0 || strcmp(buf,"import")==0)
+    if (xcas_python_eval>=0 && (strcmp(buf,"def")==0 || strcmp(buf,"import")==0))
       return 1;
 #ifdef MICROPY_LIB
     if (is_python_builtin(buf))
@@ -7931,7 +10561,14 @@ namespace xcas {
     gen g;
     int token=find_or_make_symbol(buf,g,0,false,contextptr);
     //*logptr(contextptr) << s << " " << buf << " " << token << " " << g << endl;
- #ifdef MICROPY_LIB
+#ifdef QUICKJS
+    if (xcas_python_eval==-1){
+      if (is_js_keyword(buf))
+	return 1;
+      return js_token(js_vars.c_str(),buf);
+    }
+#endif
+#ifdef MICROPY_LIB
     if (xcas_python_eval==1){
       micropy_ck_eval("");
       int tok=mp_token(buf);
@@ -8192,8 +10829,8 @@ namespace xcas {
       bool linecomment=false;
       while (*src){
 	const char * oldsrc=src;
-	if ( (text->python && *src=='#') ||
-	     (!text->python && *src=='/' && *(src+1)=='/')){
+	if ( (text->python>0 && *src=='#') ||
+	     (text->python<=0 && *src=='/' && *(src+1)=='/')){
 	  linecomment=true;
 	  couleur=4;
 	}
@@ -8224,7 +10861,7 @@ namespace xcas {
 	      }
 	      // go to next space or alphabetic char
 	      for (;*src;++i,++src){
-		if (*src==' ' || (i && *src>=' ' && *src<='/') || (text->python && *src=='#') || (!text->python && *src=='/' && *(src+1)=='/')|| *src=='"' || isalpha(*src))
+		if (*src==' ' || (i && *src>=' ' && *src<='/') || (text->python>0 && *src=='#') || (text->python<=0 && *src=='/' && *(src+1)=='/')|| *src=='"' || isalpha(*src))
 		  break;
 	      }
 	    }
@@ -8294,7 +10931,7 @@ namespace xcas {
 	  if (editable){
 	    couleur=linecomment?5:find_color(singleword,contextptr);
 	    if (couleur==1) couleur=COLOR_BLUE;
-	    if (couleur==2) couleur=COLOR_YELLOWDARK;
+	    if (couleur==2) couleur=49432; //was COLOR_YELLOWDARK;
 	    if (couleur==3) couleur=51712;//33024;
 	    if (couleur==4) couleur=COLOR_MAGENTA;
 	    if (couleur==5) couleur=COLOR_GREEN;
@@ -8375,7 +11012,7 @@ namespace xcas {
     if (editable){
       waitforvblank();
       drawRectangle(0,205,LCD_WIDTH_PX,17,44444);
-      PrintMiniMini(0,205,text->python?"shift-1 test|2 loop|3 undo|4 misc|5 +-|6 logo|7 lin|8 list|9arit":"shift-1 test|2 loop|3 undo|4 misc|5 +-|6 logo|7 matr|8 cplx",4,44444,giac::_BLACK);
+      PrintMiniMini(0,205,text->python>0?"shift-1 test|2 loop|3 undo|4 misc|5 +-|6 logo|7 lin|8 list|9arit":"shift-1 test|2 loop|3 undo|4 misc|5 +-|6 logo|7 matr|8 cplx",4,44444,giac::_BLACK);
       //draw_menu(1);
     }
 #ifdef SCROLLBAR
@@ -8481,7 +11118,7 @@ namespace xcas {
     ta.changed=false;
     ta.filename=filename?filename:"temp.py";
     ta.y=0;
-    ta.python=true;
+    ta.python=python_compat(contextptr);
     ta.allowEXE=false;//true; // set back to true later
     ta.OKparse=OKparse;
     bool str=s[0]=='"' && s[ss-1]=='"';
@@ -8554,8 +11191,8 @@ namespace xcas {
 #endif
 
   const char * input_matrix(const gen &g,gen & ge,GIAC_CONTEXT){
-#ifdef MICROPY_LIB
-    if (xcas_python_eval==1){
+#if defined MICROPY_LIB || defined QUICKJS
+    if (xcas_python_eval){
       if (ge.type==_VECT)
 	ge.subtype=0;
       static string input_matrix_s=g.print(contextptr)+'='+ge.print(contextptr);
@@ -8763,6 +11400,9 @@ namespace xcas {
   }
   
   int doTextArea(textArea* text,GIAC_CONTEXT) {
+#ifdef QUICKJS
+    update_js_vars();
+#endif
     int scroll = 0;
     int isFirstDraw = 1;
     int totalTextY = 0,textY=0;
@@ -8809,7 +11449,11 @@ namespace xcas {
       }
 #endif
       if (key!=KEY_CTRL_PRGM && key!=KEY_CHAR_FRAC)
-	translate_fkey(key);    
+	translate_fkey(key);
+      if (key==KEY_CHAR_NORMAL)
+	key=KEY_CTRL_F15;
+      if (key==KEY_CHAR_FACTOR)
+	key=KEY_CTRL_F16;
       //char keylog[32];sprint_int(keylog,key); puts(keylog);
       show_status(text,search,replace);
       int & clipline=text->clipline;
@@ -8940,12 +11584,15 @@ namespace xcas {
 	  const char * adds;
 #if 1
 	  if ( (key>=KEY_CTRL_F1 && key<=KEY_CTRL_F4) ||
-	       (key >= KEY_CTRL_F6 && key <= KEY_CTRL_F14)
+	       (key >= KEY_CTRL_F6 && key <= KEY_CTRL_F16)
 	       ){
-	    string le_menu=xcas_python_eval?//text->python?
-	      "F1 test\nif \nelse \n<\n>\n==\n!=\n&&\n||\nF2 loop\nfor \nfor in\nrange(\nwhile \nbreak\ndef\nreturn \n#\nF4 misc\n:\n;\n_\n!\n%\nfrom  import *\nprint(\ninput(\nF6 tortue\nforward(\nbackward(\nleft(\nright(\npencolor(\ncircle(\nreset()\nfrom turtle import *\nF: plot\nplot(\ntext(\narrow(\nlinear_regression_plot(\nscatter(\naxis(\nbar(\nfrom matplotl import *\nF7 linalg\nadd(\nsub(\nmul(\ninv(\ndet(\nrref(\ntranspose(\nfrom linalg import *\nF< color\nred\nblue\ngreen\ncyan\nyellow\nmagenta\nblack\nwhite\nF; draw\nset_pixel(\ndraw_line(\ndraw_rectangle(\nfill_rect(\ndraw_polygon(\ndraw_circle(\ndraw_string(\nfrom graphic import *\nF8 numpy\narray(\nreshape(\narange(\nlinspace(\nsolve(\neig(\ninv(\nfrom numpy import *\nF9 arit\npow(\nisprime(\nnextprime(\nifactor(\ngcd(\nlcm(\niegcd(\nfrom arit import *\n":
-	      "F1 test\nif \nelse \n<\n>\n==\n!=\nand\nor\nF2 loop\nfor \nfor in\nrange(\nwhile \nbreak\nf(x):=\nreturn \nlocal\nF4 misc\n;\n:\n_\n!\n%\n&\nprint(\ninput(\nF6 tortue\navance\nrecule\ntourne_gauche\ntourne_droite\nrond\ndisque\nrepete\nefface\nF7 lin\nmatrix(\ndet(\nmatpow(\nranm(\nrref(\ntran(\negvl(\negv(\nF9 arit\n mod \nirem(\nifactor(\ngcd(\nisprime(\nnextprime(\npowmod(\niegcd(\nF< plot\nplot(\nplotseq(\nplotlist(\nplotparam(\nplotpolar(\nplotfield(\nhistogram(\nbarplot(\nF: misc\n<\n>\n_\n!\n % \nrand(\nbinomial(\nnormald(\nF8 cplx\nabs(\narg(\nre(\nim(\nconj(\ncsolve(\ncfactor(\ncpartfrac(\n";
-	    le_menu += "F= list\nmakelist(\nrange(\nseq(\nlen(\nappend(\nranv(\nsort(\napply(\nF; real\nexact(\napprox(\nfloor(\nceil(\nround(\nsign(\nmax(\nmin(\nF> prog\n;\n:\n\\\n&\n?\n!\ndebug(\npython(\n";
+	    string le_menu;
+	    if (xcas_python_eval==1)//text->python?
+	      le_menu="F1 test\nif \nelse \n<\n>\n==\n!=\n&&\n||\nF2 loop\nfor \nfor in\nrange(\nwhile \nbreak\ndef\nreturn \n#\nF4 misc\n:\n;\n_\n!\n%\nfrom  import *\nprint(\ninput(\nF6 tortue\nforward(\nbackward(\nleft(\nright(\npencolor(\ncircle(\nreset()\nfrom turtle import *\nF: plot\nplot(\ntext(\narrow(\nlinear_regression_plot(\nscatter(\naxis(\nbar(\nfrom matplotl import *\nF7 linalg\nadd(\nsub(\nmul(\ninv(\ndet(\nrref(\ntranspose(\nfrom linalg import *\nF< color\nred\nblue\ngreen\ncyan\nyellow\nmagenta\nblack\nwhite\nF; draw\nset_pixel(\ndraw_line(\ndraw_rectangle(\nfill_rect(\ndraw_polygon(\ndraw_circle(\ndraw_string(\nfrom graphic import *\nF8 numpy\narray(\nreshape(\narange(\nlinspace(\nsolve(\neig(\ninv(\nfrom numpy import *\nF9 arit\npow(\nisprime(\nnextprime(\nifactor(\ngcd(\nlcm(\niegcd(\nfrom arit import *\n";
+	    if (xcas_python_eval<=0)
+	      le_menu="F1 test\nif \nelse \n<\n>\n==\n!=\nand\nor\nF2 loop\nfor \nfor in\nrange(\nwhile \nbreak\nf(x):=\nreturn \nvar\nF4 misc\n;\n:\n_\n!\n%\n&\nprint(\ninput(\nF6 tortue\navance\nrecule\ntourne_gauche\ntourne_droite\nrond\ndisque\nrepete\nefface\nF7 lin\nmatrix(\ndet(\nmatpow(\nranm(\nrref(\ntran(\negvl(\negv(\nF9 arit\n mod \nirem(\nifactor(\ngcd(\nisprime(\nnextprime(\npowmod(\niegcd(\nF< plot\nplot(\nplotseq(\nplotlist(\nplotparam(\nplotpolar(\nplotfield(\nhistogram(\nbarplot(\nF: misc\n<\n>\n_\n!\n % \nrand(\nbinomial(\nnormald(\nF8 cplx\nabs(\narg(\nre(\nim(\nconj(\ncsolve(\ncfactor(\ncpartfrac(\n";
+	    if (xcas_python_eval>=0)
+	      le_menu += "F= list\nmakelist(\nrange(\nseq(\nlen(\nappend(\nranv(\nsort(\napply(\nF; real\nexact(\napprox(\nfloor(\nceil(\nround(\nsign(\nmax(\nmin(\nF> prog\n;\n:\n\\\n&\n?\n!\ndebug(\npython(\nF? geo\npoint(\nline(\nsegment(\ncircle(\ntriangle(\nplane(\nsphere(\nsingle_inter(\nF@ color\ncolor=\nred\ncyan\ngreen\nblue\nmagenta\nyellow\nlegend(";
 	    const char * ptr=console_menu(key,(char*)(le_menu.c_str()),2);
 	    if (!ptr){
 	      show_status(text,search,replace);
@@ -8976,7 +11623,7 @@ namespace xcas {
 	      input_matrix(false,contextptr);
 	      continue;
 	    }
-	    if (text->python){
+	    if (text->python>0){
 	      if (isif)
 		adds=isex?"if x<0:\nx=-x":"if :\n";
 	      if (iselse)
@@ -8991,17 +11638,17 @@ namespace xcas {
 		adds=isex?"def f(x):\nreturn x*x*x\n":"def f(x):\n\nreturn\n";
 	    } else {
 	      if (isif)
-		adds=(lang==1)?(isex?"si x<0 alors x:=-x; fsi;":"si  alors\n\nsinon\n\nfsi;"):(isex?"if x<0 then x:=-x; fi;":"if  then\n\nelse\n\nfi;");
-	      if (lang && iselse)
+		adds=(lang==1 && text->python==0)?(isex?"si x<0 alors x:=-x; fsi;":"si  alors\n\nsinon\n\nfsi;"):(isex?"if (x<0) { x:=-x;}":"if (){\n\n} else {\n\n}");
+	      if (lang==1 && text->python==0 && iselse)
 		adds="sinon ";
 	      if (isfor)
-		adds=(lang==1)?(isex?"pour j de 1 jusque 10 faire\nprint(j*j);\nfpour;":"pour  de  jusque  faire\n\nfpour;"):(isex?"for j from 1 to 10 do\nprint(j*j);\nod;":"for  from  to  do\n\nod;");
+		adds=(lang==1 && text->python==0)?(isex?"pour j de 1 jusque 10 faire\nprint(j*j);\nfpour;":"pour  de  jusque  faire\n\nfpour;"):(isex?"for (j=1;j<=10;j++){ \nprint(j*j);\n}":"for(;;){\n\n};");
 	      if (isforin)
-		adds=(lang==1)?(isex?"pour j in [1,4,9,16] faire\nprint(j)\nfpour;":"pour  in  faire\n\nfpour;"):(isex?"for j in [1,4,9,16] do\nprint(j);od;":"for  in  do\n\nod;");
+		adds=(lang==1 && text->python==0)?(isex?"pour j in [1,4,9,16] faire\nprint(j)\nfpour;":"pour  in  faire\n\nfpour;"):(isex?"for j in [1,4,9,16] do\nprint(j);od;":"for  in  do\n\nod;");
 	      if (iswhile)
-		adds=(lang==1)?(isex?"a,b:=25,15;\ntantque b!=0 faire\na,b:=b,irem(a,b);\nftantque;a;":"tantque  faire\n\nftantque;"):(isex?"a,b:=25,15;\nwhile b!=0 do\na,b:=b,irem(a,b);\nod;a;":"while  do\n\nod;");
+		adds=(lang==1 && text->python==0)?(isex?"a,b:=25,15;\ntantque b!=0 faire\na,b:=b,irem(a,b);\nftantque;a;":"tantque  faire\n\nftantque;"):(isex?"a,b:=25,15;\nwhile (b!=0) {\na,b=b,irem(a,b);\n}\na;":"while () {\n\n}");
 	      if (isdef)
-		adds=(lang==1)?(isex?"fonction f(x)\nlocal j;\nj:=x*x;\nreturn j;\nffonction:;\n":"fonction f(x)\nlocal j;\n\nreturn ;\nffonction:;"):(isex?"function f(x)\nlocal j;\nj:=x*x;\nreturn j;\nffunction:;\n":"function f(x)\n  local j;\n\n return ;\nffunction:;");
+		adds=(lang==1 && text->python==0)?(isex?"fonction f(x)\nlocal j;\nj:=x*x;\nreturn j;\nffonction:;\n":"fonction f(x)\nlocal j;\n\nreturn ;\nffonction:;"):(isex?"function f(x){\nvar j;\nj=x*x;\nreturn j;\n}\n":"function f(x){\n  var j;\n\n return ;\n};");
 	    }
 	    insert(text,adds,key!=KEY_CTRL_PASTE); // was true, but we should not indent when pasting
 	    display(text,isFirstDraw,totalTextY,scroll,textY,contextptr);
@@ -9228,15 +11875,19 @@ namespace xcas {
 	  smallmenuitems[5].text = (char*)((lang==1)?"Chercher,remplacer":"Search, replace");
 	  smallmenuitems[6].text = (char*)((lang==1)?"Aller a la ligne":"Goto line");
 	  int p=python_compat(contextptr);
-	  if (p&4)
-	    smallmenuitems[7].text = (char*)"Syntax [MicroPython]";
-	  else {
-	    if (p==0)
-	      smallmenuitems[7].text = (char*)"Syntax [Xcas francais]";
-	    if (p==1)
-	      smallmenuitems[7].text = (char*)"Syntax [Xcas comp Python ^=**]";
-	    if (p==2)
-	      smallmenuitems[7].text = (char*)"Syntax [Xcas comp Python ^=xor]";
+	  if (p<0){
+	      smallmenuitems[7].text = (char*)"Syntax [QuickJS]";
+	  } else  {
+	    if (p&4)
+	      smallmenuitems[7].text = (char*)"Syntax [MicroPython]";
+	    else {
+	      if (p==0)
+		smallmenuitems[7].text = (char*)"Syntax [Xcas francais]";
+	      if (p==1)
+		smallmenuitems[7].text = (char*)"Syntax [Xcas comp Python ^=**]";
+	      if (p==2)
+		smallmenuitems[7].text = (char*)"Syntax [Xcas comp Python ^=xor]";
+	    }
 	  }
 	  smallmenuitems[8].text = (char *)((lang==1)?"Changer taille caracteres":"Change fontsize");
 	  smallmenuitems[9].text = (char *)aide_khicas_string;
@@ -9293,7 +11944,7 @@ namespace xcas {
 	    if (sres==4){
 	      char filename[MAX_FILENAME_SIZE+1];
 	      std::string ins;
-	      if (giac_filebrowser(filename, "py", "Scripts") && load_script(filename,ins))
+	      if (giac_filebrowser(filename, "py", "Scripts",2) && load_script(filename,ins))
 		insert(text,ins.c_str(),false);//add_nl(text,ins);
 	    }
 	    if (sres==5){
@@ -9335,13 +11986,17 @@ namespace xcas {
 	      int c=select_interpreter();
 	      if (c>=0){
 		int p=text->python;
-		if (c==3)
-		  p |= 0x4;
-		else 
-		  p=c;
+		if (c==4)
+		  p=-1;
+		else {
+		  if (c==3)
+		    p |= 0x4;
+		  else 
+		    p=c;
+		}
 		giac::python_compat(p,contextptr);
 		text->python=p;
-		xcas_python_eval=c==3;
+		xcas_python_eval=(c==3?1:(c==4?-1:0));
 		show_status(text,search,replace);
 		warn_python(text->python,false);
 		drawRectangle(0,205,LCD_WIDTH_PX,17,44444);
@@ -9352,7 +12007,7 @@ namespace xcas {
 	}
 	break;
       case KEY_CTRL_SETUP: // inactive
-	text->python=text->python?0:1;
+	text->python=text->python?0:1; // FIXME QUICKJS
 	show_status(text,search,replace);
 	python_compat(text->python,contextptr);
 	warn_python(text->python,false);
@@ -9452,16 +12107,20 @@ namespace xcas {
   void console_disp_status(GIAC_CONTEXT){
     int i=python_compat(contextptr);
     string msg("shell ");
-    if (i&4)
-      msg+="MicroPython";
+    if (i<0)
+      msg += "QuickJS";
     else {
-      if (i==0)
-	msg+="Xcas";
+      if (i&4)
+	msg+="MicroPython";
       else {
-	if (i==1)
-	  msg+="Py ^=**";
-	else
-	  msg+="Py ^=xor";
+	if (i==0)
+	  msg+="Xcas";
+	else {
+	  if (i==1)
+	    msg+="Py ^=**";
+	  else
+	    msg+="Py ^=xor";
+	}
       }
     }
     if (angle_radian(contextptr))
@@ -9539,6 +12198,250 @@ namespace xcas {
       confirm((lang==1)?"Fin du mode examen":"End exam mode","enter: OK");
   }    
 
+#ifdef NUMWORKS
+/* begin section (c) B. Parisse, write exam mode in *all* firmwares 
+   code is dual-licensed for use in Epsilon and here
+ */
+// write exam mode mode to flash at offset pos/8
+  void write_exammode(unsigned char * ptr,int pos,int mode,int modulo){
+    int curmode=pos%modulo;
+    if (curmode == mode)
+      return;
+    int delta=(mode+modulo-curmode)%modulo; // 0<delta<modulo, number of bits that we will set to 0
+    unsigned char * target = ptr + pos/8;
+    int pos8=pos % 8; // number of bits already set to 0 at target
+    pos8 += delta; // 0<pos8<modulo+7
+    unsigned char postab[]={0b11111111,0b1111111,0b111111,0b11111,0b1111,0b111,0b11,0b1,0}; // postab[i] is a byte with i bits set to 0 
+    unsigned char tab[2];
+    bool writenext=pos8>8;
+    tab[0]=postab[writenext?8:pos8];
+    tab[1]=postab[writenext?pos8-8:0];
+#if 1 // KHICAS
+    WriteMemory((char *)target, (const char *)tab, writenext?2:1);
+#else
+    target[0]=tab[0];
+    if (writenext) target[1]=tab[1];
+#endif
+  }
+
+  // check that region is split in two parts: bits set to 0 followed by bits set to 1, returns position of the first 1 bit or -1
+  int pos_01(unsigned * start,int l){
+    unsigned *ptr=start,* end=start+l/sizeof(unsigned);
+    for (;ptr<end;++ptr){
+      if (*ptr)
+	break;
+    }
+    if (ptr==end)
+      return -1;
+    int pos=(ptr-start)*32;
+    unsigned char * ptr8=(unsigned char *) ptr;
+    if (*ptr8==0){
+      pos+=8; ++ptr8;
+    }
+    if (*ptr8==0){
+      pos+=8; ++ptr8;
+    }
+    if (*ptr8==0){
+      pos+=8; ++ptr8;
+    }
+    switch (*ptr8){
+    case 0b1: pos+=7; break; // 7 bits are already set to 0
+    case 0b11: pos+=6; break;
+    case 0b111: pos+=5; break;
+    case 0b1111: pos+=4; break;
+    case 0b11111: pos+=3; break;
+    case 0b111111: pos+=2; break;
+    case 0b1111111: pos+=1; break;
+    case 0b11111111: break;
+    default: return -1;
+    }
+    ++ptr;
+    for (;ptr<end;++ptr){
+      if (*ptr!=0xffffffff)
+	return -1;
+    }
+    return pos;
+  }
+
+  char print_hex(int val){
+    val &= 0xf;
+    if (val>=0 && val<=9)
+      return '0'+val;
+    return 'A'+(val-10);
+  }
+
+  void print_hex(unsigned val,char * ptr){
+    for (int i=0;i<8;++i){
+      ptr[i]=print_hex(val>>(28-4*i));
+    }
+  }
+
+  void set_exammode(int mode,int modulo){
+    if (mode<0 || mode>=modulo)
+      return;
+    // scan external flash every dflash bytes
+    unsigned * flashptr=(unsigned *) 0x90000000;
+    unsigned dflash=0x10000,ntests=8*1024*1024/dflash/sizeof(unsigned);
+    for (unsigned i=0;i<ntests;++i){
+      unsigned * ptr=flashptr+i*dflash;
+      // kernel header?
+      if (*ptr!=0xffffffff || *(ptr+1)!=0xffffffff || *(ptr+2)!= 0xdec00df0 /* f0 0d c0 de*/)
+	continue;
+      ptr += 0x1000/sizeof(unsigned); // exam mode buffer?
+      int pos=pos_01(ptr,0x1000);
+      if (pos==-1)
+	continue;
+      if (pos>=0x1000-8){
+	erase_sector((const char *)ptr);
+	pos=0;
+      }
+      write_exammode((unsigned char *)ptr,pos,mode,modulo);
+    }
+  }
+
+  const size_t baseaddr[]={0x90000000,0x90180000,0x90400000};
+  void boot_firmware(int slot){
+    const int taille=int(sizeof(baseaddr)/sizeof(size_t));
+    if (slot<0 || slot>taille)
+      slot=taille;
+    unsigned * ptr=(unsigned *) 0x08004000;
+    int pos=pos_01(ptr,0x1000);
+    if (pos==-1)
+      return;
+    if (pos>=0x8000-8){
+      erase_sector((const char *)ptr);
+      pos=0;
+    }
+    write_exammode((unsigned char *)ptr,pos,slot,4);
+    wait_1ms(10); // Ion::Timing::msleep(10);
+    erase_sector(0); // Ion::Device::Reset::core();
+  }
+
+  const size_t kernelheader=0xdec00df0;
+  const size_t userheader=0xDEC0EDFE;
+  const size_t omegaheader=0xEFBEADDE;
+  const size_t upsilonheader=0x55707369;
+
+  // return 0 if invalid, 1 for Khi, 2 for Omega, 3 for Upsilon, 4 for Epsilon<=18.2.3
+  int is_valid(int slot){ 
+    if (slot<0 || slot>=int(sizeof(baseaddr)/sizeof(size_t)))
+      return 0;
+    // kernel header
+    size_t * addr=(size_t *) baseaddr[slot];
+    if (addr[0]!=0xffffffff || addr[1]!=0xffffffff || addr[2]!=kernelheader || addr[7]!=kernelheader)
+      return 0;
+    // userland header
+    addr=(size_t *) (baseaddr[slot]+0x10000);
+    if (addr[0]!=userheader || addr[9]!=userheader)
+      return 0;
+    if (addr[10]==omegaheader){
+      char * version=(char *)&addr[11];
+      if (version[1]=='.')
+	return 2; // Omega
+      return 1; // Khi
+    }
+    if (addr[10]==upsilonheader)
+      return 3;
+    // epsilon version
+    char * version=(char *)&addr[1];
+    if (strcmp(version,"18.2.3")>0)
+      return 0;
+    return 4;
+  }
+
+  size_t find_storage(){
+    // find storage
+    int slot=0;
+    size_t addr[]={0x90000000,0x90180000,0x90400000};
+    for (;slot<sizeof(addr)/sizeof(size_t);++slot){
+      unsigned char * r=(unsigned char *) addr[slot];
+      bool externalinfo=r[8]==0xf0 && r[9]==0x0d && r[10]==0xc0 && r[11]==0xde;
+      if (!externalinfo)
+	continue;
+      r += 0x10000;
+      if (r[15]!=0x20) // ram is at 0x20000000 (+256K)
+	continue;
+      size_t start=((r[15]*256U+r[14])*256+r[13])*256+r[12];
+      r=(unsigned char *)start;
+      if (r[0]==0xba && r[1]==0xdd && r[2]==0x0b && r[3]==0xee){ // ba dd 0b ee begin of scriptstore
+	return start;
+      }
+    }
+    return 0;
+  }    
+
+  bool save_backup(int no){
+    if (no!=1 && no!=0)
+      return false;
+    int L=32*1024;
+    size_t backupaddr=0x90800000-2*L;
+    size_t storageaddr=find_storage();
+    //confirm("Storage @",hexa_print_INT_(storageaddr).c_str());
+    if (storageaddr){
+      char * sptr=(char *)storageaddr;
+      int L=32*1024;
+      if (no==0){
+	// check if sector is already formatted
+	unsigned * ptr=(unsigned *) (backupaddr);
+	for (int i=0;i<L/2;++i){
+	  if (ptr[i]!=0xffffffff){ // it's not, format
+	    erase_sector((const char *)backupaddr);
+	    break;
+	  }
+	}
+	if (sptr[4]==0 && sptr[5]==0){
+	  return false; // nothing to save 
+	}
+	WriteMemory((char *)backupaddr,(const char *)storageaddr,L);
+	return true;
+      }
+      if (no==1){
+	if (sptr[4]==0 && sptr[5]==0){
+	  return false; // nothing to save 
+	}
+	// check if sector is already formatted
+	unsigned * ptr=(unsigned *) (backupaddr+L);
+	for (int i=0;i<L/4;++i){
+	  if (ptr[i]!=0xffffffff){ // it's not, format
+	    char * buf=(char *)malloc(L);
+	    memcpy(buf,(char *)backupaddr,L);
+	    erase_sector((const char *)backupaddr);
+	    WriteMemory((char *)backupaddr,buf,L);
+	    free(buf);
+	    break;
+	  }
+	}
+	WriteMemory((char *)(backupaddr+L),(const char *)storageaddr,L);
+	return true;
+      } 
+      return true; // never reached
+    }
+    return false;
+  }
+
+  // 0 or 1 restore, 2 or 3 check if there is something to restore
+  bool restore_backup(int no){
+    if (no<0)
+      return false;
+    int L=32*1024;
+    size_t backupaddr=0x90800000-2*L;
+    size_t storageaddr=find_storage();
+    //confirm("Storage @",hexa_print_INT_(storageaddr).c_str());
+    if (!storageaddr)
+      return false;
+    char * sptr=(char *)(backupaddr+(no & 1)*L);
+    // ba dd 0b ee
+    if (sptr[0]!=0xba || sptr[1]!=0xdd || sptr[2]!=0x0b || sptr[3]!=0xee )
+      return false;
+    if (sptr[4]==0 && sptr[5]==0)
+      return false; // nothing to restore
+    if (no>=2)
+      return true;
+    memcpy((char *)storageaddr,sptr,L);
+    return true;
+  }
+  /* end section (c) B. Parisse, */
+#endif
   
   void menu_setup(GIAC_CONTEXT){
     Menu smallmenu;
@@ -9548,12 +12451,17 @@ namespace xcas {
     smallmenu.height=12;
     smallmenu.scrollbar=1;
     smallmenu.scrollout=1;
-    smallmenu.title = (char*)"Config";
+    smallmenu.title = (char *)"Config";
+  
 #ifdef NUMWORKS
+#ifdef DEVICE
+    string titles="Config (Memory "+print_INT_(_heap_size)+")";
+    smallmenu.title = (char*) titles.c_str();
+#endif
     smallmenuitems[0].type = MENUITEM_CHECKBOX;
     smallmenuitems[0].text = (char*)"x,n,t -> t";
 #endif
-    smallmenuitems[1].text = (char*)"Syntaxe (Xcas/Python)";
+    smallmenuitems[1].text = (char*)"Syntaxe (Xcas/Py/JS)";
     smallmenuitems[2].type = MENUITEM_CHECKBOX;
     smallmenuitems[2].text = (char*)"Radians (in Xcas)";
     smallmenuitems[3].type = MENUITEM_CHECKBOX;
@@ -9564,7 +12472,11 @@ namespace xcas {
     smallmenuitems[7].text = (char*)"Greek&English";
     smallmenuitems[8].text = (char*)"Deutsch&English";
     smallmenuitems[9].text = (char *) ((lang==1)?"Raccourcis clavier (0)":"Shortcuts (0)");
+#ifdef NUMWORKS
+    smallmenuitems[10].text = (char*) ((lang==1)?"Backup, mode examen (e^x)":"Backup, exam mode (e^x)");
+#else
     smallmenuitems[10].text = (char*) ((lang==1)?"Mode examen (e^x)":"Exam mode (e^x)");
+#endif
     smallmenuitems[11].text = (char*) ((lang==1)?"A propos":"About");
     smallmenuitems[14].text = (char*) "Quit";
     if (exam_mode)
@@ -9579,21 +12491,25 @@ namespace xcas {
       dig += print_INT_(decimal_digits(contextptr));
       smallmenuitems[0].text = (char*)dig.c_str();
 #endif
-      string heaps("Micropython heap "+print_INT_(python_heap_size/1024)+"K");
+      string heaps("Micropy/JS heap "+print_INT_(pythonjs_heap_size/1024)+"K");
       smallmenuitems[12].text = (char *) heaps.c_str();
       string stacks("-------------");
-      // string stacks("Micropython stack "+print_INT_(python_stack_size/1024)+"K"); // enable in micropython mpconfig.h + call to pystack_init + remove continue below
+      // string stacks("Micropython stack "+print_INT_(pythonjs_stack_size/1024)+"K"); // enable in micropython mpconfig.h + call to pystack_init + remove continue below
       smallmenuitems[13].text = (char *) stacks.c_str();
       int p=python_compat(contextptr);
-      if (p&4)
-	smallmenuitems[1].text = (char*)"Change syntax (MicroPython)";
-      else {
-	if (p==0)
-	  smallmenuitems[1].text = (char*)"Change syntax (Xcas)";
-	if (p==1)
-	  smallmenuitems[1].text = (char*)"Change syntax (Xcas comp Python ^=**)";
-	if (p==2)
-	  smallmenuitems[1].text = (char*)"Change syntax (Xcas comp Python ^=xor)";
+      if (p<0){
+	smallmenuitems[1].text = (char*)"Change syntax (QuickJS)";
+      } else {
+	if (p&4)
+	  smallmenuitems[1].text = (char*)"Change syntax (MicroPython)";
+	else {
+	  if (p==0)
+	    smallmenuitems[1].text = (char*)"Change syntax (Xcas)";
+	  if (p==1)
+	    smallmenuitems[1].text = (char*)"Change syntax (Xcas comp Python ^=**)";
+	  if (p==2)
+	    smallmenuitems[1].text = (char*)"Change syntax (Xcas comp Python ^=xor)";
+	}
       }
       smallmenuitems[2].value = giac::angle_radian(contextptr);
       smallmenuitems[3].value = giac::withsqrt(contextptr);
@@ -9612,32 +12528,37 @@ namespace xcas {
 #endif
 	  continue;
 	}
-#ifdef MICROPY_LIB
+#if defined MICROPY_LIB || defined QUICKJS
 	if (smallmenu.selection == 2){
 	  int c=select_interpreter();
 	  if (c>=0){
 	    int p=giac::python_compat(contextptr);
-	    if (c==3)
-	      p |= 0x4;
-	    else
-	      p=c;
+	    if (c==4){
+	      p=-1;
+	    } else {
+	      if (c==3)
+		p |= 0x4;
+	      else
+		p=c;
+	    }
 	    int old_xcas_python_eval=xcas_python_eval;
-	    xcas_python_eval=c==3;
-	    giac::python_compat(p,contextptr);
+	    xcas_python_eval=c<0?c:(c==3?1:0);
+	    giac::python_compat(p<0?0:p,contextptr);
 	    if (edptr)
 	      edptr->python=p;
 	    if (xcas_python_eval!=old_xcas_python_eval){
-	      if (xcas_python_eval){
-		if (do_confirm((lang==1)?"Effacer les variables Xcas?":"Clear Xcas variables?"))
-		  do_restart(contextptr);
-	      }
-	      else {
-#ifdef MICROPY_LIB
-		if (do_confirm((lang==1)?"Effacer le tas MicroPython?":"Clear MicroPython heap?"))
-		  python_free();
-#endif
-	      }
+	      if (old_xcas_python_eval==0 && xcas_python_eval>0 &&
+		  do_confirm((lang==1)?"Effacer les variables Xcas?":"Clear Xcas variables?"))
+		do_restart(contextptr);
 	    }
+#ifdef MICROPY_LIB
+	    if (old_xcas_python_eval==1 && do_confirm((lang==1)?"Effacer le tas MicroPython?":"Clear MicroPython heap?"))
+	      python_free();
+#endif
+#ifdef QUICKKS
+	    if (0 && old_xcas_python_eval==-1 && do_confirm((lang==1)?"Effacer le tas QuickJS?":"Clear QuickJS heap?"))
+	      js_end(global_js_context);
+#endif
 	    warn_python(p,false);
 	    Console_FMenu_Init(contextptr);
 	    console_disp_status(contextptr);
@@ -9718,12 +12639,50 @@ namespace xcas {
 	    }
 	  }
 #endif // NSPIRE_NEWLIB
+#ifdef NUMWORKS
+#ifdef DEVICE
+	  const char * tab[]={lang==1?"Sauvegarde multi-firmwares":"Backup for multi-firmware",lang==1?"Restauration multifirmwares":"Restore multi-firmware backup",lang==1?"Lancer le mode examen":"Run exam mode",lang==1?"Backup du mode examen":"Restore exam mode backup",0};
+	  int choix=select_item(tab,"Mode examen",true);
+	  if (choix<0 || choix>4)
+	    break;
+	  if (choix==0){
+	    if (!save_backup(1))
+	      confirm(lang==1?"Rien a sauvegarder":"Nothing to save","OK?");
+	    break;
+	  }
+	  if (choix==1){
+	    if (restore_backup(3)){
+	      if (confirm(lang==1?"Les donnees actuelles vont etre effacees":"Current data will be erased!","OK/Back?")==KEY_CTRL_F1){
+		confirm(restore_backup(1)?"Success!":"Failure!","OK?");
+	      }
+	    }
+	    else
+	      confirm(lang==1?"Pas de donnees":"No data.","OK/Back?");	      
+	    break;
+	  }
+	  if (choix==2){
+	    if (confirm(lang==1?"Sauvegarde, effacement puis mode examen":"Backup, clear then exam mode","OK/Back?")==KEY_CTRL_F1){
+	      if (!save_backup(0))
+		confirm(lang==1?"Rien a sauvegarder":"Nothing to save","OK?");
+	      // save to exam mode backup sector and format reset backup sector
+	      set_exammode(1,4);
+	      erase_sector(0); // means reset
+	    }
+	  }
+	  if (choix==3){
+	    if (inexammode()){ 
+	      confirm(lang==1?"Sortez d'abord du mode examen!":"Leave exam mode first!",lang==1?"(Connectez la calculatrice)":"(Connect calculator)");
+	      break;
+	    }
+	    confirm(restore_backup(0)?"Success!":"Failure!","OK?");
+	    break;
+	  }
+#endif
+	  // if (do_confirm(lang==1?"Le mode examen se lance depuis Parametres":"Enter Exam mode from Settings")) shutdown_state=1;
+	  break;
+#else
 	  if (!exam_mode && confirm((lang==1?"Verifiez que le calcul formel est autorise.":"Please check that the CAS is allowed."),(lang==1?"France: autorise au bac. Enter: ok, esc: annul":"enter: yes, esc: no"))!=KEY_CTRL_F1)
 	    break;
-#ifdef NUMWORKS
-	  if (do_confirm(lang==1?"Le mode examen se lance depuis Parametres":"Enter Exam mode from Settings"))
-	    shutdown_state=1;
-	  break;
 #endif
 	  // confirmation, duree (>=0 French indicative, else not indicative)
 	  double duration=exam_mode?absint(exam_duration):0;
@@ -9787,35 +12746,44 @@ namespace xcas {
 	  }
 	  break;
 	}
-#ifdef MICROPY_LIB
+#if (defined MICROPY_LIB || defined QUICKJS) 
 	if (smallmenu.selection==13){
-	  double d=python_heap_size/1024;
-	  if (inputdouble(
+	  double d=pythonjs_heap_size/1024;
+	  if (
+#ifdef NSPIRE_NEWLIB
+	      0 &&
+#endif
+	      inputdouble(
 #if defined NUMWORKS && defined DEVICE
-			  "Tas MicroPython en K (16-64)?"
+			  string("Tas MicroPy/JS en K (16-"+print_INT_(_heap_size/1024-52)+")?").c_str()
 #else
-			  "Tas MicroPython en K (64-4096)?"
+			  "Tas MicroPy/JS en K (64-1728)?"
 #endif
 			  ,d,contextptr) && d==int(d) &&
 #if defined NUMWORKS && defined DEVICE
-	      d>=16 && d<=64
+	      d>=16 && d<=_heap_size/1024-52
 #else
-	      d>=64 && d<=4096
+	      d>=64 && d<=1728
 #endif
 	      ){
-	    python_heap_size=d*1024;
+	    pythonjs_heap_size=d*1024;
+#ifdef MICROPY_LIB
 	    python_free();
+#endif
+#ifdef QUICKJS
+	    js_end(global_js_context);
+#endif
 	  }
 	  continue;
 	}
 	if (smallmenu.selection==14){
 	  continue;
-	  double d=python_stack_size/1024;
+	  double d=pythonjs_stack_size/1024;
 	  if (inputdouble(
 #if defined NUMWORKS && defined DEVICE
-			  "Pile MicroPython en K (8-20)?"
+			  "Pile MicroPy/JS en K (8-20)?"
 #else
-			  "Pile MicroPython en K (32-512)?"
+			  "Pile MicroPy/JS en K (32-512)?"
 #endif
 			  ,d,contextptr) && d==int(d) &&
 #if defined NUMWORKS && defined DEVICE
@@ -9824,8 +12792,13 @@ namespace xcas {
 	      d>=32 && d<=512
 #endif
 	      ){
-	    python_stack_size=d*1024;
+	    pythonjs_stack_size=d*1024;
+#ifdef MICROPY_LIB
 	    python_free();
+#endif
+#ifdef QUICKJS
+	    js_end(global_js_context);
+#endif
 	  }
 	  continue;
 	}
@@ -9875,19 +12848,47 @@ namespace xcas {
       return 0;
     if (strcmp(s,"caseval(\"\")")==0 || strcmp(s,"eval_expr(\"\")")==0 || (strlen(s)>=4 && strlen(s)<6 && strncmp(s,"xcas",4)==0)){
       xcas_python_eval=0;
-      int p=python_compat(contextptr)&3;
-      python_compat(p,contextptr);
+      int p=python_compat(contextptr);
+      python_compat(p>0?p&3:0,contextptr);
       if (edptr)
-	edptr->python=p;
+	edptr->python=p>0?p&3:0;
 #ifdef MICROPY_LIB
-      if (do_confirm((lang==1)?"Effacer le tas MicroPython?":"Clear MicroPython heap?"))
+      if (p==4 && do_confirm((lang==1)?"Effacer le tas MicroPython?":"Clear MicroPython heap?"))
 	python_free();
+#endif
+#ifdef QUICKJS
+      if (0 && p==-1 && do_confirm((lang==1)?"Effacer le tas QuickJS?":"Clear QuickJS heap?"))
+	js_end(global_js_context);
 #endif
       *logptr(contextptr) << "Xcas interpreter\n";
       Console_FMenu_Init(contextptr);
       return 0;
     }
     gen g,ge;
+#ifdef QUICKJS
+    if (strlen(s)>=2 && strlen(s)<4 && strncmp(s,"js",2)==0){
+      switch_to_js(contextptr);
+      return 0;
+    }
+    if (xcas_python_eval==-1){
+      string S(s); 
+      if (S.size() && S[0]=='@')
+	S=S.substr(1,S.size()-1);
+      else
+	S="\"use math\";"+S;
+      S+='\n';
+      char * js=js_ck_eval(S.c_str(),&global_js_context);
+      if (js){
+	S=js;
+	free(js);
+	process_freeze();
+	update_js_vars();
+      }
+      else S="Error";
+      Console_Output(S.c_str());
+      return 0;
+    }
+#endif
 #ifdef MICROPY_LIB
     if (strlen(s)>=6 && strlen(s)<8 && strncmp(s,"python",6)==0){
       switch_to_micropy(contextptr);
@@ -9905,6 +12906,10 @@ namespace xcas {
     process_freeze();
 #ifdef MICROPY_LIB
     if (xcas_python_eval==1)
+      return 0;
+#endif
+#ifdef QUICKJS
+    if (xcas_python_eval==-1)
       return 0;
 #endif
     int t=giac::taille(g,GIAC_HISTORY_MAX_TAILLE);  
@@ -9965,9 +12970,10 @@ namespace xcas {
     }
     Line[Last_Line].str=0;
     Last_Line=start;
+    int savestartline=Start_Line;
     Start_Line=Last_Line>LINE_DISP_MAX?Last_Line-LINE_DISP_MAX:0;
     Cursor.x=0;
-    Cursor.y=start;
+    Cursor.y=start-Start_Line;
     Line[start].str=Edit_Line;
     Edit_Line[0]=0;
     if (v.empty()) return 0;
@@ -9984,6 +12990,8 @@ namespace xcas {
       Console_Disp(1,contextptr);
       Bdisp_PutDisp_DD();
     }
+    Cursor.y += (Start_Line-savestartline);
+    Start_Line=savestartline;
     return 0;
   }
 
@@ -10022,9 +13030,9 @@ namespace xcas {
       strcat(buf,"python_compat(");
       strcat(buf,giac::print_INT_(b).c_str());
       strcat(buf,",");
-      strcat(buf,giac::print_INT_(python_heap_size).c_str());
+      strcat(buf,giac::print_INT_(pythonjs_heap_size).c_str());
       strcat(buf,",");
-      strcat(buf,giac::print_INT_(python_stack_size).c_str());
+      strcat(buf,giac::print_INT_(pythonjs_stack_size).c_str());
       strcat(buf,");angle_radian(");
       strcat(buf,angle_radian(contextptr)?"1":"0");
       strcat(buf,");with_sqrt(");
@@ -10203,6 +13211,8 @@ namespace xcas {
 
   bool load_console_state_smem(const char * filename,GIAC_CONTEXT){
     const char * hf=read_file(filename);
+    //if (!hf){ console_output(filename,strlen(filename)); console_output(" not found\n",11); return true; }
+    // if (strcmp(filename,"session.xw")){ console_output(hf,8); return true; }
     if (!hf) return false;
     string str;
     if (strncmp(hf,"#xwaspy\n",8)==0){
@@ -10295,14 +13305,20 @@ namespace xcas {
 #endif
     }
     console_changed=0;
-    if (python_compat(contextptr)&4){
+    int p=python_compat(contextptr);
+    if (p>=0 && p&4){
       xcas_python_eval=1;
       if (edptr){
 	check_parse(edptr,edptr->elements,python_compat(contextptr),contextptr);
       }
     }
     else
-      xcas_python_eval=0;
+      xcas_python_eval=p<0?-1:0;
+    if (p==-1){
+      //js_ck_eval("1",&global_js_context);
+      if (edptr)
+	check_parse(edptr,edptr->elements,-1,contextptr);
+    }
     Console_FMenu_Init(contextptr); // insure the menus are sync-ed
     return true;
   }
@@ -10483,7 +13499,7 @@ namespace xcas {
 	  if (Cursor.x == 0 && Line[Current_Line].start_col > 0)
 	    Cursor.x = 1;
 	  //If the current cursor line is not read-only, then it is a string copy to Edit_Line for editing.
-	  if (!Line[Current_Line].readonly){
+	  if (!Line[Current_Line].readonly && Line[Current_Line].str){
 	    strcpy((char *)Edit_Line, (const char *)Line[Current_Line].str);
 	    console_free(Line[Current_Line].str);
 	    Line[Current_Line].str = Edit_Line;
@@ -10552,7 +13568,7 @@ namespace xcas {
 	    if (Cursor.x == 0 && Line[Current_Line].start_col > 0) Cursor.x = 1;
 
 	    //If the current cursor line is not read-only, then it is a string copy to Edit_Line for editing.
-	    if (!Line[Current_Line].readonly)
+	    if (!Line[Current_Line].readonly && Line[Current_Line].str)
 	      {
 		strcpy((char *)Edit_Line, (const char *)Line[Current_Line].str);
 		console_free(Line[Current_Line].str);
@@ -10571,8 +13587,14 @@ namespace xcas {
 	  if (Line[Current_Line].start_col > 0){
 	    if (Cursor.x > 1)
 	      Cursor.x--;
-	    else
-	      Line[Current_Line].start_col--;
+	    else {
+	      int dx=COL_DISP_MAX/3;
+	      if (Line[Current_Line].start_col>=dx){
+		Line[Current_Line].start_col-=dx;
+		Cursor.x += dx-1;
+	      } else
+		Line[Current_Line].start_col--;
+	    }
 	    break;
 	  }
 	  if (Cursor.x > 0){
@@ -10597,8 +13619,13 @@ namespace xcas {
 	  if (Line[Current_Line].disp_len - Line[Current_Line].start_col > COL_DISP_MAX){
 	    if (Cursor.x < COL_DISP_MAX - 1)
 	      Cursor.x++;
-	    else
-	      Line[Current_Line].start_col++;
+	    else {
+	      int dx=COL_DISP_MAX/3;
+	      if (dx>Cursor.x)
+		dx=Cursor.x;
+	      Line[Current_Line].start_col+=dx;
+	      Cursor.x -= (dx-1);
+	    }
 	    break;	  
 	  }
 	  if (Cursor.x < Line[Current_Line].disp_len - Line[Current_Line].start_col){
@@ -11004,14 +14031,147 @@ namespace xcas {
     edptr->pos=0;
     return 2;
   }
+#if defined NUMWORKS && defined DEVICE
+  void numworks_certify_internal(){
+    // check internal flash sha256 signature
+    size_t internal_flash_start=0x08000000;
+    if (bootloader_sha256_check(internal_flash_start)){
+      confirm(lang==1?"Amorcage calculatrice certifie!":"Boot sector certified!",lang==1?"Acces amorcage par Power ln":"Access boot with Power ln");
+      Bdisp_AllClr_VRAM();
+      return;
+    }
+    PrintMini(0,0,lang==1?"Amorcage non certifie.":"Boot sector not certified.",TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+    std::vector<fileinfo_t> v=tar_fileinfo(flash_buf,0);
+    int i=0;
+    for (;i<v.size();++i){
+      fileinfo_t & f=v[i];
+      if (f.filename=="bootloader.bin" && f.size==bootloader_size)
+	break;
+    }
+    // check file content signature
+    unsigned romaddr=((unsigned) flash_buf) +v[i].header_offset+0x200;
+    if (i<v.size() && !bootloader_sha256_check(romaddr))
+      i=v.size();
+    if (i==v.size()){
+      PrintMini(0,18,lang==1?"Pour mettre a jour:":"Please upgrade from:",TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+      PrintMini(0,36,"www-fourier.univ-grenoble-alpes.fr",TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+      PrintMini(0,54,"/~parisse/nw",TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+      int key; GetKey(&key);
+    }
+    else {
+      if (confirm(lang==1?"Mise a jour de l'amorcage ?":"Update bootsector?","OK/Annul.")==KEY_CTRL_F1){
+	// sector size=16K -> erase 4 sector for 64K
+	erase_sector((const char *) internal_flash_start);
+	erase_sector((const char *) (internal_flash_start+16*1024));
+	erase_sector((const char *) (internal_flash_start+32*1024));
+	erase_sector((const char *) (internal_flash_start+48*1024));
+	WriteMemory((char *)internal_flash_start,(const char *) romaddr,bootloader_size);
+	confirm(lang==1?"Mise a jour faite":"Update done",lang==1?"Acces amorcage par Power ln":"Access boot with Power ln");
+      }
+    }
+    Bdisp_AllClr_VRAM();
+  }
+  				   
+  int restore_session(const char * fname,GIAC_CONTEXT){
+    // cout << "0" << fname << endl; Console_Disp(1); GetKey(&key);
+    string filename(remove_path(remove_extension(fname)));
+#ifdef NSPIRE_NEWLIB
+    if (file_exists((filename+".xw.tns").c_str()))
+      filename += ".xw.tns";
+    else
+      filename += ".py.tns";
+#else
+    if (file_exists((filename+".xw").c_str()))
+      filename += ".xw";
+    else
+      filename += ".py";
+#endif
+    if (!load_console_state_smem(filename.c_str(),contextptr)){
+      if (confirm("OK: Francais, Back: English","set_language(1|0)")==KEY_CTRL_F6)
+	lang=0;
+      numworks_certify_internal();
+      Bdisp_AllClr_VRAM();
+      int x=0,y=0;
+      PrintMini(x,y,"KhiCAS 1.7 (c) 2022 B. Parisse",TEXT_MODE_NORMAL, COLOR_BLACK, COLOR_WHITE);
+      y +=18;
+      PrintMini(x,y,"et al, License GPL 2",TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+      y += 18;
+#ifdef NSPIRE_NEWLIB
+      PrintMini(x,y,((lang==1)?"Taper menu plusieurs fois":"Type menu several times"),TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+#else
+      PrintMini(x,y,((lang==1)?"Taper HOME plusieurs fois":"Type HOME several times"),TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+#endif
+      y += 18;
+      PrintMini(x,y,((lang==1)?"pour quitter KhiCAS.":"to leave KhiCAS."),TEXT_MODE_NORMAL,COLOR_BLACK, COLOR_WHITE);
+      y += 18;
+      PrintMini(x,y,(lang==1)?"Si le calcul formel est interdit":"If CAS is forbidden!",TEXT_MODE_NORMAL, COLOR_RED, COLOR_WHITE);
+      y += 18;
+#ifdef NSPIRE_NEWLIB
+      PrintMini(x,y,(lang==1)?"quittez Khicas (menu menu menu)":"Leave Khicas (menu menu menu)",TEXT_MODE_NORMAL, COLOR_RED, COLOR_WHITE);
+      if (confirm("Interpreter? enter: Xcas, esc: MicroPython",(lang==1?"Peut se modifier depuis menu configuration":"May be changed later from menu configuration"),false,130)==KEY_CTRL_F6){
+	python_compat(4,contextptr);
+	xcas_python_eval=1;
+	*logptr(contextptr) << "Micropython interpreter\n";
+	Console_FMenu_Init(contextptr);
+      }
+      else {
+	python_compat(1,contextptr);
+	*logptr(contextptr) << "Xcas interpreter, Python compatible mode\n";
+      }
+#else
+      PrintMini(x,y,(lang==1)?"quittez Khicas (HOME HOME HOME)":"Leave Khicas (HOME HOME HOME)",TEXT_MODE_NORMAL, COLOR_RED, COLOR_WHITE);
+      if (confirm("Interpreter? OK: Xcas, Back: MicroPython",(lang==1?"Peut se modifier depuis menu configuration":"May be changed later from menu configuration"),false,130)==KEY_CTRL_F6){
+	python_compat(4,contextptr);
+	xcas_python_eval=1;
+	*logptr(contextptr) << "Micropython interpreter\n";
+	Console_FMenu_Init(contextptr);
+      }
+      else {
+	python_compat(1,contextptr);
+	// fake lexer required to initialize color syntax
+	gen g("abs",contextptr);
+	*logptr(contextptr) << "Xcas interpreter, Python compatible mode\n";
+      }
+#endif
+#ifdef NUMWORKS
+      if (lang==1){
+	*logptr(contextptr) << "!!! ATTENTION !!!\n";
+	*logptr(contextptr) << "Ne faites pas de mises a jour\n";
+	*logptr(contextptr) << "depuis le site de Numworks.\n";
+	*logptr(contextptr) << "Cela verrouille la Numworks\n";
+	*logptr(contextptr) << "et empeche d'utiliser KhiCAS\n";
+      } else {
+	*logptr(contextptr) << "!!! BEWARE !!!\n";
+	*logptr(contextptr) << "Don't make upgrades\n";
+	*logptr(contextptr) << "from Numworks website\n";
+	*logptr(contextptr) << "They lock your calculator\n";
+	*logptr(contextptr) << "it's incompatible with KhiCAS\n";
+      }
+#endif
+      Bdisp_AllClr_VRAM();
+#ifdef GIAC_SHOWTIME
+      Console_Output("Reglage de l'heure, exemple");
+      Console_NewLine(LINE_TYPE_OUTPUT, 1);          
+      Console_Output("12,37=>,");
+      Console_NewLine(LINE_TYPE_OUTPUT, 1);
+#endif
+      //menu_about();
+      return 0;
+    }
+    return 1;
+  }
+
+#else
 
   int restore_session(const char * fname,GIAC_CONTEXT){
     // cout << "0" << fname << endl; Console_Disp(1); GetKey(&key);
     string filename(fname); //filename="mandel.py.tns";
     if (filename.size()>4 && filename.substr(filename.size()-4,4)==".tns")
       filename=filename.substr(0,filename.size()-4);
-    if (filename.size()>3 && filename.substr(filename.size()-3,3)==".py")
-      return restore_script(filename,true,contextptr);
+    if (filename.size()>3 && filename.substr(filename.size()-3,3)==".py"){
+      if (filename.size()<5 || filename.substr(filename.size()-5,5)!="xw.py")
+	return restore_script(filename,true,contextptr);
+    }
     filename=remove_path(remove_extension(fname));
 #ifdef NSPIRE_NEWLIB
     if (file_exists((filename+".xw.tns").c_str())){
@@ -11028,7 +14188,7 @@ namespace xcas {
       filename += ".xw";
     }
     else {
-      if (file_exists((filename+".py").c_str()))
+      if ((filename.size()<2 || filename.substr(filename.size()-2,2)!="xw") && file_exists((filename+".py").c_str()))
 	return restore_script(filename,true,contextptr);
     }
 #endif
@@ -11092,6 +14252,7 @@ namespace xcas {
     }
     return 1;
   }
+#endif
 
   string extract_name(const char * s){
     int l=strlen(s),i,j;
@@ -11110,13 +14271,16 @@ namespace xcas {
     return string(s+j+1).substr(0,i-j-1);
   }
 
-  int giac_filebrowser(char * filename,const char * extension,const char * title){
+  // storage==0 (default) ram on numworks, ==1 flash on numworks, ==2 both on numworks, ignored on other calcs
+  int giac_filebrowser(char * filename,const char * extension,const char * title,int storage){
+    //storage=2; // debug
+    // char dbg[]="0\n"; dbg[0] += storage;   console_output(dbg,2);
     const char * filenames[MAX_NUMBER_OF_FILENAMES+1];
 #if 1 // def XWASPY
     int n,choix;
     bool isxw=strcmp(extension,"xw")==0,ispy=strcmp(extension,"py")==0;
     if (isxw || ispy){
-      n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,"py");
+      n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,"py",storage);
       if (n==0 && ispy) return 0;
       int N=0;
       // isxw: keep only filenames ending with _xw
@@ -11124,6 +14288,7 @@ namespace xcas {
       const char * fnames[MAX_NUMBER_OF_FILENAMES+1];
       for (int i=0;i<n;++i){
 	const char * f=filenames[i];
+	//console_output(f,strlen(f));
 	f+=strlen(f)-6;
 	bool isfxw=strcmp(f,"_xw.py")==0;
 	if (isxw?isfxw:!isfxw){
@@ -11132,7 +14297,7 @@ namespace xcas {
 	}
       }
       if (isxw){ // add regular .xw extensions
-	n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,"xw");
+	n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,"xw",storage);
 	if (n+N>MAX_NUMBER_OF_FILENAMES)
 	  n=MAX_NUMBER_OF_FILENAMES-N;
 	for (int i=0;i<n;++i,++N){
@@ -11145,10 +14310,13 @@ namespace xcas {
       strcpy(filename,fnames[choix]);
       return choix+1;
     }
-    else 
-      choix=select_item(filenames,title?title:"Scripts");
+    else  {
+      int n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,extension,storage);
+      if (n==0) return 0;
+      int choix=select_item(filenames,title?title:"Scripts");
+    }
 #else
-    int n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,extension);
+    int n=os_file_browser(filenames,MAX_NUMBER_OF_FILENAMES,extension,storage);
     if (n==0) return 0;
     int choix=select_item(filenames,title?title:"Scripts");
 #endif
@@ -11193,7 +14361,7 @@ namespace xcas {
     if (fname)
       filename=fname;
     else {
-      res=giac_filebrowser(fname_, "py", "Scripts");
+      res=giac_filebrowser(fname_, "py", "Scripts",2);
       filename=fname_;
     }
     if(res) {
@@ -11214,7 +14382,7 @@ namespace xcas {
 	if (k==KEY_CTRL_F6)
 	  s=python_compat(contextptr)?"from turtle import *\nreset()\n":"\nefface;\n ";
 	else
-	  s=python_compat(contextptr)?"def "+extract_name(filename)+"(x):\n  \n  return x":"function "+extract_name(filename)+"(x)\nlocal j;\n  \n  return x;\nffunction";
+	  s=python_compat(contextptr)?"def "+extract_name(filename)+"(x):\n  \n  return x":"function "+extract_name(filename)+"(x)\nvar j;\n  \n  return x;\nffunction";
       }
       // split s at newlines
       if (edptr==0)
@@ -11256,7 +14424,7 @@ namespace xcas {
 
   void load(GIAC_CONTEXT){
     char filename[MAX_FILENAME_SIZE+1];
-    if (giac_filebrowser(filename, "xw", "Sessions")){
+    if (giac_filebrowser(filename, "xw", "Sessions",2)){
       if (console_changed==0 ||
 	  strcmp(session_filename,"session")==0 ||
 	  confirm((lang==1)?"Session courante perdue?":"Current session will be lost",
@@ -11296,14 +14464,14 @@ namespace xcas {
     return false;
   }
 
-  bool console_help_insert(int exec,GIAC_CONTEXT){
+  bool console_help_insert(int exec,GIAC_CONTEXT,bool warn=true){
     if (!Edit_Line)
       return false;
     char buf[strlen(Edit_Line)+1];
     strcpy(buf,Edit_Line);
-    buf[Cursor.x]=0;
+    buf[Line[Current_Line].start_col+Cursor.x]=0;
     int back;
-    string s=help_insert(buf,back,exec,contextptr);
+    string s=help_insert(buf,back,exec,contextptr,warn);
     if (s.empty())
       return false;
     for (int i=0;i<back;++i)
@@ -11353,9 +14521,7 @@ namespace xcas {
 	  continue;
 	}
 	if (Current_Line==Last_Line && Line[Current_Line].start_col+Cursor.x==strlen(Edit_Line) && (key==KEY_CTRL_OK || key==KEY_CHAR_ANS || key==KEY_CTRL_RIGHT)){
-	  if (key==KEY_CTRL_RIGHT)
-	    key=KEY_CTRL_OK;
-	  if (console_help_insert(key,contextptr)){
+	  if (console_help_insert(key==KEY_CTRL_RIGHT?KEY_CTRL_OK:key,contextptr,false)){
 	    Console_Disp(1,contextptr);
 	    keytooltip=Console_tooltip(contextptr);
 	    continue;
@@ -11487,7 +14653,11 @@ namespace xcas {
       if (key==KEY_CTRL_MENU){
 #if 1
 	Menu smallmenu;
+#if defined NUMWORKS && defined DEVICE
+	smallmenu.numitems=20;
+#else
 	smallmenu.numitems=17;
+#endif
 	MenuItem smallmenuitems[smallmenu.numitems];
       
 	smallmenu.items=smallmenuitems;
@@ -11524,6 +14694,12 @@ namespace xcas {
 #else
 	  smallmenuitems[16].text = (char*) ((lang==1)?"Quitter (HOME)":"Quit");
 #endif
+#if defined NUMWORKS && defined DEVICE
+	  smallmenuitems[16].text = (char*) ((lang==1)?"Reboot autre firmware":"Reboot alt. firmware");
+	  smallmenuitems[17].text = (char*) ((lang==1)?"Sauvegarde multi-firmware":"Backup multi-firmware");
+	  smallmenuitems[18].text = (char*) ((lang==1)?"Restauration multi-firmware":"Restore multi-firmware");
+	  smallmenuitems[19].text = (char*) ((lang==1)?"Quitter (HOME)":"Quit");
+#endif
 	  if (exam_mode)
 	    smallmenuitems[16].text = (char*)((lang==1)?"Quitter le mode examen":"Quit exam mode");
 	  if (nspire_exam_mode==2)
@@ -11532,6 +14708,34 @@ namespace xcas {
 	    return KEY_SHUTDOWN;
 	  int sres = doMenu(&smallmenu);
 	  if(sres == MENU_RETURN_SELECTION || sres==KEY_CTRL_EXE) {
+#if defined NUMWORKS && defined DEVICE
+	    if (smallmenu.selection==17){
+	      int b1=is_valid(0),b2=is_valid(1),b3=is_valid(2);
+	      const char * boot_tab[]={b1?"Slot 1":"Invalid slot 1",b2?"Slot 2":"Invalid slot 2",b3?"Slot 3":"Invalid slot 3","Bootloader","Cancel/Annuler",0};
+	      int choix=select_item(boot_tab,"Reboot firmware",true);
+	      if (choix>=0 && choix<=2 && !is_valid(choix)){
+		break;
+	      }
+	      if (choix>=0 && choix<=3){
+		if (confirm(lang==1?"Les donnees seront perdues!":"Data will be lost!",lang==1?"OK/Back?":"OK/Back?")==KEY_CTRL_F1)
+		  boot_firmware(choix);
+	      }
+	      break;
+	    }
+	    if (smallmenu.selection==18){
+	      if (!save_backup(1))
+		confirm(lang==1?"Rien a sauvegarder":"Nothing to save","OK?");
+	      break;
+	    }
+	    if (smallmenu.selection==19){
+	      if (restore_backup(3)){
+		if (confirm(lang==1?"Les donnees actuelles vont etre effacees":"Current data will be erased!","OK/Back?")==KEY_CTRL_F1){
+		  confirm(restore_backup(1)?"Success!":"Failure!","OK?");
+		}
+	      }
+	      break;
+	    }
+#endif
 	    if (smallmenu.selection==smallmenu.numitems){
 	      if (nspire_exam_mode==2)
 		check_nspire_exam_mode(contextptr);
@@ -11576,6 +14780,15 @@ namespace xcas {
 	      break;
 	    }
 	    if (smallmenu.selection==5) {
+#if 0 // SIMU
+	      // simulator debug load calc.nws into scriptstore
+	      void * ptr=ion_storage();
+	      FILE * f=fopen("calc.nws","r");
+	      if (f){
+		fread(ptr,1,32768,f);
+		fclose(f);
+	      }
+#endif
 	      if (exam_mode){
 		if (do_confirm((lang==1)?"Tout effacer?":"Really clear?")){
 		  Console_Init(contextptr);
@@ -11622,14 +14835,14 @@ namespace xcas {
 	    if (smallmenu.selection==8) {
 	      char filename[MAX_FILENAME_SIZE+1];
 	      drawRectangle(0, 0, LCD_WIDTH_PX, LCD_HEIGHT_PX-8, COLOR_WHITE);
-	      if (giac_filebrowser(filename, "py", "Scripts"))
+	      if (giac_filebrowser(filename, "py", "Scripts",2))
 		edit_script(filename,contextptr);
 	      break;
 	    }
 	    if (smallmenu.selection==9) {
 	      char filename[MAX_FILENAME_SIZE+1];
 	      drawRectangle(0, 0, LCD_WIDTH_PX, LCD_HEIGHT_PX-8, COLOR_WHITE);
-	      if (giac_filebrowser(filename, "py", "Scripts"))
+	      if (giac_filebrowser(filename, "py", "Scripts",2))
 		run_script(filename,contextptr);
 	      Console_Clear_EditLine();
 	      break;
@@ -12100,7 +15313,7 @@ namespace xcas {
       
       if ( active_app==0 &&
 	   ((input_key >= KEY_CTRL_F1 && input_key <= KEY_CTRL_F6) ||
-	    (input_key >= KEY_CTRL_F7 && input_key <= KEY_CTRL_F12) )
+	    (input_key >= KEY_CTRL_F7 && input_key <= KEY_CTRL_F16) )
 	   ){
 	Console_Disp(1,0);
 	key=input_key;
@@ -12299,7 +15512,7 @@ namespace xcas {
       } // end else linecomment case
       couleur=linecomment?5:find_color(singleword,contextptr);
       if (couleur==1) couleur=COLOR_BLUE;
-      if (couleur==2) couleur=COLOR_YELLOWDARK;
+      if (couleur==2) couleur=49432; //was COLOR_YELLOWDARK;
       if (couleur==3) couleur=51712;//33024;
       if (couleur==4) couleur=COLOR_MAGENTA;
       if (couleur==5) couleur=COLOR_GREEN;
@@ -12580,8 +15793,8 @@ namespace xcas {
       menu += "|3 ";
       menu += string(menu_f3);
       menu += xcas_python_eval==1?"|4 edt|5 2d|6 logo|7 lin|8 matr|9arit|0 plt":"|4 edt|5 2d|6 regr|7 matr|8 cplx|9 arit|0 rand";
-      int xcas_color=65055,python_color=52832;
-      int interp_color=xcas_python_eval?python_color:xcas_color;
+      int xcas_color=65055,python_color=52832,js_color=63048;
+      int interp_color=xcas_python_eval==-1?js_color:(xcas_python_eval==1?python_color:xcas_color);
       drawRectangle(0,205,LCD_WIDTH_PX,17,interp_color);
       PrintMiniMini(0,205,menu.c_str(),0,giac::_BLACK,interp_color);
     }
@@ -12676,20 +15889,71 @@ namespace xcas {
 #endif
 
   tableur * sheetptr=0;
+
+  string print_tableur(const tableur & t,GIAC_CONTEXT){
+    string s="spreadsheet[";
+    for (int i=0;i<t.nrows;++i){
+      printcell_current_row(contextptr)=i;
+      s += "[";
+      gen g=t.m[i];
+      if (g.type!=_VECT) continue;
+      vecteur & v=*g._VECTptr;
+      for (int j=0;j<t.ncols;++j){
+	gen vj=v[j];
+	printcell_current_col(contextptr)=j;
+	s += vj.print(contextptr);
+	if (j==t.ncols-1)
+	  s += "]";
+	else
+	  s += ",";
+      }
+      if (i==t.nrows-1)
+	s += "]";
+      else
+	s += ",";      
+    }
+    return s;
+  }  
+  
+  void fix_sheet(tableur & t,GIAC_CONTEXT){
+    for (int i=0;i<t.nrows;++i){
+      vecteur & v = *t.m[i]._VECTptr;
+      for (int j=0;j<t.ncols;++j){
+	gen & g=v[j];
+	if (g.type==_VECT){
+	  vecteur & w=*g._VECTptr;
+	  if (w[0].type==_SYMB){
+	    // cout << "fix " << w[0] << "\n";
+	    w[0]=spread_convert(w[0],i,j,contextptr);
+	  }
+	}
+      }
+    }
+  }
+
+
 #ifdef NUMWORKS
   extern "C" void mp_stack_ctrl_init();
   extern "C" void mp_stack_set_top(void *);
   extern "C" void mp_stack_set_limit(size_t);
-#endif
+#endif // NUMWORKS
 
   int console_main(GIAC_CONTEXT,const char * sessionname){
-#ifdef NUMWORKS
+#if defined NUMWORKS && defined DEVICE
+    // insure value not too high (_heap_size depends on launcher firmware)
+    if (pythonjs_heap_size>_heap_size-52*1024)
+      pythonjs_heap_size=_heap_size-52*1024;
+#endif
     mp_stack_ctrl_init();
     //volatile int stackTop;
     //mp_stack_set_top((void *)(&stackTop));
     //mp_stack_set_limit(24*1024);
+#ifdef QUICKJS
+    quickjs_ck_eval("0");
 #endif
+#ifdef MICROPY_LIB
     giac::micropy_ptr=micropy_ck_eval;
+#endif
     python_heap=0;
     sheetptr=0;
     shutdown=do_shutdown;
@@ -12736,6 +16000,9 @@ namespace xcas {
       }
     }
     restore_session(sessionname,contextptr);
+#ifdef SIMU
+    giac::set_language(lang,contextptr);
+#endif
     giac::angle_radian(os_get_angle_unit()==0,contextptr);
     //GetKey(&key);
     Console_Disp(1,contextptr);
@@ -12783,8 +16050,12 @@ namespace xcas {
 	save_session(contextptr);
 	Console_Output("Session saved");
       }
-      else 
+      else {
+#ifdef NUMWORKS // add auto-save, to avoid Memory full data loss
+	save("session",contextptr);
+#endif
 	run(expr,7,contextptr);
+      }
       //print_mem_info();
       Console_NewLine(LINE_TYPE_OUTPUT,1);
       //GetKey(&key);
@@ -13218,6 +16489,16 @@ void c_set_pixel(int x,int y,int c){
 }
 void c_fill_rect(int x,int y,int w,int h,int c){
   giac::freeze=true;
+  if (w<0){
+    w=-w;
+    x -= w; 
+  }
+  if (h<0){
+    h=-h;
+    y -= h; 
+  }
+  if (x<0){ w+=x; x=0;}
+  if (y<0){ h+=y; y=0;}
   os_fill_rect(x,y,w,h,c);
 }
 int c_draw_string(int x,int y,int c,int bg,const char * s,bool fake){
@@ -13261,7 +16542,7 @@ int select_item(const char ** ptr,const char * title,bool askfor1){
 }
 
 int select_interpreter(){
-  const char * choix[]={"Xcas interpreter","Xcas compat Python ^=**","Xcas compat Python ^=xor","MicroPython interpreter",0};
+  const char * choix[]={"Xcas interpreter","Xcas compat Python ^=**","Xcas compat Python ^=xor","MicroPython interpreter","Javascript (QuickJS)",0};
   return select_item(choix,"Syntax",false);
 }
 
@@ -13488,6 +16769,92 @@ void c_sprint_double(char * s,double d){
   giac::sprint_double(s,d);
 }
 
+void c_turtle_forward(double d){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  //const context * contextptr=caseval_context();
+  giac::_avance(d,cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_left(double d){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  giac::_tourne_gauche(d,cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_up(int i){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  if (i)
+    giac::_leve_crayon(0,cascontextptr);
+  else
+    giac::_baisse_crayon(0,cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_goto(double x,double y){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  giac::_position(makesequence(x,y),cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_cap(double x){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  giac::_cap(x,cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_crayon(int i){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  giac::_crayon(i,cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_rond(int x,int y,int z){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  giac::_rond(makesequence(x,y,z),cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_disque(int x,int y,int z,int centre){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  if (centre)
+    giac::_disque_centre(makesequence(x,y,z),cascontextptr);
+  else
+    giac::_disque(makesequence(x,y,z),cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_fill(int i){
+  gen arg(vecteur(0));
+  if (i==0) 
+    arg.subtype=_SEQ__VECT;
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  giac::_polygone_rempli(arg,cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_fillcolor(double r,double g,double b,int entier){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  if (entier)
+    giac::_polygone_rempli(makesequence(int(r),int(g),int(b)),cascontextptr);
+  else
+    giac::_polygone_rempli(makesequence(r,g,b),cascontextptr);
+  py_ck_ctrl_c();
+}
+
+void c_turtle_getposition(double * x,double * y){
+  context * cascontextptr=(context *)caseval("caseval contextptr");
+  gen arg(vecteur(0)); arg.subtype=_SEQ__VECT;
+  giac::gen g=giac::_position(arg,cascontextptr);
+  if (g.type==_VECT && g._VECTptr->size()==2){
+    gen a=g._VECTptr->front(),b=g._VECTptr->back();
+    a=evalf_double(a,1,cascontextptr);
+    b=evalf_double(b,1,cascontextptr);
+    *x=a._DOUBLE_val;
+    *y=b._DOUBLE_val;
+  }
+}
+
 // auto-shutdown
 int do_shutdown(){
   xcas::save_console_state_smem("session.xw.tns",false,giac::context0);
@@ -13539,5 +16906,28 @@ const char * gettext(const char * s) {
   }
   return s;
 }
+
+  void process_freeze(){
+    if (freezeturtle){
+      xcas::displaylogo();
+      freezeturtle=false;
+      return;
+    }
+    if (giac::freeze){
+      giac::freeze=false;
+      for (;;){
+#ifdef NSPIRE_NEWLIB
+	DefineStatusMessage((char*)((lang==1)?"Ecran fige. Taper esc":"Screen frozen. Press esc."), 1, 0, 0);
+#else
+	DefineStatusMessage((char*)((lang==1)?"Ecran fige. Taper clear":"Screen frozen. Press clear."), 1, 0, 0);
+#endif
+	DisplayStatusArea();
+	int key;
+	GetKey(&key);
+	if (key==KEY_CTRL_EXIT || key==KEY_CTRL_AC)
+	  break;
+      }
+    }
+  }    
 
 #endif // KHICAS

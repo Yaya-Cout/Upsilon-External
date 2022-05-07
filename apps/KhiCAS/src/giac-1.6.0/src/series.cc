@@ -775,7 +775,7 @@ namespace giac {
       w.push_back(num);
       w.push_back(den);
       // replace common by lcm of common and den
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
       if (common.type==_ZINT && common.ref_count()==1 && is_integer(den)){
 	if (den.type==_ZINT)
 	  mpz_lcm(*common._ZINTptr,*common._ZINTptr,*den._ZINTptr);
@@ -1339,7 +1339,7 @@ namespace giac {
 
   static int find_direction(const sparse_poly1 & s,int direction,GIAC_CONTEXT){
     int image_of_direction=0;
-    if (!s.empty() && fastsign(s.front().coeff,0)){
+    if (!s.empty() && fastsign(s.front().coeff,contextptr)){
       if (direction)
 	image_of_direction=1;
       else {
@@ -1350,7 +1350,7 @@ namespace giac {
 	    image_of_direction=1;
 	}
       }
-      image_of_direction=image_of_direction*fastsign(s.front().coeff,0);
+      image_of_direction=image_of_direction*fastsign(s.front().coeff,contextptr);
       return image_of_direction;
     }
     return 0;
@@ -1959,7 +1959,7 @@ namespace giac {
 	  }
 	  // final correction for Psi
 	  if (temp__SYMB.sommet==at_Psi){
-	    v.insert(v.begin(),gen((addorder%2)?1:-1)/factorial(addorder));
+	    v.insert(v.begin(),gen((addorder%2)?1:-1)*factorial(addorder-1));
 	    shift_coeff -= 1;
 	  }
 	}
@@ -2555,7 +2555,10 @@ namespace giac {
 	gen chknum;
 	bool hasnum=has_evalf(first_try,chknum,1,contextptr);
 	first_try=recursive_ratnormal(first_try,contextptr);
-	gen chk=recursive_normal(first_try,contextptr);
+	gen chk;
+	if (has_evalf(first_try,chk,1,contextptr) && !is_zero(chk) && !is_undef(chk) && !is_inf(chk))
+	  return first_try; // avoid 0 because it might be 0/almost 0
+	chk=recursive_normal(first_try,contextptr);
 	if (hasnum && !is_undef(chk) && abs(chk-chknum,contextptr)>1e-10 && abs(1-chk/chknum,contextptr)>1e-10){
 	  chk=undef;
 	  e=_simplify(e,contextptr);
@@ -2594,7 +2597,7 @@ namespace giac {
 	return first_try;
       if (!is_undef(first_try) && !is_undef(numtry)){
 	// if (!direction) return first_try;
-	if (first_try!=unsigned_inf)
+	if (first_try!=unsigned_inf && numtry!=unsigned_inf)
 	  return first_try;
       }
     } // end if vsign.empty()
@@ -2640,7 +2643,7 @@ namespace giac {
     }
     if (!cv.empty()){
       gen cvg=tsimplify(cv,contextptr);
-      if (cvg.type==_VECT && cvg._VECTptr->size()==cv.size())
+      if (!has_i(cvg) && cvg.type==_VECT && cvg._VECTptr->size()==cv.size())
 	e_copy=subst(e_copy,cv,*cvg._VECTptr,false,contextptr);
     }
     if (!direction) { 
@@ -3206,7 +3209,7 @@ namespace giac {
   static define_unary_function_eval4 (__limit,&_limit,_limit_s,0,&texprintaslimit);
   define_unary_function_ptr5( at_limit ,alias_at_limit,&__limit,_QUOTE_ARGUMENTS,true);
 
-#if 0
+#if 0 // def NSPIRE_NEWLIB
   static const char _lim_s []="lim";
   static define_unary_function_eval4 (__lim,&_limit,_lim_s,0,&texprintaslimit);
   define_unary_function_ptr5( at_lim ,alias_at_lim,&__lim,_QUOTE_ARGUMENTS,true);
@@ -3320,10 +3323,24 @@ namespace giac {
   }
 
   // Main series entry point
-  gen series(const gen & e,const identificateur & x,const gen & lim_point,int ordre,int direction,GIAC_CONTEXT){
+  gen series(const gen & e_,const identificateur & x,const gen & lim_point,int ordre,int direction,GIAC_CONTEXT){
+    gen e(e_);
     int save_series_flags=series_flags(contextptr);
     series_flags(save_series_flags | 8,contextptr);
     if (has_op(e,*at_surd) || has_op(e,*at_NTHROOT)){
+      vecteur ls(lop(e,at_NTHROOT)),lsa,lsb;
+      for (int i=0;i<ls.size();++i){
+	vecteur v=*ls[i]._SYMBptr->feuille._VECTptr;
+	if (v[0].type==_INT_ && v[0].val%2){
+	  gen li=limit(v[1],x,lim_point,direction,contextptr);
+	  if (!is_zero(li) && is_positive(-li,contextptr)){
+	    lsa.push_back(ls[i]);
+	    lsb.push_back(-symbolic(at_NTHROOT,makesequence(v[0],-v[1])));
+	  }
+	}
+      }
+      if (!lsa.empty())
+	e=subst(e,lsa,lsb,false,contextptr);
       vecteur subst1,subst2;
       surd2pow(e,subst1,subst2,contextptr);
       gen g=subst(e,subst1,subst2,false,contextptr);
@@ -3577,7 +3594,7 @@ namespace giac {
       if (!is_zero(l))
 	return false;
       gen remains;
-      gen F0=integrate_gen_rem(f0,x,remains,contextptr);
+      gen F0=integrate_gen_rem(f0,x,remains,0,contextptr);
       if (!is_zero(remains) || is_undef(F0))
 	return false;
       res=symbolic(at_euler_mac_laurin,gen(makevecteur(f0,F0,x,f[2],f[3]),_SEQ__VECT));

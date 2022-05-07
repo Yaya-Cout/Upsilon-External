@@ -42,7 +42,7 @@ using namespace std;
 namespace giac {
 #endif // ndef NO_NAMESPACE_GIAC
 
-#if defined GIAC_HAS_STO_38 || defined NSPIRE || defined FXCG || defined(KHICAS)
+#if defined GIAC_HAS_STO_38 || defined NSPIRE || defined FXCG || defined(KHICAS) || defined USE_GMP_REPLACEMENTS
   std::string gen2mathml(const gen & g,GIAC_CONTEXT){
     return gettext("No mathml support");
   }
@@ -753,6 +753,7 @@ namespace giac {
   // before making a user transformation on the frame, 
   // collect pixon instructions in g
   string svg_preamble_pixel(const gen &g,double svg_width_cm, double svg_height_cm,double xmin,double xmax,double ymin,double ymax,bool ortho,bool xml,int color){
+    // COUT << "svg_preamble_pixel " << svg_width_cm << " " << svg_height_cm << " " << xmin << " " << xmax << " " << ymin << " " << ymax << '\n';
     bool cutupper=color==7;
     double svg_width=xmax-xmin;
     double svg_height=ymax-ymin;

@@ -30,27 +30,34 @@ uint64_t millis() {
   return extapp_millis();
 }
 
-int os_file_browser(const char ** filenames, int maxrecords, const char * extension) {
-  int n = extapp_fileListWithExtension(filenames, maxrecords, extension, EXTAPP_RAM_FILE_SYSTEM);
+int os_file_browser(const char ** filenames, int maxrecords, const char * extension,int storage) {
+  int n = extapp_fileListWithExtension(filenames, maxrecords, extension, storage);
   filenames[n] = 0;
   return n;
 }
 
 bool file_exists(const char * filename) {
-  return extapp_fileExists(filename, EXTAPP_RAM_FILE_SYSTEM);
+  return extapp_fileExists(filename, EXTAPP_BOTH_FILE_SYSTEM);
 }
 
 bool erase_file(const char * filename){
   return extapp_fileErase(filename, EXTAPP_RAM_FILE_SYSTEM);
 }
 
+  void console_output(const char * s,int l);
 const char * read_file(const char * filename){
   const char * ptr = extapp_fileRead(filename, NULL, EXTAPP_RAM_FILE_SYSTEM);
-  if(ptr) {
+  if (0 && ptr && ( (unsigned char) *ptr<0x20) ) {
+    // extapp_fileRead in scriptstore now always skips 1st byte
+    // console_output("scriptstore\n",12); console_output(ptr,8);
+    // script from scriptstore
     return ptr + 1;
-  } else {
-    return ptr;
   }
+  //if (ptr){ console_output("scriptstore ",12); console_output(ptr,8); console_output("\n",1); return ptr;}
+  if (!ptr)
+    ptr=extapp_fileRead(filename, NULL, EXTAPP_FLASH_FILE_SYSTEM);
+  //if (ptr){ console_output("flash ",6); console_output(ptr,8); console_output("\n",1); }
+  return ptr;
 }
 
 bool write_file(const char * filename, const char * content, size_t len) {
@@ -186,8 +193,16 @@ int getkey(bool allow_suspend) {
   return extapp_getKey(allow_suspend, &alphawasactive_);
 }
 
+bool iskeydown(int key) {
+  return extapp_isKeydown(key);
+}
+
 void GetKey(int * key) {
   *key = getkey(true);
 }
 
+bool inexammode(){
+  return extapp_inexammode();
 }
+
+} // end extern "C"

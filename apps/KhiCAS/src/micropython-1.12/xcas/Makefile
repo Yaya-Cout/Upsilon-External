@@ -2,7 +2,7 @@ include ../py/mkenv.mk
 -include mpconfigport.mk
 
 #PREFIX=/usr/bin/
-CC = $(PREFIX)gcc # gcc-4.7 works if gcc is gcc-4.4 
+CC = $(PREFIX)gcc
 CXX = $(PREFIX)g++
 LD = $(PREFIX)ld 
 
@@ -36,7 +36,7 @@ endif
 
 # compiler settings
 CWARN = -Wall #-Werror -Wno-error=cpp -Wno-error=format
-CFLAGS = -fPIC -DMICROPY_LIB $(INC) $(CWARN) -ansi -std=gnu99 $(CFLAGS_MOD) $(COPT) $(CFLAGS_EXTRA)
+CFLAGS =  -DMICROPY_LIB $(INC) $(CWARN) -ansi -std=gnu99 $(CFLAGS_MOD) $(COPT) $(CFLAGS_EXTRA)
 
 
 

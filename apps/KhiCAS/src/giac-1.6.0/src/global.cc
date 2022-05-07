@@ -18,6 +18,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+#ifdef KHICAS
+  extern "C" double millis(); //extern int time_shift;
+#endif
 
 using namespace std;
 #ifdef HAVE_SSTREAM
@@ -49,6 +52,7 @@ using namespace std;
 #include <string.h>
 #include <stdexcept>
 #include <algorithm>
+#include <vector>
 #if !defined BESTA_OS && !defined FXCG
 #include <cerrno>
 #endif
@@ -83,6 +87,10 @@ using namespace std;
 #endif // win32
 #endif // ndef bestaos
 
+#ifdef HAVE_LIBFLTK
+#include <FL/fl_ask.H>
+#endif
+
 #if defined VISUALC && !defined BESTA_OS && !defined RTOS_THREADX && !defined FREERTOS 
 #include <Windows.h>
 #endif 
@@ -94,8 +102,52 @@ using namespace std;
 #include <stdio.h>
 #include <stdarg.h>
 
+#ifdef QUICKJS
+#include "qjsgiac.h"
+string js_vars;
+void update_js_vars(){
+  const char VARS[]="function update_js_vars(){let res=''; for(var b in globalThis) { let prop=globalThis[b]; if (globalThis.hasOwnProperty(b)) res+=b+' ';} return res;}; update_js_vars()";
+  char * names=js_ck_eval(VARS,&global_js_context);
+  if (names){
+    js_vars=names;
+    free(names);
+  }
+}
+int js_token(const char * buf){
+  return js_token(js_vars.c_str(),buf);
+}
+#else // QUICKJS
+void update_js_vars(){}
+int js_token(const char * buf){
+  return 0;
+}
+#endif
+int js_token(const char * list,const char * buf){
+  int bufl=strlen(buf);
+  for (const char * p=list;*p;){
+    if (p[0]=='\'')
+      ++p;
+    if (strncmp(p,buf,bufl)==0 && 
+	(p[bufl]==0 || p[bufl]==' ' || p[bufl]=='\'')){
+      return (p[bufl]=='\'')?3:2;
+    }
+    // skip to next keyword in p
+    for (;*p;++p){
+      if (*p==' '){
+	++p; break;
+      }
+    }
+  }
+  return 0;
+}
+
 #ifdef HAVE_LIBMICROPYTHON
-std::string python_console;
+std::string & python_console(){
+  static std::string * ptr=0;
+  if (!ptr)
+    ptr=new string;
+  return *ptr;
+}
 #endif
 bool freezeturtle=false;
 
@@ -115,6 +167,25 @@ extern "C" int KeyPressed( void );
 #include <libndls.h>
 #endif
 
+#if defined NUMWORKS  && defined DEVICE
+extern "C" const char * extapp_fileRead(const char * filename, size_t *len, int storage);
+extern "C"  bool extapp_erasesector(void *);
+extern "C"  bool extapp_writememory(unsigned char * dest,const unsigned char * data,size_t length);
+#endif
+
+#ifdef NUMWORKS
+size_t pythonjs_stack_size=30*1024,
+#ifdef DEVICE
+  pythonjs_heap_size=_heap_size/2.4;
+#else
+  pythonjs_heap_size=40*1024;
+#endif // DEVICE
+#else // NUMWORKS
+  size_t pythonjs_stack_size=128*1024,pythonjs_heap_size=(2*1024-256-64)*1024;
+#endif
+void * bf_ctx_ptr=0;
+size_t bf_global_prec=128; // global precision for BF
+
 int my_sprintf(char * s, const char * format, ...){
     int z;
     va_list ap;
@@ -128,21 +199,1670 @@ int my_sprintf(char * s, const char * format, ...){
     return z;
 }
 
-  int ctrl_c_interrupted(int exception){
-    if (!giac::ctrl_c && !giac::interrupted)
-      return 0;
-    giac::ctrl_c=giac::interrupted=0;
+int ctrl_c_interrupted(int exception){
+  if (!giac::ctrl_c && !giac::interrupted)
+    return 0;
+  giac::ctrl_c=giac::interrupted=0;
 #ifndef NO_STD_EXCEPT
-    if (exception)
-      giac::setsizeerr("Interrupted");
+  if (exception)
+    giac::setsizeerr("Interrupted");
 #endif
+  return 1;
+}
+
+void console_print(const char * s){
+  *logptr(giac::python_contextptr) << s;
+}
+
+const char * console_prompt(const char * s){
+  static string S;
+  giac::gen g=giac::_input(giac::string2gen(s?s:"?",false),giac::python_contextptr);
+  S=g.print(giac::python_contextptr);
+  return S.c_str();
+}
+
+#if !defined USE_GMP_REPLACEMENTS && !defined GIAC_HAS_STO_38
+
+  /*********************************************************************
+   * Filename:   sha256.c/.h
+   * Author:     Brad Conte (brad AT bradconte.com)
+   * Copyright:
+   * Disclaimer: This code is presented "as is" without any guarantees.
+   * Details:    Implementation of the SHA-256 hashing algorithm.
+              SHA-256 is one of the three algorithms in the SHA2
+              specification. The others, SHA-384 and SHA-512, are not
+              offered in this implementation.
+              Algorithm specification can be found here:
+	      * http://csrc.nist.gov/publications/fips/fips180-2/fips180-2withchangenotice.pdf
+              This implementation uses little endian byte order.
+  *********************************************************************/
+    
+  /****************************** MACROS ******************************/
+#define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
+#define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
+
+#define CH(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
+#define MAJ(x,y,z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
+#define EP0(x) (ROTRIGHT(x,2) ^ ROTRIGHT(x,13) ^ ROTRIGHT(x,22))
+#define EP1(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
+#define SIG0(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
+#define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
+
+  /**************************** VARIABLES *****************************/
+  static const WORD32 k[64] = {
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  };
+
+  /*********************** FUNCTION DEFINITIONS ***********************/
+  void giac_sha256_transform(SHA256_CTX *ctx, const BYTE data[])
+  {
+    WORD32 a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
+
+    for (i = 0, j = 0; i < 16; ++i, j += 4)
+      m[i] = (data[j] << 24) | (data[j + 1] << 16) | (data[j + 2] << 8) | (data[j + 3]);
+    for ( ; i < 64; ++i)
+      m[i] = SIG1(m[i - 2]) + m[i - 7] + SIG0(m[i - 15]) + m[i - 16];
+
+    a = ctx->state[0];
+    b = ctx->state[1];
+    c = ctx->state[2];
+    d = ctx->state[3];
+    e = ctx->state[4];
+    f = ctx->state[5];
+    g = ctx->state[6];
+    h = ctx->state[7];
+
+    for (i = 0; i < 64; ++i) {
+      t1 = h + EP1(e) + CH(e,f,g) + k[i] + m[i];
+      t2 = EP0(a) + MAJ(a,b,c);
+      h = g;
+      g = f;
+      f = e;
+      e = d + t1;
+      d = c;
+      c = b;
+      b = a;
+      a = t1 + t2;
+    }
+
+    ctx->state[0] += a;
+    ctx->state[1] += b;
+    ctx->state[2] += c;
+    ctx->state[3] += d;
+    ctx->state[4] += e;
+    ctx->state[5] += f;
+    ctx->state[6] += g;
+    ctx->state[7] += h;
+  }
+
+  void giac_sha256_init(SHA256_CTX *ctx)
+  {
+    ctx->datalen = 0;
+    ctx->bitlen = 0;
+    ctx->state[0] = 0x6a09e667;
+    ctx->state[1] = 0xbb67ae85;
+    ctx->state[2] = 0x3c6ef372;
+    ctx->state[3] = 0xa54ff53a;
+    ctx->state[4] = 0x510e527f;
+    ctx->state[5] = 0x9b05688c;
+    ctx->state[6] = 0x1f83d9ab;
+    ctx->state[7] = 0x5be0cd19;
+  }
+
+  void giac_sha256_update(SHA256_CTX *ctx, const BYTE data[], size_t len)
+  {
+    WORD32 i;
+
+    for (i = 0; i < len; ++i) {
+      ctx->data[ctx->datalen] = data[i];
+      ctx->datalen++;
+      if (ctx->datalen == 64) {
+	giac_sha256_transform(ctx, ctx->data);
+	ctx->bitlen += 512;
+	ctx->datalen = 0;
+      }
+    }
+  }
+
+  void giac_sha256_final(SHA256_CTX *ctx, BYTE hash[])
+  {
+    WORD32 i;
+
+    i = ctx->datalen;
+
+    // Pad whatever data is left in the buffer.
+    if (ctx->datalen < 56) {
+      ctx->data[i++] = 0x80;
+      while (i < 56)
+	ctx->data[i++] = 0x00;
+    }
+    else {
+      ctx->data[i++] = 0x80;
+      while (i < 64)
+	ctx->data[i++] = 0x00;
+      giac_sha256_transform(ctx, ctx->data);
+      memset(ctx->data, 0, 56);
+    }
+
+    // Append to the padding the total message's length in bits and transform.
+    ctx->bitlen += ctx->datalen * 8;
+    ctx->data[63] = ctx->bitlen;
+    ctx->data[62] = ctx->bitlen >> 8;
+    ctx->data[61] = ctx->bitlen >> 16;
+    ctx->data[60] = ctx->bitlen >> 24;
+    ctx->data[59] = ctx->bitlen >> 32;
+    ctx->data[58] = ctx->bitlen >> 40;
+    ctx->data[57] = ctx->bitlen >> 48;
+    ctx->data[56] = ctx->bitlen >> 56;
+    giac_sha256_transform(ctx, ctx->data);
+
+    // Since this implementation uses little endian byte ordering and SHA uses big endian,
+    // reverse all the bytes when copying the final state to the output hash.
+    for (i = 0; i < 4; ++i) {
+      hash[i]      = (ctx->state[0] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 4]  = (ctx->state[1] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 8]  = (ctx->state[2] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 12] = (ctx->state[3] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 16] = (ctx->state[4] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 20] = (ctx->state[5] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 24] = (ctx->state[6] >> (24 - i * 8)) & 0x000000ff;
+      hash[i + 28] = (ctx->state[7] >> (24 - i * 8)) & 0x000000ff;
+    }
+  }
+  /* END OF SHA256 */
+
+  
+#endif
+
+// support for tar archive in flash on the numworks
+char * buf64k=0; // we only have 64k of RAM buffer on the Numworks
+const size_t buflen=(1<<16);
+int numworks_maxtarsize=0x600000-0x10000;
+size_t tar_first_modified_offset=0; // set to non 0 if tar data comes from Numworks
+
+
+// erase sector containing address if required
+// returns true if erased, false otherwise 
+// if false is returned, it means that [address..end of sector] contains 0xff
+// i.e. the remaining part of this sector is ready to write without erasing
+void erase_sector(const char * buf){ 
+#if defined NUMWORKS && defined DEVICE
+  extapp_erasesector((void *)buf);
+#else
+  char * nxt=(char *) ((((size_t) buf)/buflen +1)*buflen);
+  char * start=nxt-buflen;
+  for (int i=0;i<buflen;++i)
+    start[i]=0xff;
+#endif
+}
+
+#if defined NUMWORKS && defined DEVICE
+void WriteMemory(char * target,const char * src,size_t length){
+  extapp_writememory((unsigned char *)target,(unsigned char*)src,length);
+}
+
+#else
+void WriteMemory(char * target,const char * src,size_t length){
+  memcpy(target,src,length);
+}
+#endif
+
+
+#if 0
+bool write_memory(char * target,const char * src,size_t length_){
+  //if (length % 256) return false;
+  size_t length=((255+length_)/256)*256;
+  char * nxt=(char *) ((((size_t) target)/buflen +1)*buflen);
+  size_t delta=length;
+  if (delta>nxt-target)
+    delta=nxt-target;
+  // first copy current sector in buf64k before erasing
+  char * prev=(char *)nxt-buflen;
+  memcpy(buf64k,prev,buflen);
+  memcpy(buf64k+(target-prev),src,delta);
+  erase_sector(target);
+  WriteMemory(prev,buf64k,buflen);
+  length -= delta;
+  src += delta;
+  target += delta;
+  while (length>0){
+    memcpy(buf64k,target,buflen);
+    delta=length;
+    if (delta>buflen) 
+      delta=buflen;
+    memcpy(buf64k,src,delta);
+    erase_sector(target);
+    WriteMemory(target,buf64k,buflen);
+    length -= delta;
+    src += delta;
+    target += delta;      
+  }
+}
+#endif
+
+// TAR: tar file format support
+int tar_filesize(int s){
+  int h=(s/512+1)*512;
+  if (s%512)
+    h +=512;
+  return h;
+}
+
+// adapted from tarballjs https://github.com/ankitrohatgi/tarballjs
+string giac_readString(const char * buffer,size_t str_offset, size_t size) {
+  int i = 0;
+  string rtnStr = "";
+  while(i<size) {
+    unsigned char ch=buffer[str_offset+i];
+    if (ch<32 || ch>=128) break;
+    rtnStr += ch;
+    i++;
+  }
+  return rtnStr;
+}
+string giac_readFileName(const char * buffer,size_t header_offset) {
+  return giac_readString(buffer,header_offset, 100);
+}
+string giac_readFileType(const char * buffer,size_t header_offset) {
+  // offset: 156
+  const char typeStr = buffer[header_offset+156];
+  if (typeStr == '0')
+    return "file";
+  if (typeStr == '5')
+    return "directory";
+  return string(1,typeStr);
+}
+int giac_readFileSize(const char * buffer,size_t header_offset) {
+  // offset: 124
+  const char * szView = buffer+ header_offset+124;
+  int res=0;
+  for (int i = 0; i < 11; i++) {
+    char tmp=szView[i];
+    if (tmp<'0' || tmp>'9') return -1; // invalid file size
+    res *= 8;
+    res += (tmp-'0');
+  }
+  return res;
+}
+
+int giac_readMode(const char * buffer,size_t header_offset) {
+  // offset: 100
+  const char * szView = buffer+ header_offset+100;
+  int res=0;
+  for (int i = 0; i < 7; i++) {
+    char tmp=szView[i];
+    if (tmp==' ')
+      return res;
+    if (tmp<'0' || tmp>'9') 
+      return -1; // invalid file size
+    res *= 10;
+    res += (tmp-'0');
+  }
+  return res;
+}
+
+void tar_clear(char * buffer){
+  for (int i=0;i<1024;++i)
+    buffer[i]=0;
+}
+
+std::vector<fileinfo_t> tar_fileinfo(const char * buffer,size_t byteLength){
+  vector<fileinfo_t> fileInfo;
+  if (!buffer) return fileInfo;
+  size_t offset=0,file_size=0;       
+  string file_name = "";
+  string file_type = "";
+  while (byteLength==0 || offset<byteLength-512){
+    file_name = giac_readFileName(buffer,offset); // file name
+    if (file_name.size() == 0) 
+      break;
+    file_type = giac_readFileType(buffer,offset);
+    file_size = giac_readFileSize(buffer,offset);
+    int mode = giac_readMode(buffer,offset);
+    if (file_size<0)
+      break;
+    //console.log(offset,file_name,file_size);
+    fileinfo_t tmp={file_name,file_type,file_size,offset,mode};
+    fileInfo.push_back(tmp);
+    offset += tar_filesize(file_size);
+  }
+  //console.log('fileinfo',offset,dohtml);
+  return fileInfo;
+}
+
+size_t tar_totalsize(const char * buffer,size_t byteLength){
+  std::vector<fileinfo_t> f=tar_fileinfo(buffer,byteLength);
+  if (f.empty()) return 0;
+  fileinfo_t i=f[f.size()-1];
+  size_t offset=i.header_offset+tar_filesize(i.size);
+  return offset;
+}
+
+std::string leftpad(const string & s,size_t targetLength) {
+  if (targetLength<=s.size())
+    return s;
+  string add(targetLength-s.size(),'0');
+  return add+s;
+}
+  
+void tar_writestring(char * buffer,const string & str, size_t offset, size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    if (i < str.size()) 
+      buffer[i+offset] = str[i];
+    else 
+      buffer[i+offset] = 0;
+  }
+}
+
+std::string toString8(longlong chksum){
+  if (chksum<0)
+    return "-"+toString8(-chksum);
+  if (chksum==0)
+    return "0";
+  string res;
+  for (;chksum;chksum/=8){
+    res = string(1,'0'+(chksum % 8))+res;
+  }
+  return res;
+}
+
+ulonglong fromstring8(const char * ptr){
+  ulonglong res=0; char ch;
+  for (;(ch=*ptr);++ptr){
+    if (ch==' ')
+      return res;
+    if (ch<'0' || ch>'8')
+      return -1;
+    res *= 8;
+    res += ch-'0';
+  }
+  return res;
+}
+
+void tar_writechecksum(char * buffer,size_t header_offset) {
+  // offset: 148
+  tar_writestring(buffer,"        ", header_offset+148, 8); // first fill with spaces
+  // add up header bytes
+  int chksum = 0;
+  for (int i = 0; i < 512; i++) {
+    chksum += buffer[header_offset+i];
+  }
+  tar_writestring(buffer,leftpad(toString8(chksum),6), header_offset+148, 8);
+  tar_writestring(buffer," ",header_offset+155,1); // add space inside chksum field
+}
+
+void tar_fillheader(char * buffer,size_t offset,int exec=0){
+  int uid = 501;
+  int gid = 20;
+  string mode = exec?"755":"644"; 
+#if !defined HAVE_NO_SYS_TIMES_H && defined HAVE_SYS_TIME_H
+  struct timeval t;
+  gettimeofday(&t, NULL);
+  longlong mtime=t.tv_sec;
+#else
+  longlong mtime=(2021LL-1970)*24*365.2425*3600;
+#ifdef KHICAS
+  mtime = millis()/1000;
+#endif
+#endif
+  string user = "user";
+  string group = "group";
+
+  tar_writestring(buffer,leftpad(mode,7)+" ", offset+100, 8);  
+  tar_writestring(buffer,leftpad(toString8(uid),6)+" ",offset+108,8);
+  tar_writestring(buffer,leftpad(toString8(gid),6)+" ",offset+116,8);
+  tar_writestring(buffer,leftpad(toString8(mtime),11)+" ",offset+136,12);
+
+  //UI.tar_writestring(buffer,"ustar", offset+257,6); // magic string
+  //UI.tar_writestring(buffer,"00", offset+263,2); // magic version
+  tar_writestring(buffer,"ustar  ", offset+257,8);
+    
+  tar_writestring(buffer,user, offset+265,32); // user
+  tar_writestring(buffer,group, offset+297,32); //group
+  tar_writestring(buffer,"000000 ",offset+329,7); //devmajor
+  tar_writestring(buffer,"000000 ",offset+337,7); //devmajor
+  tar_writechecksum(buffer,offset);
+}
+
+// flash version
+int flash_adddata(const char * buffer_,const char * filename,const char * data,size_t datasize,int exec){
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer_,numworks_maxtarsize);
+  size_t s=finfo.size();
+  if (s==0) return 0;
+  fileinfo_t last=finfo[s-1];
+  size_t offset=last.header_offset;
+  offset += tar_filesize(last.size);
+  if (offset+1024+datasize>numworks_maxtarsize) return 0;
+  buffer_ += offset;
+  char * nxt=(char *) ((((size_t) buffer_)/buflen +1)*buflen);
+  char * prev=nxt-buflen;
+  size_t pos=buffer_-prev;
+  for (int i=0;i<buflen;++i)
+    buf64k[i]=0xff;
+  memcpy(buf64k,prev,pos);
+  char * buffer=buf64k+pos; // point to header
+  // fill with 0
+  for (int i=0;i<512;++i)
+    buffer[i]=0;
+  tar_writestring(buffer,filename,0,100); // filename
+  tar_writestring(buffer,leftpad(toString8(datasize),11)+" ",124,12);  // filesize
+  tar_writestring(buffer,"0",156,1); // file type
+  tar_fillheader(buffer,0,exec);
+  // add data
+  buffer += 512;
+  pos += 512;
+  size_t length=datasize;
+  if (length>buflen-pos)
+    length=buflen-pos;
+  memcpy(buffer,data,length);
+  buffer += length;
+  for (;(size_t) buffer % 512;++buffer)
+    *buffer=0;
+  erase_sector(prev);
+  WriteMemory(prev,buf64k,buflen);
+  datasize -= length;
+  data += length;
+  prev += buflen;
+  while (datasize>0){
+    // copy remaining data
+    length=datasize<buflen?datasize:buflen;
+    memcpy(buf64k,data,length);
+    for (int i=length;i<buflen;++i)
+      buf64k[i]=0xff;
+    erase_sector(prev);
+    WriteMemory(prev,buf64k,buflen);
+    datasize -= length;
+  }
+  return 1;
+}
+
+// RAM version
+int tar_adddata(char * & buffer,size_t * buffersizeptr,const char * filename,const char * data,size_t datasize,int exec){
+  size_t buffersize=buffersizeptr?*buffersizeptr:0;
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer,buffersize);
+  size_t s=finfo.size();
+  if (s==0) return 0;
+  fileinfo_t last=finfo[s-1];
+  size_t offset=last.header_offset;
+  offset += tar_filesize(last.size);
+  buffersize=offset;
+  size_t newsize=offset+1024+datasize;
+  newsize=10240*((newsize+10239)/10240);
+  if (newsize>numworks_maxtarsize) return 0;
+  // console.log(buffer.byteLength,newsize);
+  // resize buffer
+  if (buffersize<newsize){
+    char * newbuf=(char *)malloc(newsize);
+    // char * newbuf=new char[newsize];
+    memcpy(newbuf,buffer,buffersize);
+    // delete [] buffer;
+    free(buffer);
+    buffersize=newsize;
+    if (buffersizeptr) *buffersizeptr=buffersize;
+    buffer=newbuf;
+  }
+  // console.log(buffer.byteLength,newsize);
+  // fill header with 0
+  for (int i=0;i<1024;++i)
+    buffer[offset+i]=0;
+  tar_writestring(buffer,filename,offset,100); // filename
+  tar_writestring(buffer,leftpad(toString8(datasize),11)+" ",offset+124,12);  // filesize
+  tar_writestring(buffer,"0",offset+156,1); // file type
+  tar_fillheader(buffer,offset,exec);
+  // copy data 
+  for (size_t i=0;i<datasize;++i)
+    buffer[offset+512+i]=data[i];
+  return 1;
+}
+
+// flash version
+int flash_addfile(const char * buffer,const char * filename){
+#if defined NUMWORKS  && defined DEVICE
+  size_t len;
+  const char * ch=extapp_fileRead(filename,&len,1); // read file in ram
+  return flash_adddata(buffer,filename,ch,len,0); // copy in flash
+#else
+  vector<char> data;
+  FILE * f = fopen(filename,"rb");
+  while (1){
+    char ch=fgetc(f);
+    if (feof(f))
+      break;
+    data.push_back(ch);
+  }
+  fclose(f);
+  int exec=1;
+  for (int i=0;filename[i];++i){
+    if (filename[i]=='.')
+      exec=0;
+  }
+  string fname=filename;
+  for (int i=0;filename[i];++i){
+    if (filename[i]=='/')
+      fname=filename+i+1;
+  }
+  return flash_adddata(buffer,fname.c_str(),&data.front(),data.size(),exec);
+#endif
+}
+
+// RAM version
+int tar_addfile(char * & buffer,const char * filename,size_t * buffersizeptr){
+  FILE * f = fopen(filename,"rb");
+  vector<char> data;
+  while (1){
+    char ch=fgetc(f);
+    if (feof(f))
+      break;
+    data.push_back(ch);
+  }
+  fclose(f);
+  int exec=1;
+  for (int i=0;filename[i];++i){
+    if (filename[i]=='.')
+      exec=0;
+  }
+  string fname=giac::remove_path(filename);
+  return tar_adddata(buffer,buffersizeptr,fname.c_str(),&data.front(),data.size(),exec);
+}
+
+int tar_savefile(char * buffer,const char * filename){
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer,0);
+  int s=finfo.size();
+  if (s==0) return 0;
+  fileinfo_t info;
+  for (int i=0;i<s;++i){
+    info=finfo[i];
+    if (info.filename==filename)
+      break;
+  }
+  if (info.filename!=filename) return 0;
+  size_t target=info.header_offset+512;
+  size_t size=info.size;
+  FILE * f=fopen(filename,"wb");
+  if (!f) return 0;
+  fwrite(buffer+target,size,1,f);
+  fclose(f);
+  return 1;
+}
+
+#if 0
+// flash version
+// mark_only==1 mark for erase, ==2 undelete
+// use mark_only==0 if and only if you need some space in flash
+// otherwise it's safer to empty the trash from a PC
+int flash_removefile(const char * buffer,const char * filename,size_t * tar_first_modif_offsetptr,int mark_only){
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer,0);
+  int s=finfo.size();
+  if (s==0) return 0;
+  fileinfo_t info;
+  for (int i=0;i<s;++i){
+    info=finfo[i];
+    if (info.filename==filename)
+      break;
+  }
+  if (info.filename!=filename) return 0;
+  // new code, mark file as non readable
+  size_t target=info.header_offset;
+  if (tar_first_modif_offsetptr && target<*tar_first_modif_offsetptr)
+    *tar_first_modif_offsetptr=target;
+  // mark the file as non readable
+  if (mark_only){
+    char headbuf[512];
+    memcpy(headbuf,buffer+target,512);
+    if (mark_only==1)
+      headbuf[104] = '0'+((headbuf[104]-'0') &3);
+    else
+      headbuf[104] = '0'+((headbuf[104]-'0') |4);
+    tar_writechecksum(headbuf,0);
+    // recompute chksum
+    write_memory((char *)buffer+target,headbuf,512);
     return 1;
   }
+  // really erase, move info.header_offset+info.size+512 to info.header_offset
+  size_t src=target+tar_filesize(info.size);
+  fileinfo_t infoend=finfo[s-1];
+  size_t end=infoend.header_offset+tar_filesize(infoend.size);
+  write_memory((char *)buffer+target,buffer+src,end-src);
+  // clear space after new end
+  // for (;target<end;++target)  buffer[target]=0;
+  return 1;
+}
+#endif
+
+const char * tar_loadfile(const char * buffer,const char * filename,size_t * len){
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer,0);
+  int s=finfo.size();
+  for (int i=0;i<s;++i){
+    const fileinfo_t & f=finfo[i];
+    if (f.filename==filename){
+      if (len)
+	*len=f.size;
+      return buffer+f.header_offset+512;
+    }
+  }
+  return 0;
+}
+
+bool match(const char * filename,const char * extension){
+  if (!extension)
+    return true;
+  int el=strlen(extension);
+  int fl=strlen(filename);
+  if (el>=fl) return false;
+  int i=fl-el,j=0;
+  for (;j<el;++i,++j){
+    if (filename[i]!=extension[j])
+      return false;
+  }
+  return true;
+}
+
+int tar_filebrowser(const char * buf,const char ** filenames,int maxrecords,const char * extension){
+  vector<fileinfo_t> finfo=tar_fileinfo(buf,0);
+  int s=finfo.size();
+  if (s==0) return 0;
+  int j=0;
+  for (int i=0;i<s;++i){
+    const fileinfo_t & f=finfo[i];
+    if (match(f.filename.c_str(),extension)){
+      filenames[j]=f.filename.c_str();
+      ++j;
+      if (j==maxrecords)
+	return j;
+    }
+  }
+  return j;
+}
+
+// RAM version
+int tar_removefile(char * buffer,const char * filename,size_t * tar_first_modif_offsetptr){
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer,0);
+  int s=finfo.size();
+  if (s==0) return 0;
+  fileinfo_t info;
+  for (int i=0;i<s;++i){
+    info=finfo[i];
+    if (info.filename==filename)
+      break;
+  }
+  if (info.filename!=filename) return 0;
+  // move info.header_offset+info.size+512 to info.header_offset
+  size_t target=info.header_offset;
+  if (tar_first_modif_offsetptr && target<*tar_first_modif_offsetptr)
+    *tar_first_modif_offsetptr=target;
+  size_t src=target+tar_filesize(info.size);
+  fileinfo_t infoend=finfo[s-1];
+  size_t end=infoend.header_offset+tar_filesize(infoend.size);
+  // memcpy would be faster, but I'm unsure it is safe here
+  for (;src<end;++src,++target) 
+    buffer[target]=buffer[src];
+  for (;target<end;++target) // clear space after new end
+    buffer[target]=0;
+  return 1;
+}
+
+bool tar_nxt_readable(const vector<fileinfo_t> & finfo,int cur,fileinfo_t & f){
+  int s=finfo.size();
+  for (int i=cur;i<s;++i){
+    f=finfo[i];
+    int droit=f.mode/100 ;
+    if ( (droit & 4)==4)
+      return true;
+  }
+  return false;
+}
+
+bool same_offset_size (const fileinfo_t & a,const fileinfo_t &b){
+  return a.header_offset==b.header_offset && a.size==b.size;
+}
+
+int flash_synchronize(const char * buffer,const vector<fileinfo_t> & finfo,size_t * tar_first_modif_offsetptr){
+  vector<fileinfo_t> oinfo=tar_fileinfo(buffer,0);
+  int s=finfo.size();
+  if (oinfo.size()!=finfo.size())
+    return 0;
+  for (int i=0;i<s;++i){
+    fileinfo_t f=finfo[i],o=oinfo[i];
+    if (!same_offset_size(f,o))
+      return 0;
+    if (f.mode==o.mode && f.filename==o.filename)
+      continue;
+    if (tar_first_modif_offsetptr && *tar_first_modif_offsetptr>f.header_offset)
+      *tar_first_modif_offsetptr=f.header_offset;
+    // copy current sector 
+    size_t sector_begin=(f.header_offset/buflen)*buflen,sector_end=sector_begin+buflen;
+    memcpy(buf64k,buffer+sector_begin,buflen);
+    // modify all records in this sector
+    for (;i<s;++i){
+      f=finfo[i];
+      size_t sector_pos=f.header_offset-sector_begin;
+      if (sector_pos>=buflen){
+	break;
+      }
+      char * headbuf=buf64k+sector_pos;
+      strcpy(headbuf,f.filename.c_str());
+      if ( (f.mode/100 & 4) ==0)
+	headbuf[104] = '0'+((headbuf[104]-'0') &3);
+      else
+	headbuf[104] = '0'+((headbuf[104]-'0') |4);
+      tar_writechecksum(headbuf,0);
+    }
+    erase_sector(buffer+sector_begin);
+    WriteMemory((char *)buffer+sector_begin,buf64k,buflen);
+  } 
+  return 1;
+}
+
+int flash_emptytrash(const char * buffer,const vector<fileinfo_t> & finfo,size_t * tar_first_modif_offsetptr){
+  size_t flash_end=0x90800000LL-buflen,flash_begin=0x90200000LL;
+  int s=finfo.size();
+  if (s==0) return 0;
+  // find 1st offset marked non readable
+  int i; // record position
+  fileinfo_t f,fnxt;
+  for (i=0;i<s;++i){
+    f=finfo[i];
+    int droit=f.mode/100 ;
+    if ( (droit & 4)==0){
+      break;
+    }
+  }
+  if (i==s) return 0;
+  // if (!tar_nxt_readable(finfo,i,fnxt)) return 0;
+  if (tar_first_modif_offsetptr && *tar_first_modif_offsetptr>f.header_offset)
+    *tar_first_modif_offsetptr=f.header_offset;
+  // find current sector
+  size_t sector_begin=(f.header_offset/buflen)*buflen,sector_end=sector_begin+buflen;
+  memcpy(buf64k,buffer+sector_begin,buflen);
+  size_t sector_pos=f.header_offset-sector_begin; // in [0,buflen[
+  int nwrite=0;
+  for (;i<s;++nwrite){
+    // buf64k[0..sector_pos[ is ok
+    int nxti=i;
+    for (++nxti;nxti<s;++nxti){
+      fnxt=finfo[nxti];
+      int droit=fnxt.mode /100;
+      if ( (droit & 4)==4){
+	break;
+      }
+    }
+    if (nxti==s) break;
+    size_t src=fnxt.header_offset;
+    // find nxt offset marked as non readable
+    for (++nxti;nxti<s;++nxti){
+      f=finfo[nxti];
+      int droit=f.mode /100;
+      if ( (droit & 4)==0){
+	break;
+      }
+    }
+    size_t length = f.header_offset-src; 
+    if (nxti==s)
+      length += tar_filesize(f.size);
+    // total number of bytes to be copied 
+    while (length>0){
+      size_t nbytes=length;
+      if (length>buflen-sector_pos)
+	nbytes=buflen-sector_pos;
+      memcpy(buf64k+sector_pos,buffer+src,nbytes);
+      sector_pos += nbytes;
+      for (int j=sector_pos;j<buflen;++j)
+	buf64k[j]=0xff;
+      src += nbytes;
+      length -= nbytes; 
+      if (sector_pos==buflen){
+	// erase sector, transfert buf64k, copy next sector in buf64k
+	erase_sector((char *)buffer+sector_begin);
+	WriteMemory((char *)buffer+sector_begin,buf64k,buflen);
+	sector_begin += buflen;
+	if (sector_begin>flash_end-flash_begin)
+	  return 1;
+	sector_end += buflen;
+	sector_pos = 0;
+	memcpy(buf64k,buffer+sector_begin,buflen);
+      }
+    }
+    i=nxti;
+  }
+  if (sector_pos>0){
+    erase_sector((char *)buffer+sector_begin);
+    for (int j=sector_pos;j<buflen;++j)
+      buf64k[j]=0xff;
+    WriteMemory((char *)buffer+sector_begin,buf64k,buflen);
+  }
+  return nwrite;
+}
+
+int flash_emptytrash(const char * buffer,size_t * tar_first_modif_offsetptr){
+  vector<fileinfo_t> finfo=tar_fileinfo(buffer,0);
+  return flash_emptytrash(buffer,finfo,tar_first_modif_offsetptr);
+}
+
+char * file_gettar(const char * filename){
+  FILE * f=fopen(filename,"rb");
+  if (!f) return 0;
+  vector<char> res;
+  while (1){
+    char ch=fgetc(f);
+    if (feof(f))
+      break;
+    res.push_back(ch);
+  }
+  fclose(f);
+  size_t size=res.size();
+  size_t bufsize=65536*((size+65535)/65536);
+  char * buffer=(char *)malloc(bufsize);
+  memcpy(buffer,&res.front(),size);
+  return buffer;
+}
+
+char * file_gettar_aligned(const char * filename,char * & freeptr){
+  size_t size=numworks_maxtarsize;
+  size_t bufsize=buflen*((size+(buflen-1))/buflen);
+  char * buffer=(char *)malloc(bufsize+2*buflen);
+  freeptr=buffer;
+  // align buffer
+  buffer=(char *) ((((size_t) buffer)/buflen +1)*buflen);
+  FILE * f=fopen(filename,"rb");
+  if (!f){
+    for (size_t i=0;i<size;++i)
+      buffer[i]=0;
+    return buffer;
+  }
+  vector<char> res;
+  while (1){
+    char ch=fgetc(f);
+    if (feof(f))
+      break;
+    res.push_back(ch);
+  }
+  fclose(f);
+  size=res.size();
+  if (size<numworks_maxtarsize)
+    size=numworks_maxtarsize;
+  memcpy(buffer,&res.front(),size);
+  return buffer;
+}
+
+
+int file_savetar(const char * filename,char * buffer,size_t buffersize){
+  size_t l=tar_totalsize(buffer,buffersize);
+  if (l==0) return 0;
+  FILE * f=fopen(filename,"wb");
+  if (!f) return 0;
+  fwrite(buffer,l,1,f);
+  char buf[1024];
+  for (int i=0;i<1024;++i)
+    buf[i]=0;
+  fwrite(buf,1024,1,f);
+  fclose(f);
+  return 1;
+}
+#if !defined KHICAS && !defined USE_GMP_REPLACEMENTS && !defined GIAC_HAS_STO_38// 
+
+#ifdef HAVE_LIBDFU
+extern "C" { 
+#include "dfu_lib.h"
+}
+#endif
+
+// Numworks calculator
+int dfu_exec(const char * s_){
+  CERR << s_ << "\n";
+#if 0 // def HAVE_LIBDFU
+  std::istringstream ss(s_);
+  std::string arg;
+  std::vector<std::string> ls;
+  std::vector<char*> v;
+  while (ss >> arg)
+    {
+      ls.push_back(arg); 
+      v.push_back(const_cast<char*>(ls.back().c_str()));
+    }
+  v.push_back(0);  // need terminating null pointer
+  int res=dfu_main(v.size()-1,&v[0]);
+  return res;
+#else
+#ifdef WIN32 
+  string s(s_);
+#ifdef __MINGW_H
+  if (giac::is_file_available("c:\\xcaswin\\dfu-util.exe"))
+    s="c:\\xcaswin\\"+s;
+  // otherwise dfu-util should be in the path
+#else
+  if (giac::is_file_available("/cygdrive/c/xcas64/dfu-util.exe"))
+    s="/cygdrive/c/xcas64/"+s;
+  else
+    s="./"+s;
+#endif
+  return system(s.c_str());
+#else // WIN32
+#ifdef __APPLE__
+  string s(s_);
+  s="/Applications/usr/bin/"+s;
+  if (giac::is_file_available(s.c_str()))
+    return giac::system_no_deprecation(s.c_str());
+  s=s_; s="/usr/bin/"+s;
+  return giac::system_no_deprecation(s.c_str());
+#else
+  return system(s_);
+#endif
+#endif // WIN32
+#endif 
+}
+
+bool dfu_get_scriptstore_addr(size_t & start,size_t & taille){
+  // first try multi-boot
+  const char * slots[]={"0x90000000","0x90180000","0x90400000"};
+  const char * slots1[]={"0x90010000","0x90190000","0x90410000"};
+  unsigned char r[32];
+  for (int j=0;j<sizeof(slots)/sizeof(char *);++j){
+    unlink("__platf");
+    char cmd[256];
+    strcpy(cmd,"dfu-util -i0 -a0 -s ");
+    strcat(cmd,slots[j]);
+    strcat(cmd,":0x20 -U __platf");
+    if (dfu_exec(cmd))
+      return false;
+    FILE * f=fopen("__platf","r");
+    if (!f){ return false; }
+    int i=fread(r,1,32,f);
+    fclose(f);
+    if (i!=32)
+      return false;
+    // check valid slot: for f0 0d c0 de at offset 8, 9, a, b
+    bool externalinfo=r[8]==0xf0 && r[9]==0x0d && r[10]==0xc0 && r[11]==0xde;
+    if (!externalinfo)
+      break;
+    unlink("__platf");
+    strcpy(cmd,"dfu-util -i0 -a0 -s ");
+    strcat(cmd,slots1[j]);
+    strcat(cmd,":0x20 -U __platf");
+    if (dfu_exec(cmd))
+      return false;
+    f=fopen("__platf","r");
+    if (!f){ return false; }
+    i=fread(r,1,32,f);
+    fclose(f);
+    if (i!=32)
+      return false;
+    start=((r[15]*256U+r[14])*256+r[13])*256+r[12];
+    if (r[15]!=0x20) // ram is at 0x20000000 (+256K)
+      continue;
+    taille=((r[19]*256U+r[18])*256+r[17])*256+r[16];
+    unlink("__platf");   // check 4 bytes at start address
+    if (dfu_exec(("dfu-util -i0 -a0 -s "+giac::print_INT_(start)+":0x4:force -U __platf").c_str()))
+      continue;
+    f=fopen("__platf","r");
+    if (!f){ return false; }
+    i=fread(r,1,4,f);
+    fclose(f);
+    if (i!=4)
+      return false;
+    if (r[0]==0xba && r[1]==0xdd && r[2]==0x0b && r[3]==0xee) // ba dd 0b ee begin of scriptstore
+      return true;
+  }
+  // no valid slot, try without bootloader
+  unlink("__platf");
+  if (dfu_exec("dfu-util -i0 -a0 -s 0x080001c4:0x20 -U __platf"))
+    return false;
+  FILE * f=fopen("__platf","r");
+  if (!f){ return false; }
+  int i=fread(r,1,32,f);
+  fclose(f);
+  if (i!=32)
+    return false;
+  start=((r[23]*256U+r[22])*256+r[21])*256+r[20];
+  taille=((r[27]*256U+r[26])*256+r[25])*256+r[24];
+  // taille=(taille/32768)*32768; // do not care of end of scriptstore
+  return true;
+}
+
+bool dfu_get_scriptstore(const char * fname){
+  unlink(fname);
+  size_t start,taille;
+  if (!dfu_get_scriptstore_addr(start,taille)) return false;
+  string s="dfu-util -U "+string(fname)+" -i0 -a0 -s "+ giac::print_INT_(start)+":"+giac::print_INT_(taille)+":force";
+  return !dfu_exec(s.c_str());
+}
+
+bool dfu_send_scriptstore(const char * fname){
+  size_t start,taille;
+  if (!dfu_get_scriptstore_addr(start,taille)) return false;
+  string s="dfu-util -D "+string(fname)+" -i0 -a0 -s "+ giac::print_INT_(start)+":"+giac::print_INT_(taille)+":force";
+  return !dfu_exec(s.c_str());
+} 
+
+bool dfu_send_rescue(const char * fname){
+  string s=string("dfu-util -i0 -a0 -s 0x20030000:force:leave -D ")+ fname;
+  return !dfu_exec(s.c_str());
+}
+
+char hex2char(int i){
+  i &= 0xf;
+  if (i>=0 && i<=9)
+    return '0'+i;
+  return 'A'+(i-10);
+}
+
+// send to 0x90000000+offset*0x10000
+bool dfu_send_firmware(const char * fname,int offset){
+  string s=string("dfu-util -i0 -a0 -s 0x90"); 
+  s += hex2char(offset/16);
+  s += hex2char(offset);
+  s += "0000 -D ";
+  s += fname;
+  return !dfu_exec(s.c_str());
+}
+
+bool dfu_send_apps(const char * fname){
+  string s=string("dfu-util -i 0 -a 0 -s 0x90200000 -D ")+ fname;
+  return !dfu_exec(s.c_str());
+}
+
+bool dfu_get_epsilon_internal(const char * fname){
+  unlink(fname);
+  string s=string("dfu-util -i 0 -a 0 -s 0x08000000:0x8000 -U ")+ fname;
+  return !dfu_exec(s.c_str());
+}
+
+bool dfu_send_bootloader(const char * fname){
+  unlink(fname);
+  string s=string("dfu-util -i 0 -a 0 -s 0x08000000 -D ")+ fname;
+  return !dfu_exec(s.c_str());
+}
+
+bool dfu_get_slot(const char * fname,int slot){
+  unlink(fname);
+  string s=string("dfu-util -i 0 -a 0 -s ");
+  switch (slot){
+  case 1:
+    s += "0x90000000:0x130000";
+    break;
+  case 2:
+    s += "0x90180000:0x80000";
+    break;
+  default:
+    return false;
+  } 
+  s += " -U ";
+  s += fname;
+  if (dfu_exec(s.c_str()))
+    return false;
+  // exam mode modifies flash sector at offset 0x1000 
+  // restore this part to initial values
+  FILE * f=fopen(fname,"rb");
+  if (!f) return false;
+  unsigned char buf[0x130000];
+  int l=slot==1?0x130000:0x80000;
+  int i=fread(buf,1,l,f);
+  fclose(f);
+  if (i!=l)
+    return false;
+  for (int j=0x1000;j<0x2000;++j)
+    buf[j]=0xff;
+  for (int j=0x2000;j<0x3000;++j)
+    buf[j]=0;
+  f=fopen(fname,"wb");
+  if (!f) return false;
+  i=fwrite(buf,1,l,f);
+  fclose(f);
+  if (i!=l)
+    return false;
+  return true;
+}
+
+#if 0
+// check that we can really read/write on the Numworks at 0x90120000
+// and get the same
+// SHOULD NOT BE USED ANYMORE
+bool dfu_check_epsilon2(const char * fname){
+  FILE * f=fopen(fname,"wb");
+  int n=0xe0000;
+  char * ptr=(char *) malloc(n);
+  srand(time(NULL));
+  int i;
+  for (i=0;i<n;++i){
+    int j=(rand()/(1.0+RAND_MAX))*n;
+    ptr[j]=rand();
+  }
+  for (i=0;i<n;++i){
+    fputc(ptr[i],f);
+  }
+  fclose(f);
+  // write to the device something that can not be guessed 
+  // without really storing to flash
+  string s=string("dfu-util -i 0 -a 0 -s 0x90120000:0xe0000 -D ")+ fname;
+  if (dfu_exec(s.c_str()))
+    return false;
+  // retrieve it and compare
+  unlink(fname);
+  s=string("dfu-util -i 0 -a 0 -s 0x90120000:0xe0000 -U ")+ fname;
+  if (dfu_exec(s.c_str()))
+    return false;
+  f=fopen(fname,"rb");
+  for (i=0;i<n;++i){
+    char ch=fgetc(f);
+    if (ch!=ptr[i])
+      break;
+  }
+  fclose(f);
+  return i==n;
+}
+#endif
+
+// check that we can really read/write on the Numworks at 0x90740000
+// and get the same
+bool dfu_check_apps2(const char * fname){
+  FILE * f=fopen(fname,"wb");
+  int n=0xa0000;
+  char * ptr=(char *) malloc(n);
+  srand(time(NULL));
+  int i;
+  for (i=0;i<n;++i){
+    int j=(rand()/(1.0+RAND_MAX))*n;
+    ptr[j]=rand();
+  }
+  for (i=0;i<n;++i){
+    fputc(ptr[i],f);
+  }
+  fclose(f);
+  // write to the device something that can not be guessed 
+  // without really storing to flash
+  string s=string("dfu-util -i 0 -a 0 -s 0x90740000:0xa0000 -D ")+ fname;
+  if (dfu_exec(s.c_str()))
+    return false;
+  // retrieve it and compare
+  unlink(fname);
+  s=string("dfu-util -i 0 -a 0 -s 0x90740000:0xa0000 -U ")+ fname;
+  if (dfu_exec(s.c_str()))
+    return false;
+  f=fopen(fname,"rb");
+  for (i=0;i<n;++i){
+    char ch=fgetc(f);
+    if (ch!=ptr[i])
+      break;
+  }
+  fclose(f);
+  return i==n;
+}
+
+bool dfu_get_apps(const char * fname){
+  unlink(fname);
+  string s=string("dfu-util -i 0 -a 0 -s 0x90200000:0x600000 -U ")+ fname;
+  return !dfu_exec(s.c_str());
+}
+
+char * numworks_gettar(size_t & tar_first_modif_offset){
+  if (!dfu_get_apps("__apps"))
+    return 0;
+  FILE * f=fopen("__apps","rb");
+  if (!f) return 0;
+  char * buffer=(char *)malloc(numworks_maxtarsize);
+  fread(buffer,numworks_maxtarsize,1,f);
+  fclose(f);
+  tar_first_modif_offset=tar_totalsize(buffer,numworks_maxtarsize);
+  return buffer;
+}
+
+bool dfu_update_khicas(const char * fname){
+  FILE * f=fopen(fname,"rb");
+  if (!f) return 0;
+  char * buffer=(char *)malloc(numworks_maxtarsize);
+  fread(buffer,numworks_maxtarsize,1,f);
+  fclose(f);
+  size_t pos=0;
+  char * oldbuffer=numworks_gettar(pos);
+  if (!oldbuffer){
+    free(buffer);
+    return false;
+  }
+  vector<fileinfo_t> oldv=tar_fileinfo(oldbuffer,0),v=tar_fileinfo(buffer,0);
+  // add files from oldbuffer that are not in buffer
+  for (int i=0;i<oldv.size();++i){
+    const fileinfo_t & cur=oldv[i];
+    string s=cur.filename; int j;
+    for (j=0;j<v.size();++j){
+      if (v[j].filename==s)
+	break;
+    }
+    if (j<v.size()) 
+      continue; // file is in buffer
+    int res=tar_adddata(buffer,0,s.c_str(),oldbuffer+cur.header_offset+512,cur.size,0); // exec can not be translated
+  }
+  file_savetar("__apps",buffer,0);
+  //return true;
+  return dfu_send_apps("__apps");
+}
+
+bool numworks_sendtar(char * buffer,size_t buffersize,size_t tar_first_modif_offset){
+  vector<fileinfo_t> v=tar_fileinfo(buffer,buffersize);
+  if (v.empty())
+    return false;
+  fileinfo_t info=v[v.size()-1];
+  size_t end=info.header_offset+tar_filesize(info.size)+1024;
+  if (end>numworks_maxtarsize || end<=tar_first_modif_offset) return false;
+  for (size_t i=end-1024;i<end;++i)
+    buffer[i]=0;
+  FILE * f =fopen("__apps","wb");
+  if (!f)
+    return false;
+  size_t start=(tar_first_modif_offset/65536)*65536;
+  fwrite(buffer+start,end-start,1,f);
+  fclose(f);
+  longlong ll=0x90200000LL+start;
+  string s=string("dfu-util -i 0 -a 0 -s ")+giac::gen(ll).print(giac::context0)+" -D __apps" ;
+  return !dfu_exec(s.c_str());
+}
+
+#endif 
 
 #ifndef NO_NAMESPACE_GIAC
 namespace giac {
 #endif // ndef NO_NAMESPACE_GIAC
+
+  
+  // buf:=tar "file.tar" -> init
+  // tar(buf) -> list files
+  // tar(buf,0,"filename") -> remove filename
+  // tar(buf,1,"filename") -> add filename
+  // tar(buf,2,"filename") -> save filename
+  // tar(buf,"file.tar") -> write tar
+  // purge(buf) -> free buffer
+  gen _tar(const gen & g_,GIAC_CONTEXT){
+    gen g(eval(g_,eval_level(contextptr),contextptr));
+    if (g.type==_STRNG){
+      char * buf=file_gettar(g._STRNGptr->c_str());
+      if (!buf) return 0;
+      tar_first_modified_offset=0;
+      return gen((void *)buf,_BUFFER_POINTER);
+    }
+    if (g.type==_POINTER_ && g.subtype==_BUFFER_POINTER){
+      char * buf= (char *) g._POINTER_val;
+      if (!buf) return 0;
+      vector<fileinfo_t> v=tar_fileinfo(buf,0);
+      vecteur res1,res2,res3,res4;
+      for (int i=0;i<v.size();++i){
+	res1.push_back(string2gen(v[i].filename,false));
+	res2.push_back(v[i].size);
+	res3.push_back(v[i].header_offset);
+	res4.push_back(v[i].mode);
+      }
+      return makevecteur(res1,res2,res3,res4);
+    }
+#if !defined KHICAS && !defined USE_GMP_REPLACEMENTS && !defined GIAC_HAS_STO_38
+    if (g.type==_INT_){
+      if (g.val==1){
+	char * buf= numworks_gettar(tar_first_modified_offset);
+	if (!buf) return 0;
+	return gen((void *)buf,_BUFFER_POINTER);
+      }
+    }
+#endif
+    if (g.type==_VECT){
+      vecteur & v=*g._VECTptr; 
+      int s=v.size();
+      if (s>=2 && v.front().type==_POINTER_){
+	char * buf= (char *) v[0]._POINTER_val;
+	if (!buf) return 0;
+	if (s==2 && v[1].type==_STRNG)
+	  return file_savetar(v[1]._STRNGptr->c_str(),buf,0);
+#if !defined KHICAS && !defined USE_GMP_REPLACEMENTS && !defined GIAC_HAS_STO_38
+	if (s==2 && v[1].type==_INT_){
+	  if (v[1].val==1)
+	    return numworks_sendtar(buf,0,tar_first_modified_offset);
+	}
+#endif
+	if (s==3 && v[1].type==_INT_ && v[2].type==_STRNG){
+	  int val=v[1].val;
+	  if (val==0)
+	    return tar_removefile(buf,v[2]._STRNGptr->c_str(),0);
+	  if (val==1 && tar_addfile(buf,v[2]._STRNGptr->c_str(),0)){
+	    gen res=gen((void *)buf,_BUFFER_POINTER);
+	    if (g_.type==_VECT && !g_._VECTptr->empty())
+	      return sto(res,g_._VECTptr->front(),contextptr);
+	    return res;
+	  }
+	  if (val==2)
+	    return tar_savefile(buf,v[2]._STRNGptr->c_str());
+	}
+      }
+    }
+    return gensizeerr(contextptr);
+  }
+  static const char _tar_s []="tar";
+  static define_unary_function_eval_quoted (__tar,&_tar,_tar_s);
+  define_unary_function_ptr5( at_tar ,alias_at_tar,&__tar,_QUOTE_ARGUMENTS,true);
+
+  std::string dos2unix(const std::string & src){
+    std::string unixsrc; // convert newlines to Unix
+    for (int i=0;i+1<src.size();++i){
+      if (src[i]==13 && src[i+1]==10)
+	continue;
+      unixsrc+= src[i];
+    }
+    return unixsrc;
+  }
+
+  gen tabunsignedchar2gen(const unsigned char tab[],int len){
+    gen res=0;
+    for (int i=0;i<len;++i){
+      res=256*res;
+      res+=tab[i];
+    }
+    return res;
+  }
+  
+
+#if !defined KHICAS && !defined USE_GMP_REPLACEMENTS && !defined GIAC_HAS_STO_38
+  bool scriptstore2map(const char * fname,nws_map & m){
+    FILE * f=fopen(fname,"rb");
+    if (!f)
+      return false;
+    unsigned char buf[nwstoresize1];
+    fread(buf,1,nwstoresize1,f);
+    fclose(f);
+    unsigned char * ptr=buf;
+    // Numworks script store archive
+    // record format: length on 2 bytes
+    // if not zero length
+    // record name 
+    // 00
+    // type 
+    // record data
+    if (*ptr!=0xee0bddba)  // ba dd 0b ee
+      return false; 
+    int pos=4; ptr+=4;
+    for (;pos<nwstoresize1;){
+      size_t L=ptr[1]*256+ptr[0]; 
+      ptr+=2; pos+=2;
+      if (L==0) break;
+      L-=2;
+#ifdef VISUALC
+      char buf_[65536];
+#else
+      char buf_[L+1];
+#endif
+      memcpy(buf_,(const char *)ptr,L); ptr+=L; pos+=L;
+      string name(buf_);
+      const char * buf_mode=buf_+name.size()+2;
+      nwsrec r;
+      r.type=buf_mode[-1];
+      r.data.resize(L-name.size()-3);
+      memcpy(&r.data[0],buf_mode,r.data.size());
+      m[name]=r;
+    }
+    if (pos>=nwstoresize1)
+      return false;
+    return true;
+  }
+
+  bool map2scriptstore(const nws_map & m,const char * fname){
+    unsigned char buf[nwstoresize1];
+    for (int i=0;i<nwstoresize1;++i)
+      buf[i]=0;
+    unsigned char * ptr=buf;
+    *(unsigned *) ptr= 0xee0bddba;
+    ptr += 4;
+    nws_map::const_iterator it=m.begin(),itend=m.end();
+    int total=0;
+    for (;it!=itend;++it){
+      const string & s=it->first;
+      unsigned l1=s.size();
+      unsigned l2=it->second.data.size();
+      short unsigned L=2+l1+1+1+l2+1;
+      total += L;
+      if (total>=nwstoresize1)
+	return false;
+      *ptr=L % 256; ++ptr; *ptr=L/256; ++ptr;
+      memcpy(ptr,s.c_str(),l1+1); ptr += l1+1;
+      *ptr=it->second.type; ++ptr;
+      memcpy(ptr,&it->second.data[0],l2); ptr+=l2;
+      *ptr=0; ++ptr; 
+    }
+    FILE * f=fopen(fname,"wb");
+    if (!f)
+      return false;
+    fwrite(buf,1,nwstoresize1,f);
+    fclose(f);
+    return true;
+  }
+#endif
+
+  
+
+#if !defined KHICAS && !defined USE_GMP_REPLACEMENTS && !defined GIAC_HAS_STO_38
+  const unsigned char rsa_n_tab[]=
+    {
+      0xf2,0x0e,0xd4,0x9d,0x44,0x04,0xc4,0xc8,0x6a,0x5b,0xc6,0x9a,0xd6,0xdf,
+      0x9c,0xf5,0x56,0xf2,0x0d,0xad,0x6c,0x34,0xb4,0x48,0xf7,0xa7,0xa8,0x27,0xa0,
+      0xc8,0xbe,0x36,0xb1,0xc0,0x95,0xf8,0xc2,0x72,0xfb,0x78,0x0f,0x3f,0x15,0x22,
+      0xaf,0x51,0x96,0xe3,0xdc,0x39,0xb4,0xc6,0x40,0x6d,0x58,0x56,0x1f,0xad,0x55,
+      0x55,0x08,0xf1,0xde,0x5a,0xbc,0xd3,0xcc,0x16,0x3d,0x33,0xee,0x83,0x3f,0x32,
+      0xa7,0xa7,0xb8,0x95,0x2f,0x35,0xeb,0xf6,0x32,0x4d,0x22,0xd9,0x60,0xb7,0x5e,
+      0xbd,0xea,0xa5,0xcb,0x9c,0x69,0xeb,0xfd,0x9f,0x2b,0x5f,0x3d,0x38,0x5a,0xe1,
+      0x2b,0x63,0xf8,0x92,0x35,0x91,0xea,0x77,0x07,0xcc,0x4b,0x7a,0xbc,0xe0,0xa0,
+      0x8b,0x82,0x98,0xa2,0x87,0x10,0x2c,0xe2,0x23,0x53,0x2f,0x70,0x03,0xec,0x2d,
+      0x22,0x34,0x72,0x57,0x4d,0x24,0x2e,0x97,0xc9,0xfb,0x23,0xb0,0x05,0xff,0x87,
+      0x6e,0xbf,0x94,0x2d,0xf0,0x36,0xed,0xd7,0x9a,0xac,0x0c,0x21,0x94,0xa2,0x75,
+      0xfc,0x39,0x9b,0xba,0xf2,0xc6,0xc9,0x34,0xa0,0xb2,0x66,0x5a,0xcc,0xc9,0x5c,
+      0xc7,0xdb,0xce,0xfb,0x3a,0x10,0xee,0xc1,0x82,0x9a,0x43,0xef,0xed,0x87,0xbd,
+      0x6c,0xe4,0xc1,0x36,0xd0,0x0a,0x85,0x6e,0xca,0xcd,0x13,0x29,0x65,0xb5,0xd4,
+      0x13,0x4a,0x14,0xaa,0x65,0xac,0x0e,0x6f,0x19,0xb0,0x62,0x47,0x65,0x0e,0x40,
+      0x82,0x37,0xd6,0xf0,0x17,0x48,0xaa,0x8c,0x7b,0xc4,0x5e,0x4a,0x72,0x26,0xa6,
+      0x08,0x2e,0xff,0x2d,0x9d,0x0e,0x2e,0x19,0xe9,0x6a,0x4c,0x7c,0x3e,0xe9,0xbc,
+      0x78,0x95
+    };
+
+  int rsa_check(const char * sigfilename,int maxkeys,BYTE hash[][SHA256_BLOCK_SIZE],int * tailles,vector<string> & fnames){
+    gen rsa_n(tabunsignedchar2gen(rsa_n_tab,sizeof(rsa_n_tab)));
+    gen N=pow(gen(2),768),q;
+    // read by blocks of 2048 bits=256 bytes
+    FILE * f=fopen(sigfilename,"r");
+    if (!f)
+      return 0;
+    char firmwarename[256];
+    int i=0;
+    for (;i<maxkeys;++i){
+      gen key=0;
+      // skip firmware filename and size
+      fscanf(f,"%i %s",&tailles[i],firmwarename);
+      fnames.push_back(firmwarename);
+      // skip 0x prefix
+      for (;;){
+	unsigned char c=fgetc(f);
+	if (feof(f))
+	  break;
+	if (c=='\n' || c==' ' || c=='0')
+	  continue;
+	if (c=='x')
+	  break;
+	// invalid char
+	return 0;
+      }
+      if (feof(f)){
+	fclose(f);
+	return i;
+      }
+      for (int j=0;j<256;++j){
+	key = 256*key;
+	unsigned char c=fgetc(f);
+	if (feof(f)){
+	  fclose(f);
+	  if (j!=0){ return 0; }
+	  return i;
+	}
+	if (c==' ' || c=='\n')
+	  break;
+	if (c>='0' && c<='9')
+	  c=c-'0';
+	else {
+	  if (c>='a' && c<='f')
+	    c=10+c-'a';
+	  else {
+	    fclose(f);
+	    return 0;
+	  }
+	}
+	unsigned char d=fgetc(f);
+	if (feof(f)){
+	  fclose(f);
+	  return 0;
+	}
+	if (d==' ' || d=='\n'){
+	  key = key/16+int(c);
+	  break;
+	}
+	if (d>='0' && d<='9')
+	  d=d-'0';
+	else {
+	  if (d>='a' && d<='f')
+	    d=10+d-'a';
+	  else {
+	    fclose(f);
+	    return 0;
+	  }
+	}
+	key += int(c)*16+int(d);
+      }
+      // public key decrypt and keep only 768 low bits
+      key=powmod(key,65537,rsa_n);
+      key=irem(key,N,q); 
+      if (q!=12345){
+	fclose(f);
+	return 0;
+      }
+      // check that key is valid and write in hash[i]
+      for (int j=0;j<32;++j){
+	// divide 3 times by 256, remainder must be in '0'..'9'
+	int o=0;
+	int tab[]={1,10,100};
+	for (int k=0;k<3;++k){
+	  gen r=irem(key,256,q);
+	  key=q;
+	  if (r.type!=_INT_ || r.val>'9' || r.val<'0'){
+	    fclose(f);
+	    return 0;
+	  }
+	  o+=(r.val-'0')*tab[k];
+	}
+	if (o<0 || o>255){
+	  fclose(f);
+	  return 0;
+	}
+	if (i<maxkeys)
+	  hash[i][31-j]=o;
+      }
+    }
+    fclose(f);
+    return i;
+  }
+
+  const int MAXKEYS=64;
+  // Numworks firmwares signature file is in doc/shakeys
+  bool sha256_check(const char * sigfilename,const char * filename,const char *firmwarename){
+    BYTE hash[MAXKEYS][SHA256_BLOCK_SIZE];
+    int tailles[MAXKEYS];
+    vector<string> fnames;
+    int nkeys=rsa_check(sigfilename,MAXKEYS,hash,tailles,fnames);
+    if (nkeys==0) return false;
+    BYTE buf[SHA256_BLOCK_SIZE];
+    SHA256_CTX ctx;
+    string text;
+    FILE * f=fopen(filename,"rb");
+    if (!f)
+      return false;
+    int taille=0;
+    for (;;++taille){
+      unsigned char c=fgetc(f);
+      if (feof(f))
+	break;
+      text += c;
+    }
+    fclose(f);
+    unsigned char * ptr=(unsigned char *)text.c_str();
+    for (int i=0;i<nkeys;++i){
+      if (debug_infolevel)
+	CERR << i << " " << firmwarename << " " << taille << " " << fnames[i] << " " << tailles[i] << '\n';
+      if (firmwarename!=fnames[i] || taille<tailles[i])
+	continue;
+      // now try for all compatible sizes
+      // we do not know the firmware size, we extract 2M or 6M
+      // the part after the end is not known
+      giac_sha256_init(&ctx);
+      giac_sha256_update(&ctx, ptr, tailles[i]);
+      giac_sha256_final(&ctx, buf);
+      if (!memcmp(hash[i], buf, SHA256_BLOCK_SIZE))
+	return true;
+    }
+    return false;
+  }
+
+  bool nws_certify_firmware(bool withoverwrite,GIAC_CONTEXT){
+    string sig(giac::giac_aide_dir()+"shakeys");
+    if (!is_file_available(sig.c_str())){
+#ifdef __APPLE__
+      sig="/Applications/usr/share/giac/doc/shakeys";
+#else
+#ifdef WIN32
+#ifdef __MINGW_H
+      sig="c:\\xcaswin\\doc\\shakeys";
+#else
+      sig="/cygwin/c/xcas64/shakeys";
+#endif
+#else // WIN32
+      sig="/usr/share/giac/doc/shakeys";
+#endif // WIN32
+#endif // APPLE
+      if (!is_file_available(sig.c_str())){
+	sig="shakeys";
+	if (!is_file_available(sig.c_str())){
+	  *logptr(contextptr) << "Fichier de signature introuvable\n" ;
+	  return false;
+	}
+      }
+    }
+    char epsilon[]="epsilon__",apps[]="apps__";
+#if 0 // internal not readable anymore
+    *logptr(contextptr) << "Extraction du secteur amorce\n" ;
+    if (!dfu_get_epsilon_internal(epsilon)) return false;
+    *logptr(contextptr) << "Verification de signature secteur amorce\n" ;
+    if (!sha256_check(sig.c_str(),epsilon,"bootloader.bin")) return false;
+#endif
+    *logptr(contextptr) << "Extraction du firmware externe slot 1\n" ;
+    if (!dfu_get_slot(epsilon,1)) return false;
+    *logptr(contextptr) << "Verification de signature externe slot 1\n" ;
+    if (!sha256_check(sig.c_str(),epsilon,"khi.A.bin")) return false;
+    *logptr(contextptr) << "Extraction du firmware externe slot 2\n" ;
+    if (!dfu_get_slot(epsilon,2)) return false;
+    *logptr(contextptr) << "Verification de signature externe slot 2\n" ;
+    if (!sha256_check(sig.c_str(),epsilon,"khi.B.bin")) return false;
+    *logptr(contextptr) << "Signature firmware conforme\nExtraction des applications\n" ;
+    if (!dfu_get_apps(apps)) return false;
+    *logptr(contextptr) << "Verification de signature applications externes\n" ;
+    if (!sha256_check(sig.c_str(),apps,"apps.tar")) return false;
+    const char eps2name[]="eps2__";
+    if (withoverwrite && 
+	( // !dfu_check_epsilon2(eps2name) || 
+	  !dfu_check_apps2(eps2name)
+	  )){
+      *logptr(contextptr) << "Le test d'ecriture et relecture a echoue.\nLe firwmare n'est peut-etre pas conforme ou la flash est endommagee.\n";
+      return false;
+    }
+    *logptr(contextptr) << "Signature applications conforme\nCalculatrice conforme à la reglementation\nCertification par le logiciel Xcas\nInstitut Fourier\nUniversité de Grenoble Alpes\nAssurez-vous d'avoir téléchargé Xcas sur\nwww-fourier.ujf-grenoble.fr/~parisse/install_fr.html\n" ;
+    return true;
+  }
+#endif
+
   const context * python_contextptr=0;
+
   void opaque_double_copy(void * source,void * target){
     *((double *) target) = * ((double *) source);
   }
@@ -817,6 +2537,51 @@ extern "C" void Sleep(unsigned int miliSecond);
       _keep_algext_=b;
   }
 
+  static bool _auto_assume_=false; 
+  bool & auto_assume(GIAC_CONTEXT){
+    if (contextptr && contextptr->globalptr )
+      return contextptr->globalptr->_auto_assume_;
+    else
+      return _auto_assume_;
+  }
+
+  void auto_assume(bool b,GIAC_CONTEXT){
+    if (contextptr && contextptr->globalptr )
+      contextptr->globalptr->_auto_assume_=b;
+    else
+      _auto_assume_=b;
+  }
+
+  static bool _parse_e_=false; 
+  bool & parse_e(GIAC_CONTEXT){
+    if (contextptr && contextptr->globalptr )
+      return contextptr->globalptr->_parse_e_;
+    else
+      return _parse_e_;
+  }
+
+  void parse_e(bool b,GIAC_CONTEXT){
+    if (contextptr && contextptr->globalptr )
+      contextptr->globalptr->_parse_e_=b;
+    else
+      _parse_e_=b;
+  }
+
+  static bool _convert_rootof_=true; 
+  bool & convert_rootof(GIAC_CONTEXT){
+    if (contextptr && contextptr->globalptr )
+      return contextptr->globalptr->_convert_rootof_;
+    else
+      return _convert_rootof_;
+  }
+
+  void convert_rootof(bool b,GIAC_CONTEXT){
+    if (contextptr && contextptr->globalptr )
+      contextptr->globalptr->_convert_rootof_=b;
+    else
+      _convert_rootof_=b;
+  }
+
   static bool _lexer_close_parenthesis_=true; 
   bool & lexer_close_parenthesis(GIAC_CONTEXT){
     if (contextptr && contextptr->globalptr )
@@ -1023,8 +2788,12 @@ extern "C" void Sleep(unsigned int miliSecond);
 
   void angle_mode(int b, GIAC_CONTEXT)
   {
-    if(contextptr && contextptr->globalptr)
+    if(contextptr && contextptr->globalptr){
+#ifdef POCKETCAS
+      _angle_mode_ = b;
+#endif
       contextptr->globalptr->_angle_mode_ = b;
+    }
     else
       _angle_mode_ = b;
   }
@@ -1852,8 +3621,13 @@ extern "C" void Sleep(unsigned int miliSecond);
   double gbasis_reinject_speed_ratio=1/6.;
   // gbasis modular algo on Q: new basis elements are reinjected if the 2nd run with learning CPU speed / 1st run without learning CPU speed is >=
   int gbasis_logz_age_sort=0,gbasis_stop=0;
+  // rur_do_gbasis==-1 no gbasis Q recon for rur, ==0 always gbasis Q recon, >0 size limit in monomials of the gbasis for gbasis Q recon
+  // rur_do_certify==-1 do not certify, ==0 full certify, >0 certify equation if total degree is <= rur_do_certify. Beware of the 1 shift with the user command.
+  int rur_do_gbasis=-1,rur_do_certify=0,rur_certify_maxthreads=6;
+  bool rur_error_ifnot0dimensional=false;
   unsigned short int GIAC_PADIC=50;
   const char cas_suffixe[]=".cas";
+  int MAX_PROD_EXPAND_SIZE=4096;
 #if defined RTOS_THREADX || defined BESTA_OS || defined(KHICAS)
 #ifdef BESTA_OS
   int LIST_SIZE_LIMIT = 100000 ;
@@ -1919,7 +3693,7 @@ extern "C" void Sleep(unsigned int miliSecond);
   int INT_KARAMUL_SIZE=300;
   int FFTMUL_SIZE=100; 
   int FFTMUL_INT_MAXBITS=1024;
-#ifdef GIAC_GGB
+#if 0 // def GIAC_GGB
   int MAX_ALG_EXT_ORDER_SIZE = 3;
 #else
   int MAX_ALG_EXT_ORDER_SIZE = 6;
@@ -1982,7 +3756,7 @@ extern "C" void Sleep(unsigned int miliSecond);
 
   void ctrl_c_signal_handler(int signum){
     ctrl_c=true;
-#if !defined KHICAS && !defined NSPIRE_NEWLIB && !defined WIN32 && !defined BESTA_OS && !defined NSPIRE && !defined FXCG && !defined POCKETCAS
+#if !defined KHICAS && !defined NSPIRE_NEWLIB && !defined WIN32 && !defined BESTA_OS && !defined NSPIRE && !defined FXCG && !defined POCKETCAS && !defined __MINGW_H
     if (child_id)
       kill(child_id,SIGINT);
 #endif
@@ -2839,7 +4613,7 @@ extern "C" void Sleep(unsigned int miliSecond);
       return "/Applications/usr/share/giac/";
     return "/Applications/usr/share/giac/";
 #endif
-#ifdef WIN32
+#if defined WIN32 && !defined MINGW
     return "/cygdrive/c/xcas/";
 #endif
     string s(giac_aide_location); // ".../aide_cas"
@@ -2931,9 +4705,13 @@ extern "C" void Sleep(unsigned int miliSecond);
   bool is_file_available(const char * ch){
     if (!ch)
       return false;
-#if !defined NSPIRE && !defined FXCG && !defined MINGW32
+#if !defined NSPIRE && !defined FXCG 
+#if defined MINGW32 && defined GIAC_GGB
+    return true;
+#else
     if (access(ch,R_OK))
       return false;
+#endif
 #endif
     return true;
   }
@@ -3315,7 +5093,7 @@ NULL,NULL,SW_SHOWNORMAL);
 	// add locale command description
 	int count;
 	string filename=giac_aide_dir()+find_doc_prefix(i)+"aide_cas";
-	readhelp(*vector_aide_ptr(),filename.c_str(),count,true);
+	readhelp(*vector_aide_ptr(),filename.c_str(),count,false);
 	// add synonyms
 	multimap<string,localized_string>::iterator it,backend=back_lexer_localization_map().end(),itend;
 	vector<aide>::iterator jt = vector_aide_ptr()->begin(),jtend=vector_aide_ptr()->end();
@@ -3344,7 +5122,9 @@ NULL,NULL,SW_SHOWNORMAL);
 	    }
 	  }
 	}
+#ifndef KHICAS
 	CERR << "Added " << vector_aide_ptr()->size()-s << " synonyms" << '\n';
+#endif
 	sort(vector_aide_ptr()->begin(),vector_aide_ptr()->end(),alpha_order);
 	update_completions();
       }
@@ -3650,6 +5430,9 @@ NULL,NULL,SW_SHOWNORMAL);
      ptr->globalptr->_atan_tan_no_floor_=_atan_tan_no_floor_;
      ptr->globalptr->_keep_acosh_asinh_=_keep_acosh_asinh_;
      ptr->globalptr->_keep_algext_=_keep_algext_;
+     ptr->globalptr->_auto_assume_=_auto_assume_;
+     ptr->globalptr->_parse_e_=_parse_e_;
+     ptr->globalptr->_convert_rootof_=_convert_rootof_;
      ptr->globalptr->_python_compat_=_python_compat_;
      ptr->globalptr->_complex_variables_=_complex_variables_;
      ptr->globalptr->_increasing_power_=_increasing_power_;
@@ -4091,7 +5874,7 @@ NULL,NULL,SW_SHOWNORMAL);
 		     _ntl_on_(true),
 #endif
 #ifdef WITH_MYOSTREAM
-		     _lexer_close_parenthesis_(true),_rpn_mode_(false),_try_parse_i_(true),_specialtexprint_double_(false),_atan_tan_no_floor_(false),_keep_acosh_asinh_(false),_keep_algext_(false),
+		     _lexer_close_parenthesis_(true),_rpn_mode_(false),_try_parse_i_(true),_specialtexprint_double_(false),_atan_tan_no_floor_(false),_keep_acosh_asinh_(false),_keep_algext_(false),_auto_assume_(false),_parse_e_(false),_convert_rootof_(true),
 #ifdef KHICAS
 		     _python_compat_(true),
 #else
@@ -4105,7 +5888,7 @@ NULL,NULL,SW_SHOWNORMAL);
 #endif
 		     _total_time_(0),_evaled_table_(0),_extra_ptr_(0),_series_variable_name_('h'),_series_default_order_(5),
 #else
-		     _lexer_close_parenthesis_(true),_rpn_mode_(false),_try_parse_i_(true),_specialtexprint_double_(false),_atan_tan_no_floor_(false),_keep_acosh_asinh_(false),_keep_algext_(false),
+		     _lexer_close_parenthesis_(true),_rpn_mode_(false),_try_parse_i_(true),_specialtexprint_double_(false),_atan_tan_no_floor_(false),_keep_acosh_asinh_(false),_keep_algext_(false),_auto_assume_(false),_parse_e_(false),_convert_rootof_(true),
 #ifdef KHICAS
 		     _python_compat_(true),
 #else
@@ -4187,6 +5970,9 @@ NULL,NULL,SW_SHOWNORMAL);
      _atan_tan_no_floor_=g._atan_tan_no_floor_;
      _keep_acosh_asinh_=g._keep_acosh_asinh_;
      _keep_algext_=g._keep_algext_;
+     _auto_assume_=g._auto_assume_;
+     _parse_e_=g._parse_e_;
+     _convert_rootof_=g._convert_rootof_;
      _python_compat_=g._python_compat_;
      _variables_are_files_=g._variables_are_files_;
      _bounded_function_no_=g._bounded_function_no_;
@@ -5514,7 +7300,7 @@ unsigned int ConvertUTF8toUTF162 (
   // moved from input_lexer.ll for easier debug
   const char invalid_name[]="Invalid name";
 
-#if defined USTL || defined GIAC_HAS_STO_38 || defined KHICAS
+#if defined USTL || defined GIAC_HAS_STO_38 || (defined KHICAS && !defined(SIMU))
 #if defined GIAC_HAS_STO_38 || defined KHICAS
 void update_lexer_localization(const std::vector<int> & v,std::map<std::string,std::string> &lexer_map,std::multimap<std::string,localized_string> &back_lexer_map,GIAC_CONTEXT){}
 #endif
@@ -6242,7 +8028,7 @@ void update_lexer_localization(const std::vector<int> & v,std::map<std::string,s
       pythonmode=true;
       pythoncompat=true;
     }
-    if (s_orig[first]=='#' || (s_orig[first]=='_' && !isalpha(s_orig[first+1])) || s_orig.substr(first,4)=="from" || s_orig.substr(first,7)=="import "){
+    if (s_orig[first]=='#' || (s_orig[first]=='_' && !isalpha(s_orig[first+1])) || s_orig.substr(first,4)=="from" || s_orig.substr(first,7)=="import " || s_orig.substr(first,4)=="def "){
       pythonmode=true;
       pythoncompat=true;
     }
@@ -6346,8 +8132,12 @@ void update_lexer_localization(const std::vector<int> & v,std::map<std::string,s
 	for (int pos2=pos-1;pos2>=0;--pos2){
 	  ch=res[pos2];
 	  if (ch!=' ' && ch!=9 && ch!='\r'){
-	    if (ch=='{' || ch=='[' || ch==',' || ch=='-' || ch=='+' ||  ch=='/')
-	      cherche=true;
+	    if (ch=='{' || ch=='[' || ch==',' || ch=='-' || ch=='+' ||  ch=='/'){
+	      if (pos2>0 && (ch=='+' || ch=='-') && ch==res[pos2-1])
+		;
+	      else
+		cherche=true;
+	    }
 	    break;
 	  }
 	}
@@ -6624,6 +8414,12 @@ void update_lexer_localization(const std::vector<int> & v,std::map<std::string,s
 	      cur += " fi";
 	    p=0;
 #endif
+	  }
+	  progpos=cur.find("def");
+	  if (p>progpos && progpos>=0 && progpos<cs && instruction_at(cur,progpos,3)){
+	    pythonmode=true;
+	    res = cur.substr(0,p)+":\n"+string(progpos+4,' ')+cur.substr(p+1,pos-p)+'\n'+res;
+	    continue;
 	  }
 	  progpos=cur.find("else");
 	  if (p>progpos && progpos>=0 && progpos<cs && instruction_at(cur,progpos,4)){

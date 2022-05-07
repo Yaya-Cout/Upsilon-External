@@ -7,7 +7,12 @@
 #include "misc.h"
 
 #include <exception>
-
+#ifdef NUMWORKS
+extern char * freeptr;
+extern const char * flash_buf;
+extern "C" const char * flash_read(const char * filename);
+extern "C" int flash_filebrowser(const char ** filenames,int maxrecords,const char * extension);
+#endif
 class autoshutdown : public std::exception{
   const char * what () const throw ()
   {
@@ -25,6 +30,7 @@ extern char* fmenu_cfg;
 
 #ifdef MICROPY_LIB
 extern "C" {
+  void py_ck_ctrl_c();
   int do_file(const char *file);
   char * micropy_init(int stack_size,int heap_size);
   int micropy_eval(const char * line);
@@ -39,6 +45,7 @@ int micropy_ck_eval(const char *line);
 #include "k_csdk.h"
 
 extern "C" {
+  void process_freeze();
   int do_shutdown(); // auto-shutdown
   void console_output(const char *,int );
   const char * console_input(const char * msg1,const char * msg2,bool numeric,int ypos);
@@ -79,24 +86,36 @@ extern "C" {
   bool c_proot(c_complex * x,int n); // poly root
   bool c_pcoeff(c_complex * x,int n); // root->coeffs
   bool c_fft(c_complex * x,int n,bool inverse); // FFT
-  void turtle_freeze();
+  void console_freeze();
   void c_sprint_double(char * s,double d);
   extern int python_stack_size,python_heap_size;
   extern int xcas_python_eval;
   extern char * python_heap;
   int python_init(int stack_size,int heap_size);
+  void turtle_freeze();
+  void c_turtle_forward(double d);
+  void c_turtle_left(double d);
+  void c_turtle_up(int i);
+  void c_turtle_goto(double x,double y);
+  void c_turtle_cap(double x);
+  void c_turtle_crayon(int i);
+  void c_turtle_rond(int x,int y,int z);
+  void c_turtle_disque(int x,int y,int z,int centered);
+  void c_turtle_fill(int i);
+  void c_turtle_fillcolor(double r,double g,double b,int entier);
+  void c_turtle_getposition(double * x,double * y);
 }
 extern int lang;
 extern short int nspirelua;
 extern bool warn_nr;
-int select_interpreter(); // 0 Xcas, 1|2 Xcas python_compat(1|2), 3 MicroPython 
+int select_interpreter(); // 0 Xcas, 1|2 Xcas python_compat(1|2), 3 MicroPython, 4 QuickJS 
 const char * gettext(const char * s) ;
 
 #ifndef NO_NAMESPACE_XCAS
 namespace xcas {
 #endif // ndef NO_NAMESPACE_XCAS
   void set_exam_mode(int i,const giac::context *);
-  int giac_filebrowser(char * filename,const char * extension,const char * title);
+  int giac_filebrowser(char * filename,const char * extension,const char * title,int storage=0);
   void draw_rectangle(int x,int y,int w,int h,int c);
   void draw_line(int x0,int y0,int x1,int y1,int c);
   void draw_circle(int xc,int yc,int r,int color,bool q1=true,bool q2=true,bool q3=true,bool q4=true);
@@ -145,25 +164,107 @@ namespace xcas {
   void replace_selection(Equation & eq,const giac::gen & tmp,giac::gen * gsel,const std::vector<int> * gotoptr,const giac::context *);
   int eqw_select_leftright(xcas::Equation & g,bool left,int exchange,const giac::context *);
 
+  typedef double float3d;
+  // typedef float float3d;
+  struct double3 {
+    float3d x,y,z;
+    double3(double x_,double y_,double z_):x(x_),y(y_),z(z_){};
+    double3():x(0),y(0),z(0){};
+  };
+
+  struct int4 {
+    int u,d,du,dd;
+    int4(int u_,int d_,int du_,int dd_):u(u_),d(d_),du(du_),dd(dd_) {}
+  };
+  
+  // quaternion struct for more intuitive rotations
+  struct quaternion_double {
+    double w,x,y,z;
+    quaternion_double():w(1),x(0),y(0),z(0) {};
+    quaternion_double(double theta_x,double theta_y,double theta_z);
+    quaternion_double(double _w,double _x,double _y,double _z):w(_w),x(_x),y(_y),z(_z) {};
+    double norm2() const { return w*w+x*x+y*y+z*z;}
+  };
+
+  quaternion_double operator * (const quaternion_double & q,const quaternion_double & q2);
+
+  void get_axis_angle_deg(const quaternion_double & q,double &x,double &y,double & z, double &theta); // q must be a quaternion of unit norm, theta is in deg
+
+  // Euler angle are given in degrees
+  quaternion_double euler_deg_to_quaternion_double(double a,double b,double c);
+  void quaternion_double_to_euler_deg(const quaternion_double & q,double & phi,double & theta, double & psi);
+
+  struct int2 {
+    int i,j;
+    int2(int i_,int j_):i(i_),j(j_) {}
+    int2(): i(0),j(0) {}
+  };
+  inline bool operator < (const int2 & a,const int2 & b){ if (a.i!=b.i) return a.i<b.i; return a.j<b.j;}
+  inline bool operator == (const int2 & a,const int2 & b){ return a.i==b.i && a.j==b.j;}
+
+  struct int2_double2 {
+    int i,j;
+    double arg,norm;
+  };
+  inline bool operator < (const int2_double2 & a,const int2_double2 & b){ if (a.arg!=b.arg) return a.arg<b.arg; return a.norm<b.norm;}
+
+#define giac3d_default_upcolor 65535
+#define giac3d_default_downcolor 12345
+#define giac3d_default_downupcolor 18432 // 12297
+#define giac3d_default_downdowncolor 22539
+  
   class Graph2d{
   public:
-    double window_xmin,window_xmax,window_ymin,window_ymax,
-      x_scale,y_scale,x_tick,y_tick;
-    int display_mode,show_axes,show_names,labelsize;
+    double window_xmin,window_xmax,window_ymin,window_ymax,window_zmin,window_zmax,
+      x_scale,y_scale,z_scale,x_tick,y_tick,z_tick;
+    //double theta_x,theta_y,theta_z;
+    quaternion_double q;
+    double transform[16],invtransform[16];
+    // only 12 used, last line [0,0,0,1], usual matrices, not transposed
+    int display_mode,show_axes,show_edges,show_names,labelsize,lcdz,default_upcolor,default_downcolor,default_downupcolor,default_downdowncolor;
+    short int precision,diffusionz,diffusionz_limit;
+    bool is3d,doprecise,hide2nd,interval;
+    double Ai,Aj,Bi,Bj,Ci,Cj,Di,Dj,Ei,Ej,Fi,Fj,Gi,Gj,Hi,Hj; // visualization cube coordinates
+    std::vector< std::vector< std::vector<float3d> > > surfacev;
+    std::vector<double3> plan_pointv; // point in plan 
+    std::vector<double3> plan_abcv; // plan equation z=a*x+b*y+c
+    std::vector<double3> sphere_centerv;
+    std::vector<double> sphere_radiusv;
+    giac::vecteur sphere_quadraticv; // matrix of the transformed quad. form
+    std::vector< std::vector<double3> > polyedrev;
+    std::vector<double3> polyedre_abcv;
+    std::vector<double> polyedre_xyminmax;
+    std::vector<double3> linev; // 2 double3 per object
+    std::vector<short> linetypev;
+    std::vector<const char *> lines; // legende
+    std::vector< std::vector<double3> > curvev;
+    std::vector<double3> pointv; 
+    std::vector<const char *> points; // legende
+    std::vector<int4> hyp_color,plan_color,sphere_color,polyedre_color,line_color,curve_color,point_color;
     giac::gen g;
     const giac::context * contextptr;
     bool findij(const giac::gen & e0,double x_scale,double y_scale,double & i0,double & j0,const giac::context * ) const;
+    void xyz2ij(const double3 & d,int &i,int &j) const; // d not transformed
+    void xyz2ij(const double3 & d,double &i,double &j) const; // d not transformed
+    void XYZ2ij(const double3 & d,int &i,int &j) const; // d is transformed
+    void addpolyg(vector<int2> & polyg,double x,double y,double z,int2 & IJmin) const ;
+    void update_scales();
     void update();
-    void zoomx(double d,bool round=false);
-    void zoomy(double d,bool round=false);
-    void zoom(double);
+    void update_rotation(); // update grot
+    void zoomx(double d,bool round=false,bool doupdate=true);
+    void zoomy(double d,bool round=false,bool doupdate=true);
+    void zoomz(double d,bool round=false,bool doupdate=true);
+    void zoom(double d,bool doupdate=true);
     void left(double d);
     void right(double d);
     void up(double d);
     void down(double d);
-    void autoscale(bool fullview=false);
-    void orthonormalize();
+    void z_up(double d);
+    void z_down(double d);
+    void autoscale(bool fullview=false,bool doupdate=true);
+    void orthonormalize(bool doupdate=true);
     void draw();
+    bool glsurface(int w,int h,int lcdz,const giac::context*,int upcolor,int downcolor,int downupcolor,int downdowncolor) ;
     Graph2d(const giac::gen & g_,const giac::context * );
   };
 
@@ -365,6 +466,8 @@ namespace xcas {
     bool changed,recompute,matrix_fill_cells,movedown,keytooltip;
   } ;
   extern tableur * sheetptr;
+  void fix_sheet(tableur & t,const giac::context *);
+  std::string print_tableur(const tableur & t,const giac::context *);
 
   int check_do_graph(giac::gen & ge,int do_logo_graph_eqw,const giac::context *);
   int get_filename(char * filename,const char * extension);
@@ -385,7 +488,7 @@ namespace giac {
 #endif // ndef NO_NAMESPACE_XCAS
   // back: number of char that should be deleted,
   // exec=0 or MENU_RETURN_SELECTION, KEY_CHAR_ANS or KEY_CTRL_EXE
-  std::string help_insert(const char * cmdline,int & back,int exec,const giac::context *);
+  std::string help_insert(const char * cmdline,int & back,int exec,const giac::context *,bool warn=true);
   void copy_clipboard(const std::string & s,bool status);
 #define TEXT_MODE_NORMAL 0
 #define TEXT_MODE_INVERT 1
@@ -394,18 +497,20 @@ namespace giac {
 #define MENUITEM_SEPARATOR 2
 #define MENUITEM_VALUE_NONE 0
 #define MENUITEM_VALUE_CHECKED 1
-  typedef struct
-  {
+  struct MenuItem {
     char* text; // text to be shown on screen. mandatory, must be a valid pointer to a string.
-    int token; // for syntax help on keywords not in the catalog
+    int token:20; // for syntax help on keywords not in the catalog
+    int type:4=MENUITEM_NORMAL; // type of the menu item. use MENUITEM_* to set this
+    int value:4=MENUITEM_VALUE_NONE; // value of the menu item. For example, if type is MENUITEM_CHECKBOX and the checkbox is checked, the value of this var will be MENUITEM_VALUE_CHECKED
+    int isselected:4=0; // for file browsers and other multi-select screens, this will show an arrow before the item
     short int isfolder=0; // for file browsers, this will signal the item is a folder
     signed char color=giac::_BLACK; // color of the menu item (use TEXT_COLOR_* to define)
-    signed char type=MENUITEM_NORMAL; // type of the menu item. use MENUITEM_* to set this
-    signed char value=MENUITEM_VALUE_NONE; // value of the menu item. For example, if type is MENUITEM_CHECKBOX and the checkbox is checked, the value of this var will be MENUITEM_VALUE_CHECKED
     // The following two settings require the menu type to be set to MENUTYPE_MULTISELECT
-    signed char isselected=0; // for file browsers and other multi-select screens, this will show an arrow before the item
+#if 0
     signed char icon=-1; //for file browsers, to show a file icon. -1 shows no icon (default)
-  } MenuItem;
+#endif
+    MenuItem():token(0),type(MENUITEM_NORMAL),value(MENUITEM_VALUE_NONE),isselected(0),isfolder(0),color(giac::_BLACK) {}
+  } ;
 
   typedef struct
   {
@@ -417,6 +522,7 @@ namespace giac {
 #define MENUTYPE_INSTANT_RETURN 2 // this type of menu insantly returns even if user hasn't selected an option (allows for e.g. redrawing the GUI behind it). if user hasn't exited or selected an option, menu will return MENU_RETURN_INSTANT
 #define MENUTYPE_NO_KEY_HANDLING 3 //this type of menu doesn't handle any keys, only draws.
 #define MENUTYPE_FKEYS 4 // returns GetKey value of a Fkey when one is pressed
+#define MENUTYPE_NO_NUMBER 5
   typedef struct {
     char* statusText = NULL; // text to be shown on the status bar, may be empty
     char* title = NULL; // title to be shown on the first line if not null

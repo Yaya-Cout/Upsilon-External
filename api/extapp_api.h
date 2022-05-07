@@ -10,7 +10,7 @@
 #ifdef __cplusplus
 #define EXTERNC extern "C"
 #else
-#define EXTERNC
+#define EXTERNC extern
 #endif
 
 // Screen size
@@ -26,6 +26,7 @@
 // The flash file system, which is written by the external application website,
 // used for big files storing, and roms, this storage is kept after a reset
 #define EXTAPP_FLASH_FILE_SYSTEM 1
+#define EXTAPP_BOTH_FILE_SYSTEM 2
 
 // The code of the keys, returned by `extapp_scanKeyboard()`
 #define SCANCODE_Left ((uint64_t)1 << 0)
@@ -377,6 +378,38 @@ EXTERNC void extapp_resetKeyboard();
  * @param alphaWasActive bool, a pointer to a bool to store if the alpha (lock) was active
  * @return int, the code of the pressed key, like KEY_CHAR_0 or KEY_CTRL_EXE
  */
-EXTERNC int extapp_getKey(bool allowSuspend, bool *alphaWasActive);
-
+EXTERNC int extapp_getKey(int allowSuspend, bool *alphaWasActive);
+/**
+ * If given key is pressed
+ * @param key int, the key to check
+ * @return bool, true if the key is pressed
+ */
+EXTERNC bool extapp_isKeydown(int key);
+/**
+ * Restore the exam mode backup, created by KhiCAS and Khi
+ * @param mode int, the mode to restore (TODO: Improve this)
+ * @return int, higher than 0 if the operation is successful
+ */
+EXTERNC int extapp_restorebackup(int mode); // currently works only with mode==-1 to restore scriptstore after exam mode
+/**
+ * Erase flash sector, works only when "Write allowed" is enabled in the calculator
+ * @param ptr void *, the sector to erase
+ * @return bool, true if the operation is successful
+ */
+EXTERNC  bool extapp_erasesector(void * ptr);
+/**
+ * Write flash sector, works only when "Write allowed" is enabled in the calculator
+ * @param dest unsigned char *, the destination address
+ * @param data unsigned char *, the data to write
+ * @param length size_t, the length of the data to write
+ */
+EXTERNC  bool extapp_writesector(unsigned char * dest,const unsigned char * data,size_t length);
+/**
+ * Get if the exam mode is active
+ * @return bool, true if the exam mode is active
+ */
+EXTERNC  bool extapp_inexammode();
+EXTERNC uint32_t _heap_size;
+EXTERNC void *_heap_base;
+EXTERNC void *_heap_ptr;
 #endif

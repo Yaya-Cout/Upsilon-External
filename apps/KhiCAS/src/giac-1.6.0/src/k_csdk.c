@@ -173,7 +173,7 @@ bool write_file(const char * filename,const char * s,size_t len){
   }
 
 char os_filenames[32][FILENAME_MAXRECORDS];
-int os_file_browser(const char ** filenames,int maxrecords,const char * extension){
+int os_file_browser(const char ** filenames,int maxrecords,const char * extension,int storage){ // storage is ignored on nspire
   DIR *dp;
   struct dirent *ep;
   if (maxrecords>FILENAME_MAXRECORDS-1)
@@ -263,7 +263,7 @@ Gc * get_gc(){
 void os_set_pixel(int x,int y,int c){
   get_gc();
   gui_gc_setColor(nspire_gc,c_rgb565to888(c));
-  gui_gc_drawRect(nspire_gc,x,y+nspire_statusarea,1,1);
+  gui_gc_drawRect(nspire_gc,x,y+nspire_statusarea,0,0);
 }
 
 void os_fill_rect(int x,int y,int w,int h,int c){

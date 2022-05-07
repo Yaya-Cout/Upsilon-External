@@ -58,8 +58,6 @@ void console_output(const char *,int);
 const char * read_file(const char * filename);
 bool file_exists(const char * filename);
 
-
-#if 0
 const char numpy_script[]=R"(import linalg
 import math
 class array: 
@@ -284,7 +282,6 @@ mp_lexer_t * mp_lexer_new_from_file(const char * filename) {
   else
     mp_raise_OSError(MP_ENOENT);
 }
-#endif
 
 mp_import_stat_t mp_import_stat(const char *path) {
   if (strcmp(path,"numpy.py")==0 || file_exists(path)) {
@@ -310,6 +307,7 @@ void mp_keyboard_interrupt(void) {
 
 bool back_key_pressed();
 int getkey(int allow_suspend);
+bool iskeydown(int key);
 
 
 int micropython_port_vm_hook_loop() {
@@ -327,7 +325,7 @@ int micropython_port_vm_hook_loop() {
   }
 
   // Check if the user asked for an interruption from the keyboard
-  int g=getkey(mp_interrupt_char | 0x80000000);
+  int g=iskeydown(mp_interrupt_char);
   if (!g) return 0;
   mp_keyboard_interrupt();
   return 1;
@@ -547,6 +545,10 @@ int micropy_eval(const char * str){
 #endif
   }
   return 0;
+}
+
+void raisememerr(){
+  nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Memory error"));
 }
 
 #ifndef MICROPY_LIB

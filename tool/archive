@@ -17,7 +17,6 @@ rm -f "${OUTPUT}"
 POS=0
 
 while [ ! -z "$1" ]; do
-  NAME="$(basename $(dirname "$1"))"
   # Remove the suffix from $1
   FILENAME="$(echo "$1" | sed -e 's/_flash//')"
   # If filename doesn't exist, interpret it as a application name
@@ -25,6 +24,7 @@ while [ ! -z "$1" ]; do
     NAME="$1"
     FILENAME="apps/$FILENAME/app.elf"
   fi
+  NAME="$(basename $(dirname "$FILENAME"))"
   echo "  - $FILENAME"
   sed "s/\+ (0)/+ (${POS})/" apps/external.ld > temp.ld
   "${LD}" "$FILENAME" -o "${NAME}_linked.elf" -Ttemp.ld

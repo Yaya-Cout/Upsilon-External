@@ -26,8 +26,6 @@
 
 #include <stdio.h>
 #include <assert.h>
-#include <string.h>
-#include <stdlib.h>
 
 #include "py/smallint.h"
 #include "py/objint.h"
@@ -238,23 +236,6 @@ MP_DEFINE_CONST_FUN_OBJ_1(mp_builtin_hex_obj, mp_builtin_hex);
 #define mp_hal_readline readline
 #endif
 
-#if 0
-char *prompt(const char *p) ;
-STATIC mp_obj_t mp_builtin_input(size_t n_args, const mp_obj_t *args) {
-  const char * s="";
-  if (n_args==1 && MP_OBJ_IS_STR(args[0])) 
-    s=mp_obj_str_get_str(args[0]);
-  char *line = prompt(s);
-  if (line == NULL) {
-    nlr_raise(mp_obj_new_exception(&mp_type_EOFError));
-  }
-  mp_obj_t o = mp_obj_new_str(line, strlen(line));
-  free(line);
-  return o;
-}
-
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin_input_obj, 0, 1, mp_builtin_input);
-#else
 STATIC mp_obj_t mp_builtin_input(size_t n_args, const mp_obj_t *args) {
     if (n_args == 1) {
         mp_obj_print(args[0], PRINT_STR);
@@ -271,7 +252,6 @@ STATIC mp_obj_t mp_builtin_input(size_t n_args, const mp_obj_t *args) {
     return mp_obj_new_str_from_vstr(&mp_type_str, &line);
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin_input_obj, 0, 1, mp_builtin_input);
-#endif
 
 #endif
 

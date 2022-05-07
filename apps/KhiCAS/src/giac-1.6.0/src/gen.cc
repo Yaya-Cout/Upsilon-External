@@ -104,7 +104,7 @@ extern "C" uint32_t mainThreadStack[];
 namespace giac {
 #endif // ndef NO_NAMESPACE_GIAC
 
-#if 0 // def ASPEN_GEOMETRY
+#ifdef FXCG
 #define ALLOCSMALL
 #endif
 
@@ -115,26 +115,59 @@ namespace giac {
     int i1,i2,i3,i4,i5,i6,i7,i8;
   };
   
+  struct eleven_int {
+    int i1,i2,i3,i4,i5,i6,i7,i8,i9,i10,i11;
+  };
+  
   struct six_int {
-    int i1,i2,i3,i4,i5,i6;
+    int i1,i2,i3,i4,i5,i6
+#ifdef FXCG
+      ,i7,i8
+#endif
+      ;
   };
   
   struct four_int {
     int i1,i2,i3,i4;
   };
-  
-#ifdef RTOS_THREADX
-  const int ALLOC24=5*32;
-  const int ALLOC32=2*32;
-  const int ALLOC16=4*32;
-  static unsigned int freeslot24[ALLOC24/32]={0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,0xffffffff};
-  static unsigned int freeslot16[ALLOC16/32]={0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
-  static unsigned int freeslot32[ALLOC32/32]={0xffffffff, 0xffffffff};
-#else
-  const int ALLOC24=16*32;
-  const int ALLOC32=16*32;
-  const int ALLOC16=16*32;
+
+  // ALLOCA  constants must be multiples of 2*32
+#if 0 // def FXCG
+  const int ALLOC24=10*32;
+  const int ALLOC32=8*32;
+  const int ALLOC16=8*32;
   static unsigned int freeslot24[ALLOC24/32]={
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 
+  };
+  static unsigned int freeslot16[ALLOC16/32]={
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff
+  };
+  static unsigned int freeslot32[ALLOC32/32]={
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff
+  };
+  // does not work after OFF/ON
+  static four_int * tab16=(four_int *) 0xe5200000; 
+  static six_int * tab24=(six_int *) 0xe5007000;
+  static eight_int * tab32=(eight_int *) 0xe5017000;
+#else
+  const int ALLOC24=32*32;
+  const int ALLOC32=28*32;
+  const int ALLOC16=32*32;
+  //#define ALLOC44 16*32
+  static unsigned int freeslot24[ALLOC24/32]={
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -145,58 +178,136 @@ namespace giac {
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
   };
   static unsigned int freeslot32[ALLOC32/32]={
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
     0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
   };
+#ifdef ALLOC44
+  static unsigned int freeslot44[ALLOC44/32]={
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+    //0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+  };
+  static eleven_int tab44[ALLOC44];
 #endif
+
+  static eight_int tab32[ALLOC32];
   static six_int tab24[ALLOC24];
   static four_int tab16[ALLOC16];
-  static eight_int tab32[ALLOC32];
+#endif
+
   
   unsigned freeslotpos(unsigned n){
     unsigned r=1;
-    if (n<<16==0) r+= 16, n>>=16;
-    if (n<<24==0) r+= 8, n>>=8;
-    if (n<<28==0) r+= 4, n>>=4;
-    if (n<<30==0) r+= 2, n>>=2;
+    if ( (n<<16)==0 ){ 
+      r+= 16;
+      n>>=16;
+    }
+    if ( (n<<24)==0 ) {
+      r+= 8; 
+      n>>=8;
+    }
+    if ( (n<<28)==0 ) {
+      r+= 4;
+      n>>=4;
+    }
+    if ( (n<<30)==0 ) {
+      r+= 2;
+      n>>=2;
+    }
     r -= n&1;
     return r;
   }
   
-  static void* allocfast(std::size_t size){
+  static void* allocfast(size_t size){
     int i,pos;
     if (size==24){ 
-      for (i=0;i<ALLOC24/32;++i){
+      for (i=0;i<ALLOC24/32;){
+	if (!(freeslot24[i] || freeslot24[i+1])){
+	  i+=2;
+	  continue;
+	}
 	if (freeslot24[i]){
 	  pos=freeslotpos(freeslot24[i]);
 	  freeslot24[i] &= ~(1<<pos);
 	  return (void *) (tab24+i*32+pos);
 	}
+	i++;
+	pos=freeslotpos(freeslot24[i]);
+	freeslot24[i] &= ~(1<<pos);
+	return (void *) (tab24+i*32+pos);
       }
     }
     if (size==16){ 
-      for (i=0;i<ALLOC16/32;++i){
+      for (i=0;i<ALLOC16/32;){
+	if (!(freeslot16[i] || freeslot16[i+1])){
+	  i+=2;
+	  continue;
+	}
 	if (freeslot16[i]){
 	  pos=freeslotpos(freeslot16[i]);
 	  freeslot16[i] &= ~(1<<pos);
 	  return (void *) (tab16+i*32+pos);
 	}
+	++i;
+	pos=freeslotpos(freeslot16[i]);
+	freeslot16[i] &= ~(1<<pos);
+	return (void *) (tab16+i*32+pos);
       }
     }
     if (size==32){ 
-      for (i=0;i<ALLOC32/32;++i){
+      for (i=0;i<ALLOC32/32;){
+	if (!(freeslot32[i] || freeslot32[i+1])){
+	  i+=2;
+	  continue;
+	}
 	if (freeslot32[i]){
 	  pos=freeslotpos(freeslot32[i]);
 	  freeslot32[i] &= ~(1<<pos);
 	  return (void *) (tab32+i*32+pos);
 	}
+	++i;
+	pos=freeslotpos(freeslot32[i]);
+	freeslot32[i] &= ~(1<<pos);
+	return (void *) (tab32+i*32+pos);
       }
     }
-    void * p =  std::malloc(size);  
+#ifdef ALLOC44
+    if (size==44){ 
+      for (i=0;i<ALLOC44/32;){
+	if (!(freeslot44[i] || freeslot44[i+1])){
+	  i+=2;
+	  continue;
+	}
+	if (freeslot44[i]){
+	  pos=freeslotpos(freeslot44[i]);
+	  freeslot44[i] &= ~(1<<pos);
+	  return (void *) (tab44+i*32+pos);
+	}
+	++i;
+	pos=freeslotpos(freeslot44[i]);
+	freeslot44[i] &= ~(1<<pos);
+	return (void *) (tab44+i*32+pos);
+      }
+    }
+#endif
+    void * p =  malloc(size);  
 #ifndef NO_STDEXCEPT
     if(!p) {
       std::bad_alloc ba;
@@ -210,25 +321,64 @@ namespace giac {
     if ( ((size_t)obj >= (size_t) &tab24[0]) &&
 	 ((size_t)obj < (size_t) &tab24[ALLOC24]) ){
       int pos= ((size_t)obj -((size_t) &tab24[0]))/sizeof(six_int);
-      freeslot24[pos/32] |= 1 << (pos%32); 
+      freeslot24[pos/32] |= (1 << (pos%32)); 
       return;
     }
     if ( ((size_t)obj>=(size_t) &tab16[0] ) &&
 	 ((size_t)obj<(size_t) &tab16[ALLOC16] ) ){
       * (unsigned *) obj= 0;
       int pos= ((size_t)obj -((size_t) &tab16[0]))/sizeof(four_int);
-      freeslot16[pos/32] |= 1 << (pos%32); 
+      freeslot16[pos/32] |= (1 << (pos%32)); 
       return;
     }
+#ifdef ALLOC44
+    if ( ((size_t)obj>=(size_t) &tab44[0] ) &&
+	 ((size_t)obj<(size_t) &tab44[ALLOC44] ) ){
+      * (unsigned *) obj= 0;
+      int pos= ((size_t)obj -((size_t) &tab44[0]))/sizeof(eleven_int);
+      freeslot44[pos/32] |= (1 << (pos%32)); 
+      return;
+    }
+#endif
     if ( ((size_t)obj>=(size_t) &tab32[0]) &&
 	 ((size_t)obj<(size_t) &tab32[ALLOC32]) ){
       int pos= ((size_t)obj -((size_t) &tab32[0]))/sizeof(eight_int);
-      freeslot32[pos/32] |= 1 << (pos%32); 
+      freeslot32[pos/32] |= (1 << (pos%32)); 
     }
     else
       free(obj);
   }
+  unsigned hamdist(unsigned val){
+    size_t res=0;
+    if (!val) return res;
+    for (int i=0;i<32;++i){
+      res += ((val >>i) & 1); 
+    }
+    return res;
+  }
+
+  size_t freeslotmem(){
+    size_t res=0;
+    for (int i=0;i<ALLOC16/32;++i){
+      res += 16*hamdist(freeslot16[i]);
+    }
+    for (int i=0;i<ALLOC24/32;++i){
+      res += 24*hamdist(freeslot24[i]);
+    }
+    for (int i=0;i<ALLOC32/32;++i){
+      res += 32*hamdist(freeslot32[i]);
+    }
+    for (int i=0;i<ALLOC44/32;++i){
+      res += 44*hamdist(freeslot44[i]);
+    }
+    return res;
+  }
+#else // ALLOCSMALL
+  size_t freeslotmem(){
+    return 0;
+  }
 #endif // ALLOCSMALL
+
 
 #if defined(SMARTPTR64) || !defined(ALLOCSMALL)
   inline void deletecomplex(ref_complex * ptr){
@@ -462,7 +612,9 @@ namespace giac {
 #ifdef GIAC_HAS_STO_38
     usleep(10);
 #else
+#ifndef __MINGW_H
     usleep(1000);
+#endif
 #endif
 #endif
 #if !defined NO_STDEXCEPT && !defined EMCC
@@ -741,7 +893,7 @@ namespace giac {
       bool signe=(i<0);
       if (signe)
 	i=-i;
-#if !defined(USE_GMP_REPLACEMENTS)
+#if !defined(USE_GMP_REPLACEMENTS) && !defined BF2GMP_H
       mpz_import(*_ZINTptr,4/* count*/,-1/*1 for least significant first*/,4/* sizeof unsigned*/,0,0,&i);
       // CERR << gen(*_ZINTptr) ;
 #else
@@ -967,11 +1119,34 @@ namespace giac {
     subtype = 0;
   }
 
+#ifdef ALLOC44
+  ref_eqwdata * new_ref_eqwdata(const eqwdata & e){
+    ref_eqwdata * ptr=(ref_eqwdata *) allocfast(sizeof(ref_eqwdata));
+    ptr->ref_count=1;
+    *(unsigned *)&ptr->e=0;
+    *((unsigned *)&ptr->e+1)=0;
+    *((unsigned *)&ptr->e+2)=0;
+    *((unsigned *)&ptr->e+3)=0;
+    *((unsigned *)&ptr->e+4)=0;
+    *((unsigned *)&ptr->e+5)=0;
+    *((unsigned *)&ptr->e+6)=0;
+    *((unsigned *)&ptr->e+7)=0;
+    *((unsigned *)&ptr->e+8)=0;
+    *((unsigned *)&ptr->e+9)=0;
+    ptr->e=e;
+    return ptr;
+  }
+#endif
+
   gen::gen(const eqwdata & g){
 #ifdef SMARTPTR64
       * ((ulonglong * ) this) = ulonglong(new ref_eqwdata(g)) << 16;
 #else
+#ifdef ALLOC44
+    __EQWptr = new_ref_eqwdata(g);
+#else
     __EQWptr = new ref_eqwdata(g);
+#endif
 #endif
     type = _EQW;
     subtype=0;
@@ -1278,7 +1453,11 @@ namespace giac {
 #ifdef SMARTPTR64
       * ((ulonglong * ) this) = ulonglong(new ref_complex(a,b)) << 16;
 #else
+#if 0 //def FXCG
+      __CPLXptr = new ref_complex(a,b);
+#else
       __CPLXptr = new_ref_complex(a,b);
+#endif
 #endif
       type =_CPLX;
       subtype=3;
@@ -1568,7 +1747,10 @@ namespace giac {
     case _POINTER_:
       if (subtype==_FL_WIDGET_POINTER && fl_widget_delete_function)
 	fl_widget_delete_function(_POINTER_val);
-      delete (ref_void_pointer *) (* ((ulonglong * ) this) >> 16);
+      if (subtype==_BUFFER_POINTER)
+	; // free((ref_void_pointer *) (* ((ulonglong * ) this) >> 16));
+      else
+	delete (ref_void_pointer *) (* ((ulonglong * ) this) >> 16);
       break;
 #else // SMARTPTR64
     case _ZINT: 
@@ -1626,7 +1808,12 @@ namespace giac {
       delete __MAPptr;
       break;
     case _EQW:
+#ifdef ALLOC44
+      __EQWptr->e.g=0;
+      deletefast(__EQWptr);
+#else
       delete __EQWptr;
+#endif
       break;
     case _GROB:
       delete __GROBptr;
@@ -1706,7 +1893,12 @@ namespace giac {
 	delete (ref_gen_map *) ptr_save;
 	break;
       case _EQW:
+#ifdef ALLOC44
+	((ref_eqwdata *) ptr_save)->e.g=0;
+	deletefast(ptr_save);
+#else
 	delete (ref_eqwdata *) ptr_save;
+#endif
 	break;
       case _GROB:
 	delete (ref_grob *) ptr_save;
@@ -2354,8 +2546,14 @@ namespace giac {
   }
   // double(int) does not seem to work under GNUWINCE
   double int2double(int i){
-    if (i<0)
+    if (i<0){
+#if defined WIN32 && !defined __CYGWIN__ // INT_MAX not defined with cygwin
+      if (i<-INT_MAX) return -1.0-INT_MAX;
+#else
+      if (i<-RAND_MAX) return -1.0-RAND_MAX;
+#endif
       return -_int2double(-i);
+    }
     else
       return _int2double(i);
   }
@@ -2425,7 +2623,11 @@ namespace giac {
 	mpfr_set_default_prec(nbits);
       mpfr_t euler_gamma;
       mpfr_init(euler_gamma);
+#ifdef BF2GMP_H
+      mpfr_set_str(euler_gamma,"0.5772156649015328606065120900824024310421593359399235988057672348848677267776646709369470632917467495146314472498070824809605040144865428362241739976449235362535003337429373377376739427925952582470949160087352039481656708532331517766115286211995015079847937450857057400299213547861466940296043254215190587755352",nbits,MPFR_RNDN);
+#else
       mpfr_const_euler(euler_gamma,MPFR_RNDN);
+#endif
 #ifdef HAVE_LIBPTHREAD
       if (!locked)
 	pthread_mutex_unlock(&mpfr_mutex);
@@ -2649,6 +2851,13 @@ namespace giac {
 	return -real2int(-g,contextptr);
       if (is_zero(g))
 	return 0;
+#ifdef BF2GMP_H
+      ref_mpz_t * m=new ref_mpz_t;
+      mpz_init(m->z);
+      mpz_set(m->z,g._REALptr->inf);
+      bf_rint(&m->z,BF_RNDD);
+      return gen(m);
+#else
 #ifdef HAVE_LIBMPFR
       ref_mpz_t * m=new ref_mpz_t;
       int n=int(mpfr_get_z_exp(m->z,g._REALptr->inf));
@@ -2658,7 +2867,8 @@ namespace giac {
       return _iquo(makesequence(res,pow(plus_two,gen(-n),contextptr)),contextptr);
 #else
       return g;
-#endif
+#endif // MPFR
+#endif // BF2GMP_H
     }
     if (g.type!=_VECT)
       return g;
@@ -3226,6 +3436,10 @@ namespace giac {
   static void symb_reim(const symbolic & s,gen & r,gen & i,GIAC_CONTEXT){
     unary_function_ptr u=s.sommet;
     gen f=s.feuille;
+    if (u==at_nop){
+      reim(f,r,i,contextptr);
+      return;
+    }
     if ( (u==at_re) || (u==at_im) || (u==at_abs) || (u==at_surd) || (u==at_NTHROOT) || (u==at_innertln)){
       r=s;
       i=0;
@@ -4140,8 +4354,16 @@ namespace giac {
   }
 
   gen arg(const gen & a,GIAC_CONTEXT){ 
-    if (a.type==_CPLX && a._CPLXptr->type==_DOUBLE_ && (a._CPLXptr+1)->type==_DOUBLE_)
-      return atan2((a._CPLXptr+1)->_DOUBLE_val,a._CPLXptr->_DOUBLE_val);
+    if (a.type==_CPLX && a._CPLXptr->type==_DOUBLE_ && (a._CPLXptr+1)->type==_DOUBLE_){
+      double d=atan2((a._CPLXptr+1)->_DOUBLE_val,a._CPLXptr->_DOUBLE_val);
+      if (angle_radian(contextptr))
+	return d;
+      int mode = angle_mode(contextptr);
+      if(mode == 1) //if was in degrees
+        return 180*d/M_PI;
+      else 
+        return 200 * d / M_PI;
+    }
     if (!angle_radian(contextptr)){
       //grad
       int mode = get_mode_set_radian(contextptr); //get current mode
@@ -5986,7 +6208,7 @@ namespace giac {
       // (ax+i*ay)*(bx+i*by)=ax*bx-ay*by+i*(ax*by+ay*bx)
       // imaginary part is also (ax+ay)*(bx+by)-ax*bx-ay*by, Karatsuba trick
       mpz_t axbx,ayby,r;
-#ifdef USE_GMP_REPLACEMENTS
+#if defined USE_GMP_REPLACEMENTS || defined BF2GMP_H
       mpz_init(axbx); mpz_init(ayby); mpz_init(r);
 #else
       int n1=mpz_size(ax)+mpz_size(bx),n2=mpz_size(ay)+mpz_size(by);
@@ -6903,7 +7125,7 @@ namespace giac {
 	    || (!lidnt(exponent).empty() && absint(superexponent.val)>MAX_COMMON_ALG_EXT_ORDER_SIZE)
 	    )
 	  return new_ref_symbolic(symbolic(at_pow,gen(makenewvecteur(base,exponent),_SEQ__VECT)));
-	if (subexponent_deno.type!=_INT_){
+	if (subexponent_deno.type!=_INT_ || (absint(subexponent_deno.val)>MAX_ALG_EXT_ORDER_SIZE && !lidnt(base).empty())){
 	  if (is_one(superexponent))
 	    return new_ref_symbolic(symbolic(at_pow,gen(makenewvecteur(base,_FRAC2_SYMB(subexponent_num,subexponent_deno)),_SEQ__VECT)));
 	  return new_ref_symbolic(symbolic(at_pow,gen(makenewvecteur(new_ref_symbolic(symbolic(at_pow,gen(makenewvecteur(base,_FRAC2_SYMB(subexponent_num,subexponent_deno)),_SEQ__VECT))),superexponent),_SEQ__VECT)));
@@ -7572,7 +7794,7 @@ namespace giac {
     if (is_one(base))
       return base;
     if (is_minus_one(base))
-      return exponent%2?-1:1;
+      return exponent%2?base:base*base;
     unsigned long int expo=exponent;
     gen b;
     if (base.type<=_ZINT && has_evalf(base,b,0,context0) && !is_inf(b) &&
@@ -7688,6 +7910,8 @@ namespace giac {
       return iquocmplx(a,b);
     case _CPLX__CPLX:
       return adjust_complex_display(iquocmplx(a,b),a,b);
+    case _EXT__INT_: case _EXT__ZINT:
+      return rdiv(a,b);
     default:
       return gentypeerr(gettext("iquo"));
     }
@@ -7747,6 +7971,25 @@ namespace giac {
     return normal(fraction(a,b),context0); // ok
   }
 
+  bool is_exactly_zero_normal(const gen &b,GIAC_CONTEXT){
+    if (b.type!=_SYMB)
+      return is_exactly_zero(b);
+    const unary_function_ptr & u=b._SYMBptr->sommet;
+    if (u==at_neg) return is_exactly_zero_normal(b._SYMBptr->feuille,contextptr);
+    if (u==at_prod){
+      gen f=b._SYMBptr->feuille;
+      if (f.type==_VECT){
+	vecteur &v=*f._VECTptr;
+	for (int i=0;i<v.size();++i){
+	  if (is_exactly_zero_normal(v[i],contextptr))
+	    return true;
+	}
+	return false;
+      }
+    }
+    return is_exactly_zero(normal(b,contextptr));
+  }
+
   gen rdiv(const gen &a,const gen &b,GIAC_CONTEXT){
     // if (!( (++control_c_counter) & control_c_counter_mask))
 #ifdef TIMEOUT
@@ -7756,7 +7999,7 @@ namespace giac {
       interrupted = true; ctrl_c=false;
       return gensizeerr(gettext("Stopped by user interruption.")); 
     }
-    if (b.type==_MOD)
+    if (b.type==_MOD || a.type==_MOD)
       return a*inv(b,contextptr);
     switch ( (a.type<< _DECALAGE) | b.type ) {
     case _INT___INT_: case _ZINT__INT_: case _ZINT__ZINT:
@@ -7941,7 +8184,7 @@ namespace giac {
       if (is_minus_one(b))
 	return chkmod(-a,b);
       if (is_exactly_zero(a)){
-	if (!is_exactly_zero(normal(b,contextptr)))
+	if (!is_exactly_zero_normal(b,contextptr))
 	  return a;
 	else
 	  return undef;
@@ -8831,11 +9074,11 @@ namespace giac {
       if (is_positive(a._FRACptr->den,contextptr) && is_positive(b._FRACptr->den,contextptr))
 	return superieur_strict(a._FRACptr->num*b._FRACptr->den,a._FRACptr->den*b._FRACptr->num,contextptr);
       break;
-    case _FRAC__INT_:
+    case _FRAC__INT_: case _FRAC_ZINT:
       if (is_positive(a._FRACptr->den,contextptr))
 	return superieur_strict(a._FRACptr->num,a._FRACptr->den*b,contextptr);
       break;
-    case _INT___FRAC:
+    case _INT___FRAC: case _ZINT__FRAC:
       if (is_positive(b._FRACptr->den,contextptr))
 	return superieur_strict(b._FRACptr->den*a,b._FRACptr->num,contextptr);
       break;
@@ -10433,7 +10676,7 @@ namespace giac {
     mpz_init_set(a,A);
     mpz_init_set(b,B);
     while (mpz_cmp_si(b,0)){
-      mpz_cdiv_r(z,a,b);
+      mpz_tdiv_r(z,a,b);
       mpz_swap(a,b);
       mpz_swap(b,z);
     }
@@ -10452,7 +10695,7 @@ namespace giac {
     // mpz_init(r3); mpz_init(u3); mpz_init(v3);
     while (mpz_cmp_si(r2,0)){
       // CERR << "iegcd " << gen(r1) << " " << gen(r2) << '\n';
-      mpz_cdiv_qr(q,r1,r1,r2);
+      mpz_tdiv_qr(q,r1,r1,r2);
       mpz_swap(r1,r2);
       mpz_submul(u1,q,u2);
       mpz_swap(u1,u2);
@@ -10763,7 +11006,7 @@ namespace giac {
       else
 	return is_positive(a,contextptr)?a:-a;
     case _ZINT__ZINT: 
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
       {
 	int test=mpz_cmp(*a._ZINTptr,*b._ZINTptr);
 	if (test==0 || (test>0 && mpz_divisible_p(*a._ZINTptr,*b._ZINTptr)))
@@ -11250,7 +11493,7 @@ namespace giac {
     my_mpz_gcd(r,q,u1);
     bool ok=mpz_cmp_ui(r,1)==0;
     if (!ok){
-      CERR << "Bad reconstruction " << a << " " << m << " " << gen(r) << '\n';
+      CERR << "Bad reconstruction a=" << a << " mod " << m << " u1=" << gen(u1) << " u1*a+v1*m= " << num << " gcd(u1,m)=" << gen(r) << '\n';
       simplify3(num,den);
       return false;
     }
@@ -11473,6 +11716,26 @@ namespace giac {
     return res;
   }
 
+  bool miller_rabin(const gen & a,const gen & p){
+    gen p1=p-1,q,s(p1),r;
+    int t=0;
+    // p-1=2^t*s
+    for (;;++t){
+      gen Q;
+      r=irem(s,2,Q);
+      if (r!=0)
+	break;
+      s=Q;
+    }
+    gen A(powmod(a,s,p));
+    if (A==1 || A==p1) return true;
+    for (int i=0;i<t;++i){
+      A=irem(A*A,p,q);
+      if (A==p1) return true;
+    }
+    return false;
+  }
+
   int is_probab_prime_p(const gen & a){
     if ( (a.type!=_INT_) && (a.type!=_ZINT)){
 #ifndef NO_STDEXCEPT
@@ -11491,6 +11754,14 @@ namespace giac {
 	  return 0;
       }
     }
+#ifdef BF2GMP_H
+    for (int i=0;i<TEST_PROBAB_PRIME;++i){
+      int A=giac_rand(context0);
+      if (!miller_rabin(A,a))
+	return 0;
+    }
+    return 1;
+#else // BF2GMP
     ref_mpz_t *aptr;
     if (a.type!=_INT_)
 #ifdef SMARTPTR64
@@ -11506,6 +11777,7 @@ namespace giac {
     if (a.type==_INT_)
       delete aptr;
     return res;
+#endif // BF2GMP
   }
 
   gen nextprime(const gen & a){
@@ -11666,11 +11938,12 @@ namespace giac {
     mpz_set_ui(e->z,1);
     for (unsigned long int k=i;k>i-j;--k)
       mpz_mul_ui(e->z,e->z,k);
-    mpz_t tmp;
-    mpz_init(tmp);
+    mpz_t tmp,tmp1;
+    mpz_init(tmp); mpz_init(tmp1);
     mpz_fac_ui(tmp,j);
-    mpz_fdiv_q(e->z,e->z,tmp);
-    mpz_clear(tmp);
+    mpz_fdiv_q(tmp1,e->z,tmp);
+    mpz_set(e->z,tmp1);
+    mpz_clear(tmp); mpz_clear(tmp1);
 #endif
     return e;
   }
@@ -12559,7 +12832,7 @@ void sprint_double(char * s,double d){
   }
 
   std::string printmpf_t(const mpf_t & inf,GIAC_CONTEXT){
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
 #ifdef VISUALC
     char * ptr=new char[decimal_digits(contextptr)+30];
 #else
@@ -12808,8 +13081,9 @@ void sprint_double(char * s,double d){
       if (calc_mode(contextptr)==1)
 	s="{";
       else {
+	int pyc=python_compat(contextptr);
 	// s="matrix[";
-	if (!os_shell)
+	if (!os_shell || pyc<0)
 	  s="[";
 	else
 	  s=abs_calc_mode(contextptr)==38?"[":"matrix[";
@@ -13183,6 +13457,8 @@ void sprint_double(char * s,double d){
 
   const char * printi(GIAC_CONTEXT){
 #ifdef KHICAS
+    if (python_compat(contextptr)<0)
+      return "I";
     return os_shell?"i":"𝐢";
 #endif
     if (calc_mode(contextptr)==1)
@@ -13191,7 +13467,7 @@ void sprint_double(char * s,double d){
       return ""; // "\xe2\x81\xb1";
     if (xcas_mode(contextptr)==3)
       return "\xa1";
-    if (xcas_mode(contextptr)>0)
+    if (xcas_mode(contextptr)>0 || python_compat(contextptr)<0)
       return "I";
     else
       return "i";
@@ -13323,7 +13599,7 @@ void sprint_double(char * s,double d){
       }
     }
     if (subtype==_INT_BOOLEAN){
-      if (python_compat(contextptr)){
+      if (python_compat(contextptr)>0){
 	if (val)
 	  return "True";
 	else
@@ -13843,26 +14119,118 @@ void sprint_double(char * s,double d){
 	return "nonposint";
       case _NONNEGINT:
 	return "nonnegint";
-      case _LP_ASSUME:
-	return "lp_assume";
       case _LP_BINARY:
-	return "lp_binary";
+        return "lp_binary";
       case _LP_BINARYVARIABLES:
-	return "lp_binaryvariables";
+        return "lp_binaryvariables";
       case _LP_DEPTHLIMIT:
-	return "lp_depthlimit";
-      case _LP_MAXIMIZE:
-	return "lp_maximize";
-      case _LP_NONNEGATIVE:
-	return "lp_nonnegative";
-      case _LP_NONNEGINT:
-	return "lp_nonnegint";
-      case _LP_VARIABLES:
-	return "lp_variables";
+        return "lp_depthlimit";
       case _LP_INTEGER:
-	return "lp_integer";
+        return "lp_integer";
       case _LP_INTEGERVARIABLES:
-	return "lp_integervariables";
+        return "lp_integervariables";
+      case _LP_MAXIMIZE:
+        return "lp_maximize";
+      case _LP_NONNEGATIVE:
+        return "lp_nonnegative";
+      case _LP_NONNEGINT:
+        return "lp_nonnegint";
+      case _LP_ASSUME:
+        return "lp_assume";
+      case _LP_NODE_LIMIT:
+        return "lp_nodelimit";
+      case _LP_METHOD:
+        return "lp_method";
+      case _LP_SIMPLEX:
+        return "lp_simplex";
+      case _LP_INTERIOR_POINT:
+        return "lp_interiorpoint";
+      case _LP_MAX_CUTS:
+        return "lp_maxcuts";
+      case _LP_GAP_TOLERANCE:
+        return "lp_gaptolerance";
+      case _LP_NODESELECT:
+        return "lp_nodeselect";
+      case _LP_VARSELECT:
+        return "lp_varselect";
+      case _LP_FIRSTFRACTIONAL:
+        return "lp_firstfractional";
+      case _LP_LASTFRACTIONAL:
+        return "lp_lastfractional";
+      case _LP_MOSTFRACTIONAL:
+        return "lp_mostfractional";
+      case _LP_PSEUDOCOST:
+        return "lp_pseudocost";
+      case _LP_DEPTHFIRST:
+        return "lp_depthfirst";
+      case _LP_BREADTHFIRST:
+        return "lp_breadthfirst";
+      case _LP_BEST_LOCAL_BOUND:
+        return "lp_bestlocalbound";
+      case _LP_BEST_PROJECTION:
+        return "lp_bestprojection";
+      case _LP_HYBRID:
+        return "lp_hybrid";
+      case _LP_ITERATION_LIMIT:
+        return "lp_iterationlimit";
+      case _LP_TIME_LIMIT:
+        return "lp_timelimit";
+      case _LP_VERBOSE:
+        return "lp_verbose";
+      case _LP_HEURISTIC:
+	return "lp_heuristic";
+      case _NLP_PRESOLVE:
+	return "nlp_presolve";
+      case _NLP_SAMPLES:
+	return "nlp_samples";
+      case _NLP_INTEGER:
+	return "nlp_integer";
+      case _NLP_INTEGERVARIABLES:
+	return "nlp_integervariables";
+      case _NLP_BINARY:
+	return "nlp_binary";
+      case _NLP_BINARYVARIABLES:
+	return "nlp_binaryvariables";
+      case _NLP_NONNEGINT:
+	return "nlp_nonnegint";
+      case _NLP_FEAS_TOL:
+	return "nlp_feasibilitytolerance";
+      case _NLP_INT_TOL:
+	return "nlp_integertolerance";
+      case _LP_PRESOLVE:
+        return "lp_presolve";
+      case _NLP_INITIALPOINT:
+        return "nlp_initialpoint";
+      case _NLP_ITERATIONLIMIT:
+        return "nlp_iterationlimit";
+      case _NLP_NONNEGATIVE:
+        return "nlp_nonnegative";
+      case _NLP_PRECISION:
+        return "nlp_precision";
+      case _NLP_MAXIMIZE:
+        return "nlp_maximize";
+      case _GT_CONNECTED:
+        return "connected";
+      case _GT_SPRING:
+        return "spring";
+      case _GT_TREE:
+        return "tree";
+      case _GT_PLANAR:
+        return "planar";
+      case _GT_DIRECTED:
+        return "directed";
+      case _GT_WEIGHTED:
+        return "weighted";
+      case _GT_WEIGHTS:
+        return "weights";
+      case _GT_BIPARTITE:
+        return "bipartite";
+      case _GT_ACYCLIC:
+        return "acyclic";
+      case _KDE_BANDWIDTH:
+        return "bandwidth";
+      case _KDE_BINS:
+        return "bins";
       }
     }
     if (subtype==_INT_MUPADOPERATOR){
@@ -14131,6 +14499,7 @@ void sprint_double(char * s,double d){
   const char * gen::dbgprint() const { return "Done";}
 #else
 #if defined(VISUALC) && !defined(MS_SMART)
+#include <atlbase.h>
   const char * gen::dbgprint() const { ATLTRACE2("%s\r\n", this->print(0).c_str()); return "Done";}
 #else
   const char * gen::dbgprint() const{    
@@ -14917,7 +15286,10 @@ void sprint_double(char * s,double d){
       }
     }
     int save_decimal_digits=decimal_digits(context0);
-    set_decimal_digits(precision,context0);
+    set_decimal_digits(giacmax(20,std::ceil(precision*
+					    0.30102999566398119
+					    //M_LN2/M_LN10
+					    )),context0);
     gen tmp=re(evalf(g,1,context0),context0);
     set_decimal_digits(save_decimal_digits,context0);
     if (tmp.type!=_REAL){
@@ -15279,7 +15651,7 @@ void sprint_double(char * s,double d){
   }
     
   gen real_object::sqrt() const {
-#ifdef LONGFLOAT_DOUBLE
+#if defined LONGFLOAT_DOUBLE && !defined HAVE_LIBMPFR
     real_object res; res.inf=std::sqrt(inf); return res;
 #else
     real_object res(*this);
@@ -15302,11 +15674,9 @@ void sprint_double(char * s,double d){
     return -(*this);
   }
 
-#ifndef HAVE_LIBMPFR
   static void compile_with_mpfr(){  
     setsizeerr(gettext("Compile with MPFR or USE_GMP_REPLACEMENTS if you want transcendental long float support"));  
   }
-#endif
 
   gen real_object::exp() const {
     real_object res(*this);
@@ -15515,7 +15885,7 @@ void sprint_double(char * s,double d){
     *res.inf = ::asinh(*res.inf);
 #endif
 #else
-#ifdef HAVE_LIBMPFR
+#if defined HAVE_LIBMPFR && !defined BF2GMP_H
     mpfr_asinh(res.inf,res.inf,MPFR_RNDN);
 #else
     compile_with_mpfr();
@@ -15533,7 +15903,7 @@ void sprint_double(char * s,double d){
     *res.inf = ::acosh(*res.inf);
 #endif
 #else
-#ifdef HAVE_LIBMPFR
+#if defined HAVE_LIBMPFR && !defined BF2GMP_H
     mpfr_acosh(res.inf,res.inf,MPFR_RNDN);
 #else
     compile_with_mpfr();
@@ -15551,7 +15921,7 @@ void sprint_double(char * s,double d){
     *res.inf = ::atanh(*res.inf);
 #endif
 #else
-#ifdef HAVE_LIBMPFR
+#if defined HAVE_LIBMPFR && !defined BF2GMP_H
     mpfr_atanh(res.inf,res.inf,MPFR_RNDN);
 #else
     compile_with_mpfr();
@@ -16034,6 +16404,7 @@ void sprint_double(char * s,double d){
     else
       mpfr_get_str(ptr,&expo,10,dd,inf,MPFR_RNDN);
     std::string res(ptr);
+#ifndef BF2GMP_H
     if (expo){
       if (expo==1){
 	string reste(res.substr(1,res.size()-1));
@@ -16047,6 +16418,7 @@ void sprint_double(char * s,double d){
     }
     else
       res="0."+res;
+#endif
 #ifdef VISUALC
     delete [] ptr;
 #endif
@@ -16182,6 +16554,7 @@ void sprint_double(char * s,double d){
 #endif
       
   const char * caseval(const char *s){
+    //printf("%s\n",s);
     ctrl_c=interrupted=false;
     static string * sptr=0;
     if (!sptr) sptr=new string;
@@ -16191,6 +16564,7 @@ void sprint_double(char * s,double d){
     context & C=*contextptr;
     if (!strcmp(s,"caseval contextptr"))
       return (const char *) contextptr;
+    // history_plot(contextptr).clear(); // must be commented otherwise matplotl fails
     if (!strcmp(s,"shell off")){
       os_shell=false;
       return "shell off";
@@ -16222,6 +16596,7 @@ void sprint_double(char * s,double d){
 	  const char * expr =xcas::Console_GetLine(contextptr);
 	  if (!expr || expr[0]==4 || strcmp(expr,"exit")==0)
 	    break;
+	  giac::freeze=true;
 	  xcas::run(expr,7,contextptr);
 	  xcas::Console_NewLine(xcas::LINE_TYPE_OUTPUT,1);
 	}
@@ -16450,7 +16825,6 @@ void sprint_double(char * s,double d){
       S="GIAC_ERROR: "+S;
     }
     else {
-#ifdef KHICAS // replace ],[ by ][
       gen last=g;
       while (last.type==_VECT && last.subtype!=_LOGO__VECT && !last._VECTptr->empty()){
 	gen tmp=last._VECTptr->back();
@@ -16459,6 +16833,7 @@ void sprint_double(char * s,double d){
 	else
 	  last=tmp;
       }
+#ifdef KHICAS // replace ],[ by ][
       if (last.is_symb_of_sommet(at_pnt)){
 	if (os_shell || nspirelua)
 	  xcas::displaygraph(g,&C);
@@ -16469,7 +16844,7 @@ void sprint_double(char * s,double d){
 	  if (islogo(g))
 	    xcas::displaylogo();
 	  else {
-	    if ( (g.type==_SYMB || (warn_symb_program_sto && g.type==_VECT)) && taille(g,256)<=256)
+	    if ( (g.type==_SYMB || (warn_symb_program_sto && g.type==_VECT && !g._VECTptr->empty() && g._VECTptr->front().type!=_STRNG)) && taille(g,256)<=256)
 	      g=xcas::eqw(g,true,&C);
 	  }
 	}
@@ -16494,7 +16869,12 @@ void sprint_double(char * s,double d){
 	  S='['+S+']'; // vector/list not allowed in Numworks calc app
       }
 #else
-      S=g.print(&C);
+      if (calc_mode(contextptr)!=1 && last.is_symb_of_sommet(at_pnt))
+	S="Graphic_object";
+      else if (islogo(g))
+	S="Logo_turtle";
+      else
+	S=g.print(&C);
 #if !defined GIAC_GGB 
 #if defined EMCC || defined EMCC2
 	double add_evalf=EM_ASM_DOUBLE_V({
@@ -16508,7 +16888,7 @@ void sprint_double(char * s,double d){
 	    return 0.0;
 	  });
 #else
-	double add_evalf=true,js_bigint=false;
+	double add_evalf=false,js_bigint=false;
 #endif
       if (g.type==_FRAC || g.type==_ZINT){
 	if (add_evalf){

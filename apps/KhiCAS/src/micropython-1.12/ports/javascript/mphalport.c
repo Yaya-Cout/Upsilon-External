@@ -26,34 +26,9 @@
 
 #include "library.h"
 #include "mphalport.h"
-#if defined EMCC && !defined NO_QSTR
-#include <emscripten.h>
-#endif
-
-void console_output(const char *s,int i){
-  EM_ASM_ARGS({
-      var text = UTF8ToString($0); // Convert message to JS string
-      text=text.substr(0,$1);
-      UI.add_python_output(text);
-      text=UI.clean_for_html(text);
-      var tmp=document.getElementById('consolediv');
-      if (tmp!=null && tmp.style.display != 'block') {
-	tmp.style.display = 'block';
-	UI.set_config_width();
-      }
-      var element=document.getElementById('output');
-      if (element!=null){
-	element.style.display = 'inherit';
-	element.innerHTML += text; // element.value += text + "\n";
-	element.scrollTop = 99999; // focus on bottom      
-	// Module.print(text);
-      }
-    },s,i);
-}
 
 void mp_hal_stdout_tx_strn(const char *str, size_t len) {
-  console_output(str,len);
-  //mp_js_write(str, len);
+    mp_js_write(str, len);
 }
 
 void mp_hal_delay_ms(mp_uint_t ms) {

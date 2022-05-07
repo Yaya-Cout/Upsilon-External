@@ -209,7 +209,7 @@ namespace giac {
   bool iszero(const std::vector<int> & p);
   
   // matrice related functions
-  bool ckmatrix(const matrice & a,bool allow_embedded_vect);
+  bool ckmatrix(const matrice & a,bool allow_embedded_vect,bool ckundef=true);
   bool ckmatrix(const matrice & a);
   bool ckmatrix(const gen & a);
   bool ckmatrix(const gen & a,bool);
@@ -223,7 +223,7 @@ namespace giac {
   int mrows(const matrice & a);
   int mcols(const matrice & a);
   void mdims(const matrice &m,int & r,int & c);
-  void mtran(const matrice & a,matrice & res,int ncolres=0);
+  void mtran(const matrice & a,matrice & res,int ncolres=0,bool ckundef=true);
   matrice mtran(const matrice & a);
   gen _tran(const gen & a,GIAC_CONTEXT);
   extern const unary_function_ptr * const  at_tran ;
@@ -439,6 +439,7 @@ namespace giac {
   matrice matpow(const matrice & m,const gen & n,GIAC_CONTEXT);
   gen _matpow(const gen & a,GIAC_CONTEXT);
 
+  bool mker(std::vector< std::vector<int> > & a,std::vector< std::vector<int> > & v,int modulo);
   bool mker(const matrice & a,vecteur & v,int algorithm,GIAC_CONTEXT);
   bool mker(const matrice & a,vecteur & v,GIAC_CONTEXT); // algorithm=0
   vecteur mker(const matrice & a,GIAC_CONTEXT);

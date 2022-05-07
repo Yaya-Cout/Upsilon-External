@@ -3776,7 +3776,7 @@ namespace giac {
       setsizeerr(gettext("Bug!"));
 #endif
     if (p==q)
-      return p;
+      return p;    
     if (p.coord.empty())
       return q;
     if (q.coord.empty())
@@ -4156,6 +4156,14 @@ namespace giac {
     return t;
   }
 
+  void trim(polynome & pmod,const gen & m){
+    while (!pmod.coord.empty()){
+      if (!is_zero(smod(pmod.coord.front().value,m)))
+	break;
+      pmod.coord.erase(pmod.coord.begin());
+    }
+  }
+
   static bool gcdheu(const polynome &p_orig,const index_t & p_deg,const polynome &q_orig, const index_t & q_deg,polynome & p_simp, gen & np_simp, polynome & q_simp, gen & nq_simp, polynome & d, gen & d_content,bool skip_test,bool compute_cofactors){
     // COUT << "Entering gcdheu " << p.dim << '\n';
     if (debug_infolevel>=123456-p_orig.dim)
@@ -4192,6 +4200,8 @@ namespace giac {
       polynome pmod,qmod;
       unmodularize(p_simp,pmod);
       unmodularize(q_simp,qmod);
+      trim(pmod,m);
+      trim(qmod,m);
       d=gcdmod(pmod,qmod,m);
       if (debug_infolevel)
 	CERR << "gcdmod end " << CLOCK() << '\n';
@@ -4393,7 +4403,7 @@ namespace giac {
 	}
       }
       if (firstd.type==_CPLX && firstd._CPLXptr->type==_DOUBLE_ && (firstd._CPLXptr+1)->type==_DOUBLE_){
-	int arg=int(std::floor(std::atan2((firstd._CPLXptr+1)->_DOUBLE_val,firstd._CPLXptr->_DOUBLE_val)/(M_PI/2)));
+	int arg=int(std::floor(std::atan2((firstd._CPLXptr+1)->_DOUBLE_val,firstd._CPLXptr->_DOUBLE_val)/(3.14159265358979323846/2)));
 	if (arg!=0){
 	  gen mult=arg>0?(-cst_i):(arg==-1?cst_i:-1);
 	  d *= mult;
@@ -4946,14 +4956,51 @@ namespace giac {
   void lcmdeno(const polynome & p, gen & res){
     vector< monomial<gen> >::const_iterator it=p.coord.begin(),itend=p.coord.end();
     for (;it!=itend;++it){
-      if (it->value.type!=_FRAC)
+      gen tmp=it->value;
+      if (tmp.type!=_FRAC && tmp.type!=_EXT)
 	continue;
-      gen tmp=it->value,tmpden=1;
-      while (tmp.type==_FRAC){
+      gen tmpden=1;
+      while (tmp.type==_FRAC || tmp.type==_EXT){
+	if (tmp.type==_EXT){
+	  if (tmp._EXTptr->type==_VECT){
+	    vecteur v=*tmp._EXTptr->_VECTptr;
+	    gen eden;
+	    lcmdeno(v,eden,context0);
+	    tmpden=tmpden*eden;
+	  }
+	  break;
+	}
 	tmpden=tmpden*tmp._FRACptr->den;
 	tmp=tmp._FRACptr->num;
       }
       res=lcm(tmpden,res);
+    }
+  }
+
+  void lcmmult(polynome & p, const gen & res){
+    vector< monomial<gen> >::iterator it=p.coord.begin(),itend=p.coord.end();
+    for (;it!=itend;++it){
+      gen tmp=it->value;
+      if (tmp.type!=_FRAC && tmp.type!=_EXT){
+	it->value=tmp*res;
+	continue;
+      }
+      gen tmpden=1;
+      while (tmp.type==_FRAC || tmp.type==_EXT){
+	if (tmp.type==_EXT){
+	  if (tmp._EXTptr->type==_VECT){
+	    vecteur v=*tmp._EXTptr->_VECTptr;
+	    gen eden;
+	    lcmdeno(v,eden,context0);
+	    tmp=algebraic_EXTension(v,*(tmp._EXTptr+1));
+	    tmpden=tmpden*eden;
+	  }
+	  break;
+	}
+	tmpden=tmpden*tmp._FRACptr->den;
+	tmp=tmp._FRACptr->num;
+      }
+      it->value=(res/tmpden)*tmp;
     }
   }
 
@@ -5172,6 +5219,24 @@ namespace giac {
   }
 
   void egcd(const polynome &p1, const polynome & p2, polynome & u,polynome & v,polynome & d){
+    if (p1.lexsorted_degree()==0){
+      d=p1;
+      u.coord.clear();
+      u.dim=p1.dim;
+      u.coord.push_back(monomial<gen>(1,0));
+      v.dim=p1.dim;
+      v.coord.clear();
+      return;
+    }
+    if (p2.lexsorted_degree()==0){
+      d=p2;
+      u.coord.clear();
+      u.dim=p2.dim;
+      v.dim=p2.dim;
+      v.coord.clear();
+      v.coord.push_back(monomial<gen>(1,0));
+      return;
+    }
     if (try_hensel_egcd(p1,p2,u,v,d))
       return;
     polynome g=gcd(p1,p2);
@@ -5180,15 +5245,17 @@ namespace giac {
       d=g*d;
       return;
     }
-    if (p1.dim!=1){
-      egcdpsr(p1,p2,u,v,d);
-      return;
-    }
     gen p1g,p2g;
     int p1t=coefftype(p1,p1g);
     int p2t=coefftype(p2,p2g);
+    if (p1.dim!=1 
+	//&& (p1t!=0 || p2t!=0)
+	){
+      egcdpsr(p1,p2,u,v,d);
+      return;
+    }
     if (p1t==0 && p2t==0 
-	&& p1.lexsorted_degree()>=GIAC_PADIC/2 && p2.lexsorted_degree()>=GIAC_PADIC/2
+	&& (p1.dim!=1 || (p1.lexsorted_degree()>=GIAC_PADIC/2 && p2.lexsorted_degree()>=GIAC_PADIC/2))
 	){
       if (debug_infolevel>2)
 	CERR << CLOCK()*1e-6 << "starting extended gcd degrees " << p1.lexsorted_degree() << " " << p2.lexsorted_degree() << '\n';
@@ -5200,8 +5267,18 @@ namespace giac {
       matrice S=sylvester(p1v,p2v);
       S=mtran(S);
       int add=int(p1v.size()+p2v.size()-G.size()-2);
-      vecteur V=mergevecteur(vecteur(add,0),G);
-      vecteur U=linsolve(S,V,context0);
+      vecteur V=mergevecteur(vecteur(add,0),G),U;
+      if (p1.dim>1){
+	// make the system symbolic so that Lagrange interpolation may happen
+	vecteur varv;
+	for (int i=1;i<p1.dim;++i)
+	  varv.push_back(identificateur("x"+print_INT_(i)));
+	S=gen2vecteur(r2e(S,varv,context0)); V=gen2vecteur(r2e(V,varv,context0));
+	U=linsolve(S,V,context0);
+	U=gen2vecteur(e2r(U,varv,context0));
+      }
+      else
+	U=linsolve(S,V,context0);
       gen D;
       lcmdeno(U,D,context0);
       if (is_positive(-D,context0)){
@@ -5269,9 +5346,10 @@ namespace giac {
       }
     }
     if (p1t==_EXT && p2t==0 && p1g.type==_EXT && (p1g._EXTptr+1)->type==_VECT){
-      vecteur G,p2v;
+      vecteur G,p2v,p1v;
       polynome2poly1(g,1,G);
       polynome2poly1(p2,1,p2v);
+      polynome2poly1(p1,1,p1v);
       polynome pmini(2),P1;
       algext_vmin2pmin(*(p1g._EXTptr+1)->_VECTptr,pmini);
       polynome P1n(1);
@@ -5291,14 +5369,27 @@ namespace giac {
 	    vecteur U(linsolve(S,V,context0));
 	    gen D;
 	    lcmdeno(U,D,context0);
-	    G=multvecteur(D,G);
-	    poly12polynome(G,1,d);
 	    int p2s=int(p2v.size())-1;
 	    V=vecteur(U.begin()+p2s,U.end());
+#if 1
+	    // uv*p1v+V*p2v=D
+	    // find remainder(V,p1v) -> V then uv=(D-V*p2v)/p1v
+	    V=V % p1v;
+	    gen DV; lcmdeno(V,DV,context0);
+	    poly12polynome(V,1,v);
+	    D=D*DV;
+	    vecteur tmpv; mulmodpoly(V,p2v,0,tmpv);
+	    submodpoly(vecteur(1,D),tmpv,U);
+	    U=U/p1v;
+	    poly12polynome(U,1,u);	    
+#else // does not always work, must take remainder
 	    poly12polynome(V,1,v);
 	    U=vecteur(U.begin(),U.begin()+p2s);
 	    poly12polynome(U,1,u);
 	    u=u*P1;
+#endif
+	    G=multvecteur(D,G);
+	    poly12polynome(G,1,d);
 	    //CERR << (operator_times(u,p1,0)+operator_times(v,p2,0))/D << '\n';
 	    return;
 	  }
@@ -5391,13 +5482,37 @@ namespace giac {
     return true;
   }
 
+  void Tpown_ff(polynome & g,int n){
+    vector< monomial<gen> > ::iterator it=g.coord.begin(),itend=g.coord.end();
+    for (;it!=itend;++it){
+      it->value=pow(it->value,n);
+      it->index=it->index*n;
+    }
+  }
+  static void push_factor(factorization & v,polynome & g,polynome & q,int k,int n){
+    q=q/Tpow(g,k);
+    for (int l=0;;++l){
+      polynome d(gcd(q,g));
+      if (d!=g){
+	v.push_back(facteur< polynome >(g/d,k+l*n)); 
+	if (Tis_one(d))
+	  break;
+	g=d;
+      }
+      polynome gn(g);
+      Tpown_ff(gn,n); 
+      q=q/gn;
+      // instead of q=q/Tpow(g,n); 
+    }
+  }
   // Yun algorithm in finite field of characteristic n
   // Must be called recursively since it will not detect powers multiple of n
   static void partialsquarefree_fp(const polynome & p,unsigned n,polynome & c,factorization & v){
     v.clear();
+    c=p;
     polynome y(p.derivative()),w(p);
     y=smod(y,gen(int(n)));
-    c=simplify(w,y);
+    simplify(w,y);
     // If p=p_1*p_2^2*...*p_n^n, 
     // then c=gcd(p,p')=Pi_{i s.t. i%n!=0} p_i^{i-1} Pi_{i s.t. i%n==0} p_i^i
     // w=p/c=Pi_{i%n>=1} p_i, 
@@ -5410,19 +5525,17 @@ namespace giac {
       // y=sum_{i%n >= k+1} (i-k) p_i' * pi_{j!=i, j>=k} p_j
       polynome g=simplify(w,y);
       if (!Tis_one(g))
-	v.push_back(facteur< polynome >(g,k)); 
-      // extract one time the factors of multiplicity k mod n
-      c=c/w;
+	push_factor(v,g,c,k,n);
       // this push p_k, now w=pi_{i%n>=k+1} p_i and 
-      // y=sum_{i%n>=k+1} (i-k) p_i' * pi_{j!=i, j%n>=k+1} p_j
+      // y=sum_{i%n>=k+1} (i-k)%n p_i' * pi_{j!=i, j%n>=k+1} p_j
       y=y-w.derivative();
       y=smod(y,gen(int(n)));
       // y=sum_{i%n>=k+1} (i-(k+1)) p_i' * pi_{j!=i, j%n>=k+1} p_j
       k++;
     }
     if (!Tis_one(w))
-      v.push_back(facteur< polynome >(w,k));
-    // at the end c contains Pi_{i} p_i^{i-(i%n)}
+      push_factor(v,w,c,k,n);//v.push_back(facteur< polynome >(w,k));
+    // at the end c contains Pi_{i mod p=0} p_i^i}
   }
   
   // Yun algorithm in finite field of characteristic n
@@ -5650,21 +5763,24 @@ namespace giac {
     env.modulo=n;
     env.pn=n;
     // Check that all coeff are mod
-    polynome p(p_orig);
-    vector< monomial<gen> >::iterator pit=p.coord.begin(),pitend=p.coord.end();
+    polynome p(p_orig.dim);
+    vector< monomial<gen> >::const_iterator pit=p_orig.coord.begin(),pitend=p_orig.coord.end();
     for (;pit!=pitend;++pit){
-      if (pit->value.type!=_MOD)
-	pit->value=makemod(pit->value,n);
-      gen & tmp = *(pit->value._MODptr+1);
+      gen val0=pit->value;
+      if (val0.type!=_MOD)
+	val0=makemod(val0,n);
+      gen & tmp = *(val0._MODptr+1);
       if (tmp.type!=_INT_ || tmp.val!=n){
 #ifndef NO_STDEXCEPT
 	setsizeerr();
 #endif
 	return false;
       }
-      gen & val = *(pit->value._MODptr);
+      gen & val = *(val0._MODptr);
       if (val.type==_CPLX)
 	env.complexe=true;
+      if (!is_zero(val))
+	p.coord.push_back(monomial<gen>(val0,pit->index));
     }
 #ifdef HAVE_LIBNTL
 #ifdef HAVE_LIBPTHREAD
@@ -7072,7 +7188,7 @@ namespace giac {
       gen tmp(1);
       lcmdeno(jt->fact,tmp);
       if (!is_one(tmp)){
-	jt->fact=tmp*jt->fact;
+	lcmmult(jt->fact,tmp); // jt->fact=tmp*jt->fact;
 	tmp=pow(tmp,jt->mult,context0);
 	num=tmp*num;
 	den=tmp*den;
@@ -7237,28 +7353,28 @@ namespace giac {
       swap(a,b); // a=b
       const tensor<gen> temp=Tpow(h,ddeg);
       // now divides r by g*h^(m-n), result is the new b
-      r.TDivRem1(g*temp,b,q); // q is not used anymore
+      r.TDivRem1(g*temp,b,q,true); // q is not used anymore
       swap(ua,ub); // ua=ub
-      ur.TDivRem1(g*temp,ub,q);
+      ur.TDivRem1(g*temp,ub,q,true);
       // COUT << (b-ub*p1) << "/" << p2 << '\n';
       // new g=b0 and new h=b0^(m-n)*h/temp
       if (ddeg==1) // the normal case, remainder deg. decreases by 1 each time
 	h=b0;
       else // not sure if it's better to keep temp or divide by h^(m-n+1)
-	(Tpow(b0,ddeg)*h).TDivRem1(temp,h,q);
+	(Tpow(b0,ddeg)*h).TDivRem1(temp,h,q,true);
       g=b0;
     }
     // ub is valid and b is the gcd, vb=(b-ub*p1)/p2 if not Tswapped
     // vb is stored in ua
     // COUT << ub << '\n';
     if (genswapped){
-      (b-ub*pp2).TDivRem1(pp1,ua,r);
+      (b-ub*pp2).TDivRem1(pp1,ua,r,true); // must allow rational for ext coeffs
       ua *= cp2; // ua=ua*cp2;
       ub *= cp1; // ub=ub*cp1;
       b *= cp1; b *= cp2; // b=b*cp1*cp2;
     }
     else {
-      (b-ub*pp1).TDivRem1(pp2,ua,r);
+      (b-ub*pp1).TDivRem1(pp2,ua,r,true);
       ua *= cp1; // ua=ua*cp1;
       ub *= cp2; // ub=ub*cp2;
       b *= cp1; b *= cp2; // b=b*cp1*cp2;

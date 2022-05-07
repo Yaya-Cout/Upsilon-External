@@ -1,0 +1,13 @@
+q_div.lo: q_div.c mpfi-impl.h mpfi.h \
+ /mnt/c/msys64/home/lauri/khiext/apps/KhiCAS/src/mpfi-1.5.4/..//include/gmp.h \
+ /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
+ /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h \
+ /mnt/c/msys64/home/lauri/khiext/apps/KhiCAS/src/mpfi-1.5.4/..//include/mpfr.h \
+ ../mpfi_config.h
+mpfi-impl.h:
+mpfi.h:
+/mnt/c/msys64/home/lauri/khiext/apps/KhiCAS/src/mpfi-1.5.4/..//include/gmp.h:
+/usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h:
+/usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h:
+/mnt/c/msys64/home/lauri/khiext/apps/KhiCAS/src/mpfi-1.5.4/..//include/mpfr.h:
+../mpfi_config.h:

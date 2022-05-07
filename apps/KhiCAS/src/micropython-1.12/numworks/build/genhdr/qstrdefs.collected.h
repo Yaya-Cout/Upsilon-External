@@ -38,103 +38,21 @@ Q(BaseException)
 
 Q(BaseException)
 
+Q(BytesIO)
+
+Q(BytesIO)
+
+Q(C)
+
 Q(DEBUG)
 
 Q(DecompIO)
 
 Q(DecompIO)
 
-Q(EACCES)
-
-Q(EACCES)
-
-Q(EADDRINUSE)
-
-Q(EADDRINUSE)
-
-Q(EAGAIN)
-
-Q(EAGAIN)
-
-Q(EALREADY)
-
-Q(EALREADY)
-
-Q(EBADF)
-
-Q(EBADF)
-
-Q(ECONNABORTED)
-
-Q(ECONNABORTED)
-
-Q(ECONNREFUSED)
-
-Q(ECONNREFUSED)
-
-Q(ECONNRESET)
-
-Q(ECONNRESET)
-
-Q(EEXIST)
-
-Q(EEXIST)
-
-Q(EHOSTUNREACH)
-
-Q(EHOSTUNREACH)
-
-Q(EINPROGRESS)
-
-Q(EINPROGRESS)
-
-Q(EINVAL)
-
-Q(EINVAL)
-
-Q(EIO)
-
-Q(EIO)
-
-Q(EISDIR)
-
-Q(EISDIR)
-
-Q(ENOBUFS)
-
-Q(ENOBUFS)
-
-Q(ENODEV)
-
-Q(ENODEV)
-
-Q(ENOENT)
-
-Q(ENOENT)
-
-Q(ENOMEM)
-
-Q(ENOMEM)
-
-Q(ENOTCONN)
-
-Q(ENOTCONN)
-
 Q(EOFError)
 
 Q(EOFError)
-
-Q(EOPNOTSUPP)
-
-Q(EOPNOTSUPP)
-
-Q(EPERM)
-
-Q(EPERM)
-
-Q(ETIMEDOUT)
-
-Q(ETIMEDOUT)
 
 Q(Ellipsis)
 
@@ -191,6 +109,8 @@ Q(LONGLONG)
 Q(LookupError)
 
 Q(LookupError)
+
+Q(M)
 
 Q(MemoryError)
 
@@ -261,6 +181,8 @@ Q(SyntaxError)
 Q(SystemExit)
 
 Q(SystemExit)
+
+Q(T)
 
 Q(TextIOWrapper)
 
@@ -566,6 +488,26 @@ Q(__name__)
 
 Q(__name__)
 
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
+Q(__name__)
+
 Q(__neg__)
 
 Q(__new__)
@@ -652,6 +594,8 @@ Q(__traceback__)
 
 Q(__truediv__)
 
+Q(__version__)
+
 Q(__xor__)
 
 Q(_arit)
@@ -706,6 +650,8 @@ Q(_star_)
 
 Q(_turtle)
 
+Q(a)
+
 Q(a2b_base64)
 
 Q(abs)
@@ -718,6 +664,10 @@ Q(abs_tol)
 
 Q(acos)
 
+Q(acos)
+
+Q(acosh)
+
 Q(acosh)
 
 Q(add)
@@ -729,6 +679,10 @@ Q(add)
 Q(addressof)
 
 Q(all)
+
+Q(all)
+
+Q(any)
 
 Q(any)
 
@@ -746,13 +700,27 @@ Q(arange)
 
 Q(arange)
 
+Q(arange)
+
+Q(arctan2)
+
+Q(argmax)
+
+Q(argmin)
+
 Q(args)
+
+Q(argsort)
 
 Q(argv)
 
 Q(arit)
 
 Q(arit)
+
+Q(around)
+
+Q(array)
 
 Q(array)
 
@@ -768,7 +736,13 @@ Q(asc)
 
 Q(asin)
 
+Q(asin)
+
 Q(asinh)
+
+Q(asinh)
+
+Q(atan)
 
 Q(atan)
 
@@ -776,6 +750,10 @@ Q(atan2)
 
 Q(atanh)
 
+Q(atanh)
+
+Q(atexit)
+
 Q(av)
 
 Q(av)
@@ -783,6 +761,28 @@ Q(av)
 Q(avance)
 
 Q(avance)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
+
+Q(axis)
 
 Q(axis)
 
@@ -814,8 +814,16 @@ Q(barplot)
 
 Q(barplot)
 
+Q(base)
+
+Q(begin_fill)
+
+Q(begin_fill)
+
 Q(bin)
 
+Q(bisect)
+
 Q(bk)
 
 Q(bk)
@@ -827,6 +835,8 @@ Q(black)
 Q(blue)
 
 Q(blue)
+
+Q(bool)
 
 Q(bool)
 
@@ -870,6 +880,10 @@ Q(bytes)
 
 Q(bytes_at)
 
+Q(byteswap)
+
+Q(byteswap)
+
 Q(cache_tortue)
 
 Q(cache_tortue)
@@ -894,11 +908,21 @@ Q(casioplot)
 
 Q(ceil)
 
+Q(ceil)
+
+Q(center)
+
+Q(center)
+
 Q(char)
 
 Q(char)
+
+Q(cho_solve)
 
 Q(choice)
+
+Q(cholesky)
 
 Q(chr)
 
@@ -920,6 +944,10 @@ Q(clear)
 
 Q(clear)
 
+Q(clear)
+
+Q(clear)
+
 Q(clear_screen)
 
 Q(clear_screen)
@@ -927,6 +955,8 @@ Q(clear_screen)
 Q(clf)
 
 Q(clf)
+
+Q(clip)
 
 Q(close)
 
@@ -948,6 +978,14 @@ Q(code)
 
 Q(collect)
 
+Q(color)
+
+Q(color)
+
+Q(colormode)
+
+Q(colormode)
+
 Q(compile)
 
 Q(compile)
@@ -956,6 +994,8 @@ Q(complex)
 
 Q(complex)
 
+Q(concatenate)
+
 Q(conj)
 
 Q(conj)
@@ -963,6 +1003,10 @@ Q(conj)
 Q(const)
 
 Q(const)
+
+Q(convolve)
+
+Q(copy)
 
 Q(copy)
 
@@ -978,6 +1022,10 @@ Q(cos)
 
 Q(cos)
 
+Q(cos)
+
+Q(cosh)
+
 Q(cosh)
 
 Q(count)
@@ -988,6 +1036,12 @@ Q(count)
 
 Q(count)
 
+Q(count)
+
+Q(count)
+
+Q(cross)
+
 Q(cross)
 
 Q(cross)
@@ -995,6 +1049,10 @@ Q(cross)
 Q(cyan)
 
 Q(cyan)
+
+Q(ddof)
+
+Q(decimals)
 
 Q(decode)
 
@@ -1003,6 +1061,8 @@ Q(decode)
 Q(decompress)
 
 Q(default)
+
+Q(degrees)
 
 Q(degrees)
 
@@ -1022,19 +1082,23 @@ Q(det)
 
 Q(det)
 
+Q(det)
+
+Q(diag)
+
 Q(dict)
 
 Q(dict)
 
 Q(dict_view)
 
+Q(diff)
+
 Q(difference)
 
 Q(difference)
 
 Q(difference_update)
-
-Q(digest)
 
 Q(dir)
 
@@ -1054,6 +1118,12 @@ Q(dot)
 
 Q(dot)
 
+Q(dot)
+
+Q(dot)
+
+Q(dot)
+
 Q(down)
 
 Q(down)
@@ -1101,11 +1171,37 @@ Q(draw_rectangle)
 Q(draw_string)
 
 Q(draw_string)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
+
+Q(dtype)
 
 Q(dump)
 
 Q(dumps)
 
+Q(dx)
+
+Q(e)
+
 Q(e)
 
 Q(e)
@@ -1113,6 +1209,10 @@ Q(e)
 Q(ecris)
 
 Q(ecris)
+
+Q(edgeitems)
+
+Q(edgeitems)
 
 Q(efface)
 
@@ -1126,9 +1226,13 @@ Q(eig)
 
 Q(eig)
 
+Q(eig)
+
 Q(eigenvects)
 
 Q(eigenvects)
+
+Q(empty)
 
 Q(enable)
 
@@ -1140,6 +1244,14 @@ Q(end)
 
 Q(end)
 
+Q(end_fill)
+
+Q(end_fill)
+
+Q(endpoint)
+
+Q(endpoint)
+
 Q(endswith)
 
 Q(endswith)
@@ -1147,14 +1259,16 @@ Q(endswith)
 Q(enumerate)
 
 Q(enumerate)
+
+Q(equal)
+
+Q(erf)
 
 Q(erf)
 
 Q(erfc)
 
-Q(errno)
-
-Q(errorcode)
+Q(erfc)
 
 Q(euler)
 
@@ -1180,6 +1294,10 @@ Q(exp)
 
 Q(exp)
 
+Q(exp)
+
+Q(expm1)
+
 Q(expm1)
 
 Q(extend)
@@ -1190,13 +1308,23 @@ Q(eye)
 
 Q(eye)
 
+Q(eye)
+
 Q(fabs)
 
 Q(factorial)
 
+Q(fatol)
+
 Q(fd)
 
 Q(fd)
+
+Q(fft)
+
+Q(fft)
+
+Q(fft)
 
 Q(fft)
 
@@ -1212,6 +1340,10 @@ Q(fill_rect)
 
 Q(fill_rect)
 
+Q(fillcolor)
+
+Q(fillcolor)
+
 Q(filter)
 
 Q(filter)
@@ -1219,6 +1351,16 @@ Q(filter)
 Q(find)
 
 Q(find)
+
+Q(flat)
+
+Q(flatiter)
+
+Q(flatten)
+
+Q(flip)
+
+Q(float)
 
 Q(float)
 
@@ -1226,9 +1368,13 @@ Q(float)
 
 Q(floor)
 
+Q(floor)
+
 Q(flush)
 
 Q(flush)
+
+Q(fmin)
 
 Q(fmod)
 
@@ -1244,11 +1390,23 @@ Q(frexp)
 
 Q(from_bytes)
 
+Q(from_int16_buffer)
+
+Q(from_int32_buffer)
+
+Q(from_uint16_buffer)
+
+Q(from_uint32_buffer)
+
+Q(frombuffer)
+
 Q(fromkeys)
 
 Q(frozenset)
 
 Q(frozenset)
+
+Q(full)
 
 Q(function)
 
@@ -1272,6 +1430,10 @@ Q(function)
 
 Q(gamma)
 
+Q(gamma)
+
+Q(gammaln)
+
 Q(gc)
 
 Q(gc)
@@ -1290,9 +1452,15 @@ Q(generator)
 
 Q(get)
 
+Q(get_key)
+
+Q(get_key)
+
 Q(get_pixel)
 
 Q(get_pixel)
+
+Q(get_printoptions)
 
 Q(getattr)
 
@@ -1329,6 +1497,8 @@ Q(groups)
 Q(hasattr)
 
 Q(hash)
+
+Q(heading)
 
 Q(heading)
 
@@ -1390,6 +1560,8 @@ Q(ifft)
 
 Q(ifft)
 
+Q(ifft)
+
 Q(im)
 
 Q(im)
@@ -1410,6 +1582,10 @@ Q(index)
 
 Q(index)
 
+Q(inf)
+
+Q(inplace)
+
 Q(input)
 
 Q(insert)
@@ -1422,11 +1598,19 @@ Q(int)
 
 Q(int)
 
+Q(int16)
+
+Q(int8)
+
+Q(interp)
+
 Q(intersection)
 
 Q(intersection)
 
 Q(intersection_update)
+
+Q(inv)
 
 Q(inv)
 
@@ -1451,6 +1635,10 @@ Q(isdisjoint)
 Q(isenabled)
 
 Q(isfinite)
+
+Q(isfinite)
+
+Q(isinf)
 
 Q(isinf)
 
@@ -1486,6 +1674,10 @@ Q(isupper)
 
 Q(items)
 
+Q(itemsize)
+
+Q(itemsize)
+
 Q(iter)
 
 Q(iterable)
@@ -1503,6 +1695,10 @@ Q(iterator)
 Q(join)
 
 Q(join)
+
+Q(k)
+
+Q(k)
 
 Q(kandinsky)
 
@@ -1528,6 +1724,8 @@ Q(left)
 
 Q(left)
 
+Q(left)
+
 Q(len)
 
 Q(leve_crayon)
@@ -1540,9 +1738,19 @@ Q(linalg)
 
 Q(linalg)
 
+Q(linalg)
+
+Q(linalg)
+
+Q(linalg)
+
+Q(linalg)
+
 Q(linear_regression_plot)
 
 Q(linear_regression_plot)
+
+Q(linspace)
 
 Q(linspace)
 
@@ -1570,11 +1778,21 @@ Q(log)
 
 Q(log)
 
+Q(log)
+
+Q(log10)
+
 Q(log10)
 
 Q(log10)
 
 Q(log2)
+
+Q(log2)
+
+Q(logspace)
+
+Q(lower)
 
 Q(lower)
 
@@ -1618,9 +1836,23 @@ Q(matrix)
 
 Q(max)
 
+Q(max)
+
+Q(maximum)
+
 Q(maximum_space_recursion_space_depth_space_exceeded)
 
+Q(maxiter)
+
+Q(maxiter)
+
+Q(maxiter)
+
 Q(maxsize)
+
+Q(mean)
+
+Q(median)
 
 Q(mem)
 
@@ -1644,6 +1876,12 @@ Q(micropython)
 
 Q(min)
 
+Q(min)
+
+Q(minimum)
+
+Q(mode)
+
 Q(mode)
 
 Q(modf)
@@ -1664,11 +1902,23 @@ Q(mul)
 
 Q(mul)
 
+Q(n)
+
 Q(name)
 
 Q(namedtuple)
 
+Q(nan)
+
 Q(native)
+
+Q(ndarray)
+
+Q(ndarray)
+
+Q(ndinfo)
+
+Q(newton)
 
 Q(next)
 
@@ -1676,6 +1926,10 @@ Q(nextprime)
 
 Q(nextprime)
 
+Q(norm)
+
+Q(not_equal)
+
 Q(nprimes)
 
 Q(nprimes)
@@ -1683,6 +1937,14 @@ Q(nprimes)
 Q(nsp)
 
 Q(nsp)
+
+Q(num)
+
+Q(num)
+
+Q(numpy)
+
+Q(numpy)
 
 Q(object)
 
@@ -1696,7 +1958,13 @@ Q(oct)
 
 Q(off)
 
+Q(offset)
+
+Q(offset)
+
 Q(on)
+
+Q(ones)
 
 Q(ones)
 
@@ -1708,11 +1976,25 @@ Q(open)
 
 Q(opt_level)
 
+Q(optimize)
+
+Q(optimize)
+
 Q(ord)
+
+Q(order)
+
+Q(otypes)
+
+Q(out)
 
 Q(pack)
 
 Q(pack_into)
+
+Q(partition)
+
+Q(partition)
 
 Q(pas_de_cote)
 
@@ -1728,6 +2010,8 @@ Q(pd)
 
 Q(pd)
 
+Q(peektime)
+
 Q(pencolor)
 
 Q(pencolor)
@@ -1737,6 +2021,10 @@ Q(pend_throw)
 Q(pendown)
 
 Q(pendown)
+
+Q(pensize)
+
+Q(pensize)
 
 Q(penup)
 
@@ -1756,6 +2044,8 @@ Q(pi)
 
 Q(pi)
 
+Q(pi)
+
 Q(platform)
 
 Q(plot)
@@ -1763,6 +2053,12 @@ Q(plot)
 Q(plot)
 
 Q(polar)
+
+Q(polyfit)
+
+Q(polyval)
+
+Q(pop)
 
 Q(pop)
 
@@ -1773,6 +2069,8 @@ Q(pop)
 Q(popitem)
 
 Q(popleft)
+
+Q(pos)
 
 Q(pos)
 
@@ -1820,13 +2118,19 @@ Q(pu)
 
 Q(pu)
 
+Q(push)
+
 Q(pylab)
 
 Q(pyplot)
 
+Q(qr)
+
 Q(qstr_info)
 
 Q(r)
+
+Q(radians)
 
 Q(radians)
 
@@ -1912,6 +2216,8 @@ Q(red)
 
 Q(red)
 
+Q(reduced)
+
 Q(rel_tol)
 
 Q(remove)
@@ -1928,6 +2234,10 @@ Q(reset)
 
 Q(reset)
 
+Q(reshape)
+
+Q(retstep)
+
 Q(reverse)
 
 Q(reverse)
@@ -1944,9 +2254,13 @@ Q(right)
 
 Q(right)
 
+Q(right)
+
 Q(rindex)
 
 Q(rindex)
+
+Q(roll)
 
 Q(rond)
 
@@ -1954,6 +2268,10 @@ Q(rond)
 
 Q(round)
 
+Q(rpartition)
+
+Q(rpartition)
+
 Q(rref)
 
 Q(rref)
@@ -1970,6 +2288,8 @@ Q(rt)
 
 Q(rt)
 
+Q(rtol)
+
 Q(saute)
 
 Q(saute)
@@ -1981,6 +2301,10 @@ Q(scatter)
 Q(scatterplot)
 
 Q(scatterplot)
+
+Q(scipy)
+
+Q(scipy)
 
 Q(search)
 
@@ -2005,6 +2329,8 @@ Q(set)
 Q(set_pixel)
 
 Q(set_pixel)
+
+Q(set_printoptions)
 
 Q(setattr)
 
@@ -2036,9 +2362,9 @@ Q(sety)
 
 Q(sety)
 
-Q(sha256)
+Q(shape)
 
-Q(sha256)
+Q(shape)
 
 Q(shape)
 
@@ -2057,6 +2383,12 @@ Q(show_screen)
 Q(showturtle)
 
 Q(showturtle)
+
+Q(signal)
+
+Q(signal)
+
+Q(sin)
 
 Q(sin)
 
@@ -2065,6 +2397,10 @@ Q(sin)
 Q(single)
 
 Q(sinh)
+
+Q(sinh)
+
+Q(size)
 
 Q(size)
 
@@ -2080,12 +2416,28 @@ Q(solve)
 
 Q(solve)
 
+Q(solve_triangular)
+
+Q(sort)
+
+Q(sort)
+
 Q(sort)
 
 Q(sorted)
 
+Q(sos)
+
+Q(sosfilt)
+
 Q(span)
 
+Q(special)
+
+Q(special)
+
+Q(spectrogram)
+
 Q(speed)
 
 Q(speed)
@@ -2099,6 +2451,8 @@ Q(split)
 Q(splitlines)
 
 Q(splitlines)
+
+Q(sqrt)
 
 Q(sqrt)
 
@@ -2128,6 +2482,8 @@ Q(staticmethod)
 
 Q(staticmethod)
 
+Q(std)
+
 Q(stderr)
 
 Q(stdin)
@@ -2150,6 +2506,8 @@ Q(str)
 
 Q(str)
 
+Q(strides)
+
 Q(strip)
 
 Q(strip)
@@ -2165,6 +2523,8 @@ Q(sub)
 Q(sub)
 
 Q(sub)
+
+Q(sum)
 
 Q(sum)
 
@@ -2186,6 +2546,10 @@ Q(sys)
 
 Q(tan)
 
+Q(tan)
+
+Q(tanh)
+
 Q(tanh)
 
 Q(td)
@@ -2204,6 +2568,10 @@ Q(tg)
 
 Q(threshold)
 
+Q(threshold)
+
+Q(threshold)
+
 Q(throw)
 
 Q(throw)
@@ -2214,6 +2582,10 @@ Q(time)
 
 Q(to_bytes)
 
+Q(tobytes)
+
+Q(tol)
+
 Q(tourne_droite)
 
 Q(tourne_droite)
@@ -2222,9 +2594,19 @@ Q(tourne_gauche)
 
 Q(tourne_gauche)
 
+Q(towards)
+
+Q(towards)
+
+Q(trace)
+
 Q(transpose)
 
 Q(transpose)
+
+Q(transpose)
+
+Q(trapz)
 
 Q(triangle_plein)
 
@@ -2262,10 +2644,6 @@ Q(uctypes)
 
 Q(uctypes)
 
-Q(uerrno)
-
-Q(uerrno)
-
 Q(uhashlib)
 
 Q(uhashlib)
@@ -2278,6 +2656,10 @@ Q(uint)
 
 Q(uint)
 
+Q(uint16)
+
+Q(uint8)
+
 Q(uio)
 
 Q(uio)
@@ -2285,6 +2667,10 @@ Q(uio)
 Q(ujson)
 
 Q(ujson)
+
+Q(ulab)
+
+Q(ulab)
 
 Q(unhexlify)
 
@@ -2306,8 +2692,6 @@ Q(update)
 
 Q(update)
 
-Q(update)
-
 Q(upper)
 
 Q(upper)
@@ -2326,9 +2710,23 @@ Q(utf_hyphen_8)
 
 Q(utf_hyphen_8)
 
+Q(utils)
+
+Q(utils)
+
+Q(utimeq)
+
+Q(utimeq)
+
+Q(utimeq)
+
+Q(utimeq)
+
 Q(uzlib)
 
 Q(uzlib)
+
+Q(v)
 
 Q(value)
 
@@ -2344,6 +2742,8 @@ Q(vector)
 
 Q(vector)
 
+Q(vectorize)
+
 Q(version)
 
 Q(version)
@@ -2358,21 +2758,37 @@ Q(vitesse_tortue)
 
 Q(waitKeypress)
 
-Q(white)
+Q(where)
 
 Q(white)
 
-Q(write)
+Q(white)
+
+Q(width)
+
+Q(width)
 
 Q(write)
 
 Q(write)
 
 Q(write)
+
+Q(write)
+
+Q(x)
+
+Q(x)
+
+Q(xatol)
 
 Q(xcas)
 
 Q(xcas)
+
+Q(xcas)
+
+Q(xtol)
 
 Q(yellow)
 
@@ -2381,6 +2797,10 @@ Q(yellow)
 Q(zeros)
 
 Q(zeros)
+
+Q(zeros)
+
+Q(zi)
 
 Q(zip)
 

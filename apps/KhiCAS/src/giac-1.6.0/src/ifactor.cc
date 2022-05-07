@@ -4,11 +4,16 @@
 #define GIAC_MPQS // define if you want to use giac for sieving 
 #endif
 
-#ifdef HAVE_LIBECM
+#ifdef BF2GMP_H
+#undef HAVE_LIBECM
+#undef HAVE_LIBBERNMM
+#endif
+
+#if defined HAVE_LIBECM 
 #include <ecm.h>
 #endif
 
-#ifdef HAVE_LIBBERNMM
+#if defined HAVE_LIBBERNMM 
 #include <bern_modp.h>
 #include <bern_rat.h>
 #endif
@@ -406,6 +411,12 @@ namespace giac {
   }
 #endif
 
+  int modulo(const gen & a,unsigned b){
+    if (a.type==_INT_)
+      return a.val % b;
+    return modulo(*a._ZINTptr,b);
+  }
+
 #if defined RTOS_THREADX || defined BESTA_OS || defined NSPIRE
   typedef unsigned short pui_t ;
   typedef unsigned short ushort_t;
@@ -426,7 +437,7 @@ namespace giac {
 #if defined(EMCC) || defined(EMCC2)
 #include <map>
 #endif
-#if (defined EMCC || defined EMCC2 || defined(HASH_MAP_NAMESPACE)) && defined(PRIMES32)
+#if (defined EMCC || defined EMCC2 || defined(HASH_MAP_NAMESPACE)) && defined(PRIMES32) && !defined(ADDITIONAL_PRIMES_HASHMAP)
 #define ADDITIONAL_PRIMES_HASHMAP
 #endif
 #endif // RTOS_THREADX || BESTA_OS
@@ -3627,7 +3638,7 @@ namespace giac {
 
   bool is_divisible_by(const gen & n,unsigned long a){
     if (n.type==_ZINT){
-#ifdef USE_GMP_REPLACEMENTS
+#if defined USE_GMP_REPLACEMENTS 
       mp_digit c;
       mp_mod_d(n._ZINTptr, a, &c);
       return c==0;
@@ -3998,38 +4009,55 @@ namespace giac {
       return vecteur(0);
     if (_isprime(n0,contextptr)!=0)
       return makevecteur(n0,1);
+#if 1 // set to 0 to disable ecm and pari, using giac sieve only
+    bool ifactor_pari=true;
 #ifdef HAVE_LIBECM
     int res;
     gen F(1LL<<33);
     double B1=1e6;
-    for (int i=0;i<ECM_MAXITER;++i){
+    int nbits=sizeinbase2(n0);
+    int maxiter=ECM_MAXITER;
+    if (nbits<242)
+      maxiter = 32;
+    else if (nbits<244)
+      maxiter = 64;
+    else if (nbits<246)
+      maxiter = 128;
+    else if (nbits<248)
+      maxiter = 256;
+    else if (nbits<250)
+      maxiter = 512;
+    for (int i=0;i<maxiter;++i){
       res=ecm_factor(*F._ZINTptr, *n0._ZINTptr, B1, 0);
       if (res!=0) break;
     }
     if (res!=0){
       vecteur tmp=ifactors1(n0/F,contextptr);
-      tmp.push_back(F);
-      tmp.push_back(1);
+      tmp=mergevecteur(tmp,ifactors1(F,contextptr));
       return tmp;
     }
+    ifactor_pari=nbits>=256;
 #endif
 #ifdef HAVE_LIBPARI
+    if (ifactor_pari){
 #ifdef __APPLE__
-    return vecteur(1,gensizeerr(gettext("(Mac OS) Large number, you can try pari(); pari_factor(")+n0.print(contextptr)+")"));
+      return vecteur(1,gensizeerr(gettext("(Mac OS) Large number, you can try pari(); pari_factor(")+n0.print(contextptr)+")"));
 #endif
-    gen g(pari_ifactor(n0),contextptr); 
-    if (g.type==_VECT){
-      matrice m(mtran(*g._VECTptr));
-      vecteur res;
-      const_iterateur it=m.begin(),itend=m.end();
-      for (;it!=itend;++it){
-	if (it->type!=_VECT) return vecteur(1,gensizeerr(gettext("ifactor.cc/ifactors")));
-	res.push_back(it->_VECTptr->front());
-	res.push_back(it->_VECTptr->back());
+      gen g(pari_ifactor(n0),contextptr); 
+      if (g.type==_VECT){
+	matrice m(mtran(*g._VECTptr));
+	vecteur res;
+	const_iterateur it=m.begin(),itend=m.end();
+	for (;it!=itend;++it){
+	  if (it->type!=_VECT) return vecteur(1,gensizeerr(gettext("ifactor.cc/ifactors")));
+	  res.push_back(it->_VECTptr->front());
+	  res.push_back(it->_VECTptr->back());
+	}
+	return res;
       }
-      return res;
     }
 #endif // LIBPARI
+#endif
     return giac_ifactors(n0,contextptr);
   }
 
@@ -4126,12 +4154,24 @@ namespace giac {
 
   gen _ifactors(const gen & args,GIAC_CONTEXT){
     if ( args.type==_STRNG && args.subtype==-1) return  args;
-    if (args.type==_VECT && args.subtype==_SEQ__VECT && args._VECTptr->size()==2 && args._VECTptr->back()==at_matrix){
+    if (args.type==_VECT && args.subtype==_SEQ__VECT && args._VECTptr->size()==2 ){
       gen g=args._VECTptr->front();
-      g=_ifactors(g,contextptr);
-      if (g.type!=_VECT || g._VECTptr->size()%2)
-	return g;
-      return _matrix(makesequence(g._VECTptr->size()/2,2,g),contextptr);
+      gen b=args._VECTptr->back();
+      if (b==at_matrix){
+	g=_ifactors(g,contextptr);
+	if (g.type!=_VECT || g._VECTptr->size()%2)
+	  return g;
+	return _matrix(makesequence(g._VECTptr->size()/2,2,g),contextptr);
+      }
+#ifndef EMCC
+      if (b.type==_SYMB){
+	gen res;
+	// b is assumed to be a minimal polynomial check if g is a norm 
+	if (!pari_intnorm(g,b,lvar(b),res,contextptr))
+	  return gensizeerr(gettext("Not implemented. Try to compile with PARI"));
+	return res;
+      }
+#endif
     }
     if (args.type==_VECT)
       return apply(args,_ifactors,contextptr);
@@ -4720,8 +4760,66 @@ namespace giac {
   }
 
   gen _znprimroot(const gen & p,GIAC_CONTEXT){
-    if (p.type==_INT_ && is_probab_prime_p(p))
-      return makemod(generator(p.val),p);
+    if (p==2) return 1;
+    if (p==4) return 3;
+    gen o=p-1,q=p; // order
+    if (modulo(p,2)==0){
+      q=p/2;
+      if (modulo(q,2)==0)
+	return undef;
+    }
+    int cyclic=0;
+    if (is_probab_prime_p(q))
+      cyclic=1;
+    else {
+      // is q a power of a prime?
+      double d=evalf_double(q,1,contextptr)._DOUBLE_val;
+      int maxpow=int(std::ceil(std::log(d)/std::log(3)));
+      for (int i=2;i<=maxpow;++i){
+	if ( (i>2 && i%2==0) ||
+	     (i>3 && i%3==0) ||
+	     (i>5 && i%5==0) ||
+	     (i>7 && i%7==0) )
+	  continue;
+	gen u;
+	if (i==2)
+	  u=isqrt(q);
+	else if (i==4)
+	  u=isqrt(isqrt(q));
+	else {
+	  double x=std::pow(d,1./i);
+	  u=longlong(x);
+	}
+	if (pow(u,i,contextptr)==q){
+	  cyclic=2;
+	  o=q*(1-inv(u,contextptr));
+	  break;
+	}
+      }
+    }
+    if (cyclic){
+      if (cyclic==1 && p.type==_INT_) 
+	return makemod(generator(p.val),p);
+      gen g=prime_factors(o,true,contextptr);
+      if (g.type!=_VECT) return undef;
+      vecteur & v=*g._VECTptr;
+      vecteur w;
+      for (int i=0;i<v.size();++i){
+	w.push_back(o/v[i]);
+      }
+      for (int a=2;a<65536;++a){
+	if (gcd(a,p)!=1)
+	  continue;
+	int i;
+	for (i=0;i<w.size();++i){
+	  if (powmod(a,w[i],p)==1)
+	    break;
+	}
+	if (i==w.size())
+	  return makemod(a,p);
+      }
+      return undef;
+    }
 #ifdef HAVE_LIBPARI
     if (!is_integer(p))
       return gentypeerr(contextptr);
@@ -4761,6 +4859,36 @@ namespace giac {
     return znorder(k,p,phi,v);
   }
 
+  gen znorder(const gen & k,const gen & p,const gen & phi,const vecteur & v){
+    gen o=1;
+    for (int i=0;i<v.size();i+=2){
+      gen pi=v[i];
+      if (is_greater(1,pi,context0))
+	continue;
+      int mi=v[i+1].val;
+      gen pimi=pow(pi,mi);
+      gen a=powmod(k,phi/pimi,p);
+      while (a!=1){
+	o = o*pi;
+	a=powmod(a,pi,p);
+      }
+    }
+    return o;
+  }
+
+  gen znorder(gen & k,const gen & p){
+    k=k % p;
+    if (gcd(k,p)!=1)
+      return 0;
+    if (k==1)
+      return 1;
+    gen phi=_euler(p,context0);
+    gen v=_ifactors(phi,context0);
+    if (v.type!=_VECT)
+      return undef;
+    return znorder(k,p,phi,*v._VECTptr);
+  }
+
   gen _znorder(const gen & args,GIAC_CONTEXT){
     if (args.type==_MOD)
       return _znorder(makevecteur(*args._MODptr,*(args._MODptr+1)),contextptr);
@@ -4772,9 +4900,11 @@ namespace giac {
       return 0;
     return _pari(makesequence(string2gen("znorder",false),makemod(k,p)),contextptr);
 #endif
-    if (k.type!=_INT_ || p.type!=_INT_  || p.val<2)
-      return gentypeerr("PARI not compiled in => currently, znorder(k,p) expects integers<2^31");
-    return znorder(k.val,p.val);
+    if (is_greater(1,p,contextptr))
+      return undef;
+    if (k.type==_INT_ && p.val==_INT_ )
+      return znorder(k.val,p.val);
+    return znorder(k,p);
   }
   static const char _znorder_s []="znorder";
   static define_unary_function_eval (__znorder,&_znorder,_znorder_s);
@@ -4896,10 +5026,10 @@ namespace giac {
   }
 #endif
 
-
+  const double m_ln2=0.69314718055994531;
   // Inspired by David Harvey code (bernmm)
   gen bernoulli_rat(int k){
-    long bound1 = (long) std::ceil((k + 0.5) * std::log(double(k)) /M_LN2);
+    long bound1 = (long) std::ceil((k + 0.5) * std::log(double(k)) /m_ln2);
     if (bound1<37)
       bound1=37;
     // Computes the denominator of B_k using Clausen/von Staudt.
@@ -4919,8 +5049,8 @@ namespace giac {
 	}
       }
     }
-    double bits= (k+0.5)*std::log(double(k))/M_LN2 - 4.094*k + 2.470 +
-      std::log(evalf_double(D,1,context0)._DOUBLE_val)/M_LN2 ;
+    double bits= (k+0.5)*std::log(double(k))/m_ln2 - 4.094*k + 2.470 +
+      std::log(evalf_double(D,1,context0)._DOUBLE_val)/m_ln2 ;
     gen res(0.0),pip=1;
     mpz_t tmpz; mpz_init(tmpz);
     for (int p = 5; ; p = nextprime(p+1).val){
@@ -4943,7 +5073,7 @@ namespace giac {
 	  res=ichinrem(gen(cur),res,gen(p),pip);
       }
       pip = p*pip;
-      bits -= std::log(p)/M_LN2;
+      bits -= std::log(double(p))/m_ln2;
       if (bits<-1)
 	break;
     }
@@ -4974,7 +5104,352 @@ namespace giac {
   static define_unary_function_eval (__bernoulli_mod,&_bernoulli_mod,_bernoulli_mod_s);
   define_unary_function_ptr5( at_bernoulli_mod ,alias_at_bernoulli_mod,&__bernoulli_mod,0,true); 
 
+  inline void new_xab(int & x, int & a, int& b,const int N,const int n,const int alpha,const int beta) {
+    switch (x % 3) {
+    case 0: 
+      x = longlong(x)*x % N;  
+      a = longlong(a)*2 % n;  
+      b = longlong(b)*2 % n;  
+      break;
+    case 1: 
+      x = longlong(x)*alpha % N;  
+      a = (a+1) % n;                  
+      break;
+    case 2: 
+      x = longlong(x)*beta % N;                  
+      b = (b+1) % n;  
+      break;
+    }
+  }
 
+  // N prime, solve alpha^e=beta mod N using Pollard-Rho
+  int baby64(int alpha,int beta,int N,int n){
+    int x = 1, a = 0, b = 0; // x=alpha^a*beta^b
+    int X = x, A = a, B = b; // X=alpha^A*beta^B
+    for (int i = 1; i < n; ++i) {
+      new_xab(x,a,b,N,n,alpha,beta);
+      new_xab(X,A,B,N,n,alpha,beta);
+      new_xab(X,A,B,N,n,alpha,beta);
+      if (x==X){ 
+	// alpha^a*beta^b=alpha^A*beta^B hence
+	// alpha^(A-a)=beta^(B-b) mod n, (B-b)*e=(A-a) mod n
+	int b1=B-b,a1=a-A;
+	int g=gcd(b1,n);
+	if (a1%g) 
+	  return -1;
+	// b1*e=a1+k*n1 <-> b2*e=a2+k*n2
+	int b2=b1/g,a2=a1/g,n2=n/g;
+	longlong b3=invmod(b2,n2); // e=b3*a2 mod n2 
+	int e0=(b3*a2) % n2;
+	for (longlong k=0;k<g;++k){
+	  int e=e0+k*n2;
+	  if (e<0) e+=n; 
+	  longlong chk=powmod(alpha,e,N);
+	  if ((chk-beta)%N==0)
+	    return e;
+	  if ((chk+beta)%N==0)
+	    return e+n/2;
+	}
+      }
+    }
+    return -1; // means not found
+  }
+
+#ifdef INT128
+  inline void new_xab(longlong & x, longlong & a, longlong& b,const longlong N,const longlong n,const longlong alpha,const longlong beta) {
+    switch (x % 3) {
+    case 0: 
+      x = int128_t(x)*x % N;  
+      a = int128_t(a)*2 % n;  
+      b = int128_t(b)*2 % n;  
+      break;
+    case 1: 
+      x = int128_t(x)*alpha % N;  
+      a = (a+1) % n;                  
+      break;
+    case 2: 
+      x = int128_t(x)*beta % N;                  
+      b = (b+1) % n;  
+      break;
+    }
+  }
+
+  // N prime, solve alpha^e=beta mod N using Pollard-Rho
+  longlong baby128(longlong alpha,longlong beta,longlong N,longlong n){
+    longlong x = 1, a = 0, b = 0; // x=alpha^a*beta^b
+    longlong X = x, A = a, B = b; // X=alpha^A*beta^B
+    for (longlong i = 1; i < n; ++i) {
+      new_xab(x,a,b,N,n,alpha,beta);
+      new_xab(X,A,B,N,n,alpha,beta);
+      new_xab(X,A,B,N,n,alpha,beta);
+      if (x==X){ 
+	// alpha^a*beta^b=alpha^A*beta^B hence
+	// alpha^(A-a)=beta^(B-b) mod n, (B-b)*e=(A-a) mod n
+	longlong b1=B-b,a1=a-A;
+	longlong g=gcd(b1,n);
+	if (a1%g) 
+	  return -1;
+	// b1*e=a1+k*n1 <-> b2*e=a2+k*n2
+	longlong b2=b1/g,a2=a1/g,n2=n/g;
+	int128_t b3=invmod(b2,n2); // e=b3*a2 mod n2 
+	if (b3<0) b3+=n2;
+	longlong e0=(b3*a2) % n2;
+	for (longlong k=0;k<g;++k){
+	  longlong e=e0+k*n2;
+	  int128_t chk=powmod(alpha,e,N);
+	  if ((chk-beta)%N==0)
+	    return e;
+	  if ((chk+beta)%N==0)
+	    return e+n/2;
+	}
+      }
+    }
+    return -1; // means not found
+  }
+#endif
+
+  void new_xab(gen & x, gen & a, gen& b,const gen & N,const gen & n,const gen & alpha,const gen & beta) {
+    mpz_t & xz=*x._ZINTptr;
+    mpz_t & az=*a._ZINTptr;
+    mpz_t & bz=*b._ZINTptr;
+    const mpz_t & Nz=*N._ZINTptr;
+    const mpz_t & nz=*n._ZINTptr;
+    int t=modulo(xz,3);
+    switch (t) {
+    case 0: 
+      mpz_mul(xz,xz,xz); mpz_tdiv_r(xz,xz,Nz); // x = longlong(x*x) % N;  
+      mpz_mul_ui(az,az,2); mpz_tdiv_r(az,az,nz);  // a = longlong(a*2) % n;  
+      mpz_mul_ui(bz,bz,2); mpz_tdiv_r(bz,bz,nz); // b = longlong(b*2) % n;  
+      break;
+    case 1: 
+      mpz_mul(xz,*alpha._ZINTptr,xz); mpz_tdiv_r(xz,xz,Nz); // x = longlong(x*alpha) % N;  
+      mpz_add_ui(az,az,1);  mpz_tdiv_r(az,az,nz); // a = (a+1) % n;                  
+      break;
+    case 2: 
+      mpz_mul(xz,*beta._ZINTptr,xz); mpz_tdiv_r(xz,xz,Nz); // x = longlong(x*beta) % N;                  
+      mpz_add_ui(bz,bz,1);  mpz_tdiv_r(bz,bz,nz); // b = (b+1) % n;  
+      break;
+    }
+  }
+
+  // N prime, solve alpha^e=beta mod N using Pollard-Rho
+  gen baby(const gen & alpha,const gen & beta,const gen & N,const gen & n_){
+    if (alpha.type==_INT_ || beta.type==_INT_ || N.type==_INT_){
+      gen al=alpha,be=beta,NN=N;
+      al.uncoerce(); be.uncoerce(); NN.uncoerce();
+      return baby(al,be,NN,n_);
+    }
+    gen n=n_; n.uncoerce();
+    gen x = 1, a = 0, b = 0; // x=alpha^a*beta^b
+    gen X = x, A = a, B = b; // X=alpha^A*beta^B
+    x.uncoerce(); a.uncoerce(); b.uncoerce(); X.uncoerce(); A.uncoerce(); B.uncoerce();
+    for (longlong i=0; i<(1LL<<46); ++i) {
+      new_xab(x,a,b,N,n,alpha,beta);
+      new_xab(X,A,B,N,n,alpha,beta);
+      new_xab(X,A,B,N,n,alpha,beta);
+      if (x==X){ 
+	// alpha^a*beta^b=alpha^A*beta^B hence
+	// alpha^(A-a)=beta^(B-b) mod n, (B-b)*e=(A-a) mod n
+	gen b1=B-b,a1=a-A;
+	gen g=gcd(b1,n);
+	if (a1%g!=0) 
+	  return -1;
+	// b1*e=a1+k*n1 <-> b2*e=a2+k*n2
+	gen b2=b1/g,a2=a1/g,n2=n/g;
+	gen b3=invmod(b2,n2); // e=b3*a2 mod n2 
+	if (is_positive(-b3,context0))
+	  b3 += n2;
+	gen e0=(b3*a2) % n2;
+	for (gen k=0;is_greater(g,k,context0);k+=1){
+	  gen e=e0+k*n2;
+	  gen chk=powmod(alpha,e,N);
+	  if ((chk-beta)%N==0)
+	    return e;
+	  if ((chk+beta)%N==0) 
+	    return e+n/2; // works only if alpha^(n/2)=-1
+	}
+      }
+    }
+    return -1; // means not found
+  }
+
+  // solve g^x=h mod N, where g^(p^e)=1 mod N and g^(p^(e-1))!=1 mod N
+  // start from the fact that h^-1*g^0 is of order p^(e)  mod N, x0=0
+  // then for k>=0 find dk such that
+  // h^-1*g^(xk+dk*p^(k)) is of order p^(e-(k+1)) mod N 
+  // where h^-1*g^xk of order p^(e-k) mod N
+  // (g^(-xk)*h)^-1*g^(dk*p^(k)) must be of order p^(e-(k+1)) mod N
+  // let hk:=(g^(-xk)*h)^(p^(e-1-k)) and gamma=g^(p^(e-1)
+  // Take power p^(e-1-k) -> hk^-1*gamma^dk of order 1 mod N
+  // gamma^dk=hk mod N
+  gen padic_logb(const gen & g,const gen & h,const gen & p,int e,const gen & N){
+    if (h==1) return 0;
+    if (h==g) return 1;
+    gen xk=0;
+    gen pe1=pow(p,e-1),pe=pe1*p,invg=invmod(g,N);
+    if (is_positive(-invg,context0))
+      invg+=N;
+    gen gamma=powmod(g,pe1,N);
+    gen pk=1;
+    for (int k=0;k<e;++k){
+      gen g1=powmod(invg,xk,N)*h;
+      gen hk=powmod(g1,pow(p,e-1-k),N);
+      gen dk=logb(hk,gamma,N,context0,p);
+      xk = xk+dk*pk;
+      pk=p*pk;
+    }
+    return xk;
+  }
+
+  gen logb(const gen & a,const gen &b,const gen & N,GIAC_CONTEXT,gen order){
+    if (a==0)
+      return undef;
+    if (N==2)
+      return 0;
+    if (a==b)
+      return 1;
+    if (a==1)
+      return 0;
+    gen n(order);
+    if (order==0){
+      n=N-1;
+      if (_isprime(N,context0)==0)
+	return gensizeerr(gettext("Expecting an odd prime as 3rd argument"));
+      // solve b^x=a mod N (that's x=log_b(a))
+      gen chk=powmod(b,(N-1)/2,N);
+      if ((chk+1) % N !=0)
+	*logptr(contextptr) << "2nd arg is not a generator, answer might be wrong\n";
+      gen n=N-1;
+      vecteur v(ifactors(n,contextptr));
+      if (v.size()==2){
+	gen res=padic_logb(b,a,v[0],v[1].val,N);
+	return res;
+      }
+      // chinese remaindering step
+      gen x,curprod(1);
+      for (int i=0;i<v.size();i+=2){
+	gen pi=v[i],ei=v[i+1];
+	if (ei.type!=_INT_)
+	  return gensizeerr(contextptr);
+	gen piei=pow(pi,ei.val),coorder=n/piei;
+	gen gi=powmod(b,coorder,N);
+	gen hi=powmod(a,coorder,N);
+	gen xi=padic_logb(gi,hi,pi,ei.val,N);
+	if (i==0) 
+	  x=xi;
+	else
+	  x=ichinrem(x,xi,curprod,piei);
+	curprod=curprod*piei;
+      }
+      if (is_positive(x,contextptr))
+	return x;
+      return x+n;
+    }
+    if (is_integer(a) && is_integer(b) && N.type==_INT_){
+      int A=a.type==_INT_?a.val:modulo(*a._ZINTptr,N.val),B=b.type==_INT_?b.val:modulo(*b._ZINTptr,N.val);
+      int res=baby64(B,A,N.val,order.val);
+      if (order!=0)
+	return res % order.val;
+      return res;
+    }
+    // ifactor n==N-1
+    gen res=baby(a,b,N,order);
+    if (order!=0)
+      return res % order;
+    return res;
+  }
+
+  // Find a list of prime factors 
+  // such that g/factors^multiplicity<sqrt(g) if full==false
+  // if not found return undef
+  gen prime_factors(const gen &g0,bool full,GIAC_CONTEXT){
+    gen g(g0);
+    vecteur res;
+    if (full){
+      g=_ifactors(g0,contextptr);
+      if (g.type!=_VECT)
+	return undef;
+      vecteur & v=*g._VECTptr;
+      for (int i=0;i<v.size();i+=2){
+	if (is_greater(v[i],1,contextptr))
+	  res.push_back(v[i]);
+      }
+      return res;
+    }
+    gen gstop=isqrt(g);
+    // trivial factor
+    for (int i=0;i<sizeof(giac_primes)/sizeof(short int);++i){
+      int p=giac_primes[i];
+      if (modulo(g,p))
+	continue;
+      res.push_back(p);
+      for (;;){
+	g=g/p;
+	if (modulo(g,p))
+	  break;
+      }
+      if (is_greater(gstop,g,contextptr))
+	return res;
+      if (is_greater(g0,g*g,contextptr)){
+	res.push_back(g);
+	return res;
+      }
+    }
+    // pollard(a,k,contextptr) -> factor or -1/0
+    for (;;){
+      if (is_greater(gstop,g,contextptr))
+	return res;
+      if (is_probab_prime_p(g)){
+	// leave the user compute a certificate for this prime factor...
+	res.push_back(g);
+	return res;
+      }
+      gen b=pollard(g,1,contextptr);
+      if (!is_greater(b,2,contextptr)){
+	// _ecm_factor(n,contextptr) -> factor or undef
+	b=_ecm_factor(g,contextptr);
+	if (is_undef(b))
+	  return undef; // could not partial factor
+      }
+      gen c=_ifactors(b,contextptr);
+      if (c.type!=_VECT)
+	return undef;
+      vecteur & v=*c._VECTptr;
+      for (int i=0;i<v.size();i+=2){
+	if (is_greater(v[i],2,contextptr))
+	  res.push_back(v[i]);
+      }
+      g=g/b;
+    }
+    return undef; // could not partial factor (never reached)
+  }
+
+  gen prime_cert(const gen & g,GIAC_CONTEXT){
+    if (!is_probab_prime_p(g))
+      return 0;
+    gen o=g-1; // order
+    gen lf=prime_factors(o,false,contextptr); // partial list of prime factors
+    if (lf.type!=_VECT)
+      return undef;
+    vecteur & v=*lf._VECTptr;
+    // for each element p of v, we must find a such that 
+    // * a^o==1 mod g
+    // * gcd(a^(o/p)-1,g)==1
+    vecteur res;
+    for (int i=0;i<v.size();++i){
+      gen p=v[i];
+      for (int a=2;;++a){
+	if (a==RAND_MAX) return undef;
+	if (powmod(a,o,g)!=1)
+	  continue;
+	if (gcd(powmod(a,o/p,g)-1,g)==1){
+	  res.push_back(makevecteur(p,a,p.type==_INT_?1:0));
+	  break;
+	}
+      }
+    }
+    return res;
+  }
 #ifndef NO_NAMESPACE_GIAC
 } // namespace giac
 #endif // ndef NO_NAMESPACE_GIAC

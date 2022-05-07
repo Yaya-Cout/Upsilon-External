@@ -115,7 +115,6 @@ extern const struct _mp_obj_module_t mp_module_time;
 #define MICROPY_PORT_BUILTIN_MODULES \
 	{ MP_ROM_QSTR(MP_QSTR__os), (mp_obj_t) &mp_module_os }, \
 	{ MP_ROM_QSTR(MP_QSTR_cas), (mp_obj_t) &mp_module_cas }, \
-	{ MP_ROM_QSTR(MP_QSTR_xcas), (mp_obj_t) &mp_module_cas }, \
 	{ MP_ROM_QSTR(MP_QSTR_arit), (mp_obj_t) &mp_module_arit }, \
 	{ MP_ROM_QSTR(MP_QSTR_linalg), (mp_obj_t) &mp_module_linalg }, \
 	{ MP_ROM_QSTR(MP_QSTR_matplotl), (mp_obj_t) &mp_module_matplotl }, \

@@ -25,7 +25,6 @@ api/libapi.a:
 apps/%/app.elf: api/libapi.a
 	make -C apps/$@
 
-
 clean:
 	@echo "make clean is deprecated, use make app-name_clean instead"
 	rm -f apps.tar
@@ -35,6 +34,7 @@ clean:
 	make -C apps/Nofrendo clean
 	make -C apps/Peanut-GB clean
 	make -C apps/HexEdit clean
+	make -C apps/UnitCircle clean
 	make -C apps/BadApple clean
 	make -C apps/CHIP-8 clean
 	make -C apps/Example clean

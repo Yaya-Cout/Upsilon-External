@@ -2,6 +2,9 @@
 #ifndef K_CSDK_H
 #define K_CSDK_H
 #include "k_defs.h"
+// Defaults parameters do not work if included from C 
+#define SDK_BLACK 0
+#define SDK_WHITE 65535
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -24,11 +27,22 @@ extern "C" {
   void os_hide_graph(); // hide graph, not used anymore
   void os_redraw(); // force redraw of window class hierarchy
 #ifdef NUMWORKS
+  void raisememerr();
+  extern unsigned _heap_size;
+  extern void * _heap_ptr;
+  extern void * _heap_base;
+  bool inexammode();
+  int extapp_restorebackup(int mode);
   void numworks_set_pixel(int x,int y,int c);
   int numworks_get_pixel(int x,int y);
   void numworks_fill_rect(int x,int y,int w,int h,int c);
+#ifdef __cplusplus
   int numworks_draw_string(int x,int y,int c,int bg,const char * s,bool fake=false);
   int numworks_draw_string_small(int x,int y,int c,int bg,const char * s,bool fake=false);
+#else
+  int numworks_draw_string(int x,int y,int c,int bg,const char * s,bool fake);
+  int numworks_draw_string_small(int x,int y,int c,int bg,const char * s,bool fake);
+#endif
   void numworks_show_graph();
   void numworks_hide_graph();
   void numworks_redraw();
@@ -64,9 +78,13 @@ extern "C" {
   bool file_exists(const char * filename);
   bool erase_file(const char * filename);
   const char * read_file(const char * filename);
+#ifdef __cplusplus
   bool write_file(const char * filename,const char * s,size_t len=0);
+#else
+  bool write_file(const char * filename,const char * s,size_t len);
+#endif
 #define MAX_NUMBER_OF_FILENAMES 255
-  int os_file_browser(const char ** filenames,int maxrecords,const char * extension);
+  int os_file_browser(const char ** filenames,int maxrecords,const char * extension,int storage);
   void sync_screen();
   void os_set_pixel(int x,int y,int c);
   void os_fill_rect(int x,int y,int w,int h,int c);
@@ -75,18 +93,35 @@ extern "C" {
   }
   int os_get_pixel(int x,int y);
   /* returns new x position */
+#ifdef __cplusplus
   int os_draw_string(int x,int y,int c,int bg,const char * s,bool fake=false);
-  inline int os_draw_string_(int x,int y,const char * s){ return os_draw_string(x,y,giac::_BLACK,giac::_WHITE,s);}
+#else
+  int os_draw_string(int x,int y,int c,int bg,const char * s,bool fake);
+#endif
+  inline int os_draw_string_(int x,int y,const char * s){ return os_draw_string(x,y,SDK_BLACK,SDK_WHITE,s,false);}
+#ifdef __cplusplus
   int os_draw_string_small(int x,int y,int c,int bg,const char * s,bool fake=false);
-  inline int os_draw_string_small_(int x,int y,const char * s){ return os_draw_string_small(x,y,giac::_BLACK,giac::_WHITE,s);}
+#else
+  int os_draw_string_small(int x,int y,int c,int bg,const char * s,bool fake);
+#endif
+  inline int os_draw_string_small_(int x,int y,const char * s){ return os_draw_string_small(x,y,SDK_BLACK,SDK_WHITE,s,false);}
+  
+#ifdef __cplusplus
 #ifdef NUMWORKS
   inline int os_draw_string_medium(int x,int y,int c,int bg,const char * s,bool fake=false){ return os_draw_string_small(x,y,c,bg,s,fake);}
 #else
   int os_draw_string_medium(int x,int y,int c,int bg,const char * s,bool fake=false);
 #endif
-  inline int os_draw_string_medium_(int x,int y,const char * s){ return os_draw_string_medium(x,y,giac::_BLACK,giac::_WHITE,s);}
+#else
+#ifdef NUMWORKS
+  inline int os_draw_string_medium(int x,int y,int c,int bg,const char * s,bool fake){ return os_draw_string_small(x,y,c,bg,s,fake);}
+#else
+  int os_draw_string_medium(int x,int y,int c,int bg,const char * s,bool fake);
+#endif
+#endif
+  inline int os_draw_string_medium_(int x,int y,const char * s){ return os_draw_string_medium(x,y,SDK_BLACK,SDK_WHITE,s,false);}
   void GetKey(int * key);
-  int getkey(int allow_suspend); // transformed
+  int getkey(bool allow_suspend);
   void enable_back_interrupt();
   inline void set_abort(){  enable_back_interrupt(); }
   void disable_back_interrupt();
@@ -96,9 +131,13 @@ extern "C" {
   void lock_alpha();
   void reset_kbd();
   void statuslinemsg(const char * msg);
+#ifdef __cplusplus
   void statusline(int mode=0);
+#else
+  void statusline(int mode);
+#endif
 #ifdef NUMWORKS
-  inline bool iskeydown(int key){ return getkey(key | 0x80000000); }
+  inline bool iskeydown(int key);
 #else
   bool iskeydown(int key);
 #endif
@@ -112,7 +151,7 @@ extern "C" {
 #endif
 
   extern int (*shutdown)(); // function called after 2 hours of idle
-  extern int shutdown_state;
+  extern short int shutdown_state;
 #ifdef __cplusplus
 }
 #endif

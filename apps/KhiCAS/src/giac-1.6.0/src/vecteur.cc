@@ -54,6 +54,13 @@ using namespace std;
 #include <gsl/gsl_poly.h>
 #endif
 
+// vector class version 1 by Agner Fog https://github.com/vectorclass
+// this might be faster for CPU with AVX512DQ instruction set
+// (fast multiplication of Vec4q)
+#ifdef HAVE_VCL1_VECTORCLASS_H 
+#include <vcl1/vectorclass.h>
+#endif
+
 // Apple has the Accelerate framework for lapack if you did not install Atlas/lapack
 // (link with -framewrok Accelerate)
 // it is not used by default because the Accelerate version is slower 
@@ -114,8 +121,12 @@ namespace giac {
   unsigned nbits(const gen & g){
     if (g.type==_INT_)
       return sizeinbase2(g.val>0?g.val:-g.val);
-    else 
+    if (g.type==_ZINT)
       return mpz_sizeinbase(*g._ZINTptr,2);
+    gen G=_ceil(g,context0);
+    if (is_integer(G))
+      return nbits(G);
+    return RAND_MAX;
   }
 
 #if defined(GIAC_HAS_STO_38) && defined(VISUALC)
@@ -1141,6 +1152,10 @@ namespace giac {
 	    vecteur & w=*m[i]._VECTptr;
 	    ws=int(w.size());
 	    for (j=y;j<ws && j<=Y;++j){
+	      if (w[j].type!=_VECT){
+		w[j]=makevecteur(w[j],w[j],2);
+		continue;
+	      }
 	      vecteur & wj=*w[j]._VECTptr;
 	      if (wj.back().val==1)
 		return string2gen("Recursive eval",false);
@@ -3094,7 +3109,7 @@ namespace giac {
 	  divvecteur(*it->_VECTptr,a,*it->_VECTptr);
 	}
 	else {
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
 	  if (it->type==_ZINT && a.type==_ZINT && it->ref_count()==1){
 	    my_mpz_gcd(tmpz,*it->_ZINTptr,*a._ZINTptr);
 	    if (mpz_cmp_ui(tmpz,1)==0)
@@ -3210,7 +3225,7 @@ namespace giac {
   // ***   Matrices    ***
   // *********************
 
-  bool ckmatrix(const matrice & a,bool allow_embedded_vect){
+  bool ckmatrix(const matrice & a,bool allow_embedded_vect,bool ckundef){
     vecteur::const_iterator it=a.begin(),itend=a.end();
     if (itend==it)
       return false;
@@ -3229,9 +3244,11 @@ namespace giac {
 	  return false;
 	if (s && (it->_VECTptr->front().type==_VECT && it->_VECTptr->front().subtype!=_POLY1__VECT) && !allow_embedded_vect)
 	  return false;
-	for (int i=0;i<s;++i)
-	  if (is_undef((*it->_VECTptr)[i]))
-	    return false;
+	if (ckundef){
+	  for (int i=0;i<s;++i)
+	    if (is_undef((*it->_VECTptr)[i]))
+	      return false;
+	}
       }
     }
     return true;
@@ -3312,9 +3329,9 @@ namespace giac {
     }
   }
 
-  void mtran(const matrice & a,matrice & res,int ncolres){
-    if (!ckmatrix(a,true)){
-      res=vecteur(1,vecteur(ncolres,gensizeerr("Unable to tranpose")));
+  void mtran(const matrice & a,matrice & res,int ncolres,bool ckundef){
+    if (!ckmatrix(a,true,ckundef)){
+      res=vecteur(1,vecteur(ncolres,gensizeerr("Unable to transpose")));
       return;
     }
     vecteur::const_iterator it=a.begin(),itend=a.end();
@@ -3517,7 +3534,7 @@ namespace giac {
   }
 
   void smod_inplace(matrice & res,const gen & pi_p){
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
     if (pi_p.type==_ZINT && ckmatrix(res)){
       mpz_t tmpz;
       mpz_init(tmpz);
@@ -4315,6 +4332,8 @@ namespace giac {
   static bool ichinrem_inplace(matrice & a,const matrice &b,const gen & amod, int bmod,int fullreduction){
     gen U,v,d;
     egcd(amod,bmod,U,v,d);
+    if (U.type==_INT_)
+      U.uncoerce();
     if (!is_one(d) || U.type!=_ZINT)
       return false;
     int u=mpz_get_si(*U._ZINTptr);
@@ -4365,7 +4384,9 @@ namespace giac {
     if (debug_infolevel>2)
       CERR << CLOCK()*1e-6 << " begin mmult_int" << '\n';
     int n=a.front()._VECTptr->size();
-    gen ainf=linfnorm(a,context0),binf=linfnorm(btran,context0),resinf=n*ainf*binf;
+    vecteur aa,bb; aplatir(a,aa,true); aplatir(btran,bb,true);
+    gen ainf=linfnorm(aa,context0),binf=linfnorm(bb,context0),resinf=n*ainf*binf;
+    // gen ainf=linfnorm(a,context0),binf=linfnorm(btran,context0),resinf=n*ainf*binf;
     if (debug_infolevel>2)
       CERR << CLOCK()*1e-6 << " after linfnorm" << '\n';
     double nsteps=nbits(resinf);
@@ -4988,7 +5009,7 @@ namespace giac {
 	    t=0;
 	}
 	for (;jt1!=it1end;++jt1,++it2){
-#ifndef USE_GMP_REPLACEMENTS
+#if !defined USE_GMP_REPLACEMENTS && !defined BF2GMP_H
 	  if (t==_ZINT && jt1->type==_ZINT && c.type==_ZINT && it2->type==_ZINT && jt1->ref_count()==1){
 	    mpz_mul(*jt1->_ZINTptr,*jt1->_ZINTptr,*c1._ZINTptr);
 	    mpz_addmul(*jt1->_ZINTptr,*it2->_ZINTptr,*c2._ZINTptr);
@@ -5113,6 +5134,16 @@ namespace giac {
     a=pseudo_mod(a+((longlong)b)*c,p,invp,nbits);
   }
 
+#ifdef HAVE_VCL1_VECTORCLASS_H 
+  inline Vec4q pseudo_mod4(const Vec4q & x,const Vec4q& p4,const Vec4q & invp4,int nbits){
+    return x - _mm256_mul_epi32(_mm256_mul_epi32((x>>nbits),invp4)>>(nbits),p4);
+    // return x - (((x>>nbits)*invp)>>(nbits))*p;
+  }
+  inline void pseudo_mod4(Vec4q & a,int b,const Vec4q & c,const Vec4q & p4,const Vec4q& invp4,unsigned nbits){
+    a=pseudo_mod4(a+b*c,p4,invp4,nbits);    
+  }
+#endif
+  
   // n==nbits, for |x|<=p^2, 2^n>=p>2^(n-1), returns |remainder|<=p
   // assumes invp=floor(2^(2n)/p)+1, 2^(2n)/p < invp <= 2^(2n)/p+1
   // for x>0, x/2^n-1 < floor(x/2^n) <= x/2^n hence we have 
@@ -5144,7 +5175,7 @@ namespace giac {
     int * it1=&*(v1.begin()+cstart),*it1end=&*(v1.end()),*it2=&*(v2.begin()+cstart),*it3=&*(v3.begin()+cstart),*it4=&*(v4.begin()+cstart),*it1_;
     if (cend && cend>=cstart && cend<it1end-&v1.front())
       it1end=&*(v1.begin()+cend);
-    it1_=it1-4;
+    it1_=it1end-4;
     const int * jt=&*(w.begin()+cstart);
 #ifdef PSEUDO_MOD
     if (p<(1<<29) 
@@ -5152,7 +5183,23 @@ namespace giac {
 	){
       int nbits=sizeinbase2(p); 
       unsigned invp=((1ULL<<(2*nbits)))/p+1;
+#ifdef HAVE_VCL1_VECTORCLASS_H
+      Vec4q p4(p),invp4(invp);
+#endif
       for (;it1<=it1_;){
+#if 0 // def HAVE_VCL1_VECTORCLASS_H
+	Vec4i I1,I2,I3,I4,T;
+	I1.load(it1); I2.load(it2); I3.load(it3); I4.load(it4); T.load(jt);
+	Vec4q I1_,I2_,I3_,I4_,T_;
+	I1_=extend(I1); I2_=extend(I2); I3_=extend(I3); I4_=extend(I4); T_=extend(T);
+	pseudo_mod4(I1_,c1,T_,p4,invp4,nbits);
+	pseudo_mod4(I2_,c2,T_,p4,invp4,nbits);
+	pseudo_mod4(I3_,c3,T_,p4,invp4,nbits);
+	pseudo_mod4(I4_,c4,T_,p4,invp4,nbits);
+	I1=compress(I1_); I2=compress(I2_); I3=compress(I3_); I4=compress(I4_);
+	I1.store(it1); I2.store(it2); I3.store(it3); I4.store(it4);
+	jt+=4;it4+=4;it3+=4;it2+=4;it1+=4;
+#else
 	int tmp=*jt;
 	pseudo_mod(*it1,c1,tmp,p,invp,nbits);
 	pseudo_mod(*it2,c2,tmp,p,invp,nbits);
@@ -5174,6 +5221,7 @@ namespace giac {
 	pseudo_mod(it3[3],c3,tmp,p,invp,nbits);
 	pseudo_mod(it4[3],c4,tmp,p,invp,nbits);
 	jt+=4;it4+=4;it3+=4;it2+=4;it1+=4;
+#endif
       }
       for (;it1!=it1end;++jt,++it4,++it3,++it2,++it1){
 	int tmp=*jt;
@@ -7076,7 +7124,9 @@ namespace giac {
     // modular algorithm
     if ( ( (algorithm==RREF_GUESS && (
 				      fullreduction==2 || 
-				      rref_or_det_or_lu==1)) || modular ) && is_integer_matrice(a) && as<=a0s && as>=20){
+				      rref_or_det_or_lu==1)) || modular ) && is_integer_matrice(a) && as<=a0s 
+	 && as>=20
+	 ){
       int Res=mrref_int(a,res,pivots,det,l,lmax,c,cmax,fullreduction,dont_swap_below,convert_internal,algorithm,rref_or_det_or_lu,modular,permutation,contextptr);
       if (Res>=0)
 	return Res;
@@ -7388,7 +7438,7 @@ namespace giac {
 		polydim=tmp._POLYptr->dim;
 		const int & curdeg=tmp._POLYptr->lexsorted_degree();
 		if (curdeg>maxdegi)
-		  maxdegi=tmp._POLYptr->lexsorted_degree();
+		  maxdegi=tmp._POLYptr->lexsorted_degree();// curdeg
 		if (curdeg>maxdegj[j])
 		  maxdegj[j]=curdeg;
 		tmp=polynome2poly1(tmp,1);
@@ -7397,8 +7447,9 @@ namespace giac {
 	    totaldeg+=maxdegi;
 	  }
 	  if (polydim){
-	    if (debug_infolevel)
-	      CERR << CLOCK()*1e-6 << " det: begin interp" << '\n';
+	    bool dbg=debug_infolevel && (polydim>1 || debug_infolevel>1);
+	    if (dbg)
+	      CERR << CLOCK()*1e-6 << " det: begin interp dim " << polydim << '\n';
 	    totaldeg=std::min(totaldeg,total_degree(maxdegj));
 	    if (!interpolable(totaldeg+1,coeffp,true,contextptr))
 	      return 0;
@@ -7411,8 +7462,8 @@ namespace giac {
 	      X[x]=realx;
 	      vecteur resx;
 	      resx.reserve(totaldeg+1);
-	      if (debug_infolevel)
-		CERR << CLOCK()*1e-6 << " det: begin horner" << '\n';
+	      if (dbg)
+		CERR << CLOCK()*1e-6 << " det: begin horner dim " << polydim << " pos " << x << " from" << totaldeg << '\n';
 	      for (unsigned int i=0;i<as;++i){
 		vecteur resxi;
 		resxi.reserve(a0s); // was (totaldeg+1);
@@ -7422,8 +7473,8 @@ namespace giac {
 		}
 		resx.push_back(resxi);
 	      }
-	      if (debug_infolevel)
-		CERR << CLOCK()*1e-6 << " det: end horner" << '\n';
+	      if (dbg)
+		CERR << CLOCK()*1e-6 << " det: end horner dim " << polydim << " pos " << x << " from" << totaldeg << '\n';
 	      matrice res1;
 	      if (!mrref(resx,res1,pivots,det,l,lmax,c,cmax,-fullreduction,dont_swap_below,false,algorithm_,rref_or_det_or_lu,contextptr))
 		return 0;
@@ -7448,23 +7499,26 @@ namespace giac {
 	    } // end for x
 	    if (x==totaldeg+1){
 	      proba_epsilon(contextptr) *= totaldeg;
-	      if (debug_infolevel)
-		CERR << CLOCK()*1e-6 << " det: divided diff" << '\n';
+	      if (dbg)
+		CERR << CLOCK()*1e-6 << " det: divided diff dim " << polydim << '\n';
 	      // Lagrange interpolation
 	      vecteur L=divided_differences(X,Y);
-	      if (debug_infolevel)
-		CERR << CLOCK()*1e-6 << " det: end divided diff" << '\n';
+	      if (dbg)
+		CERR << CLOCK()*1e-6 << " det: end divided diff dim " << polydim << '\n';
 	      det=untrunc1(L[totaldeg]);
 	      monomial<gen> mtmp(1,1,polydim);
 	      gen xpoly=polynome(mtmp);
 	      for (int i=totaldeg-1;i>=0;--i){
 		det = det*(xpoly-untrunc1(X[i]))+untrunc1(L[i]);
 	      }
+	      gen det0=det;
 	      det=det*detnum/detden;
-	      if (convert_internal)
+	      if (convert_internal){
 		det=r2sym(det,lva,contextptr);
-	      if (debug_infolevel)
-		CERR << CLOCK()*1e-6 << " det: end interp" << '\n';
+		det0=r2sym(det0,lva,contextptr);
+	      }
+	      if (dbg)
+		CERR << CLOCK()*1e-6 << " det: end interp dim " << polydim << '\n';
 	      if (fullreduction){
 		vecteur R,RR;
 		interpolate(X,Z,R,0);
@@ -7484,7 +7538,7 @@ namespace giac {
 		}
 		vecteur R0=midn(lmax);
 		for (int i=0;i<R0.size();++i){
-		  (*R0[i]._VECTptr)[i]=det;
+		  (*R0[i]._VECTptr)[i]=det0;
 		}
 		R=mergevecteur(R0,RR);
 		res=mtran(R);
@@ -7786,19 +7840,22 @@ namespace giac {
   }
 
   void tran_vect_vector_int(const vector< vector<int> > & N,vector< vector<int> > & tN){
-    tN.clear();
     unsigned r=unsigned(N.size());
-    if (!r)
+    if (!r){
+      tN.clear();
       return;
+    }
     unsigned c=unsigned(N.front().size());
-    tN.reserve(c);
+    tN.resize(c);
     for (unsigned int i=0;i<c;++i){
-      vector<int> current;
-      current.reserve(r);
+      tN[i].reserve(r);
+    }
+    for (unsigned int i=0;i<c;++i){
+      vector<int> & current=tN[i];
+      tN[i].clear();
       for (unsigned int j=0;j<r;++j){
 	current.push_back(N[j][i]);
       }
-      tN.push_back(current);
     }
   }
 
@@ -8163,17 +8220,47 @@ namespace giac {
 	    }
 #else
 	    int C=col+1;
+	    longlong * ptr= &buffer[C],*ptrend=&buffer[cmax]-4;
+	    const int *ptrN=&Nline[C];
+	    for (;ptr<ptrend;ptrN+=4,ptr+=4){
+	      longlong x = *ptr;
+	      x -= coeff*(*ptrN);   
+	      x += (x>>63)&modulo2;
+	      *ptr = x;
+	      x = ptr[1];
+	      x -= coeff*(ptrN[1]);   
+	      x += (x>>63)&modulo2;
+	      ptr[1] = x;
+	      x = ptr[2];
+	      x -= coeff*(ptrN[2]);   
+	      x += (x>>63)&modulo2;
+	      ptr[2] = x;
+	      x = ptr[3];
+	      x -= coeff*(ptrN[3]);   
+	      x += (x>>63)&modulo2;
+	      ptr[3] = x;
+	    }
+	    C += ptr-&buffer[C];
 	    for (;C<cmax;++C){
 	      longlong & b=buffer[C] ;
 	      longlong x = b;
 	      x -= coeff*Nline[C];   
-	      x -= (x>>63)*modulo2;
+	      x += (x>>63)&modulo2;
 	      b=x;
 	    }
 #endif
 	  }
 	  else {
 	    int C=col+1;
+	    longlong * ptr= &buffer[C],*ptrend=&buffer[cmax]-4;
+	    const int *ptrN=&Nline[C];
+	    for (;ptr<ptrend;ptrN+=4,ptr+=4){
+	      *ptr -= coeff*(*ptrN);
+	      ptr[1] -= coeff*(ptrN[1]);
+	      ptr[2] -= coeff*(ptrN[2]);
+	      ptr[3] -= coeff*(ptrN[3]);
+	    }
+	    C += ptr-&buffer[C];
 	    for (;C<cmax;++C){
 	      buffer[C] -= coeff*Nline[C];   
 	    }
@@ -8638,7 +8725,7 @@ namespace giac {
 	  target[c_+j]=smod(source[j],modulo);
       }
     }
-    return rref_or_det_or_lu!=0 || l_==0;//true; // we can not return true for fullreduction, because the upper lines are not reduced
+    return rref_or_det_or_lu!=0 || l_==0 || fullreduction==0;//true; // we can not return true for fullreduction, because the upper lines are not reduced
   }
     
   // if dont_swap_below !=0, for line numers < dont_swap_below
@@ -8958,12 +9045,12 @@ namespace giac {
       } // end tryblock
 #endif // GIAC_DETBLOCK
       // normal Gauss reduction
-      if (
+      if (//0 &&
 	  // FIXME: if fullreduction, upper reduction should be done!
-	  (carac>0 || (lmax-l>=32 && cmax-c>=32) ) && (lmax-l)*double(modulo)*double(modulo)<(1ULL<<63) &&
+	  (carac>0 || (lmax-l>=32 && cmax-c>=32) ) && (lmax-l)*double(modulo)*double(modulo)<(1ULL<<63) ){
 	  //double(lmax-l)*(cmax-c)*sizeof(longlong)<128e3 &&
-	  LLsmallmodrref(N,l,lmax,c,cmax,pivots,permutation,maxrankcols,idet,fullreduction,dont_swap_below,modulo,carac,rref_or_det_or_lu)){
-	break;
+	if (LLsmallmodrref(N,l,lmax,c,cmax,pivots,permutation,maxrankcols,idet,fullreduction,dont_swap_below,modulo,carac,rref_or_det_or_lu))
+	  break;
       }
       pivot = N[l].empty()?0:(N[l][c] %= modulo);
       if (rref_or_det_or_lu==3 && !pivot){
@@ -9757,7 +9844,7 @@ namespace giac {
     mpz_set_ui(e->z,0);
     gen tmp;
     for (;(ita!=itaend)&&(itb!=itbend);++ita,++itb){
-#ifdef USE_GMP_REPLACEMENTS
+#if defined USE_GMP_REPLACEMENTS || defined BF2GMP_H
       type_operator_times(*ita,*itb,tmp);
       if (tmp.type==_INT_){
 	if (tmp.val<0)
@@ -10032,7 +10119,7 @@ namespace giac {
 	if (binf.type==_INT_)
 	  smallint=3;
       }
-#if !defined(USE_GMP_REPLACEMENTS) 
+#if !defined(USE_GMP_REPLACEMENTS) && !defined BF2GMP_H
       if (ainf.type==_ZINT
 	  // && binf.type==_INT_ && binf.val<p.val // FIXME: temporary workaround
 	  ){
@@ -10177,7 +10264,7 @@ namespace giac {
 	if (debug_infolevel>2)
 	  CERR << CLOCK()*1e-6 << " padic adjust y step " << i << '\n';
 	subvecteur(y,tmp,y);
-#ifdef USE_GMP_REPLACEMENTS
+#if defined USE_GMP_REPLACEMENTS || defined BF2GMP_H
 	divvecteur(y,p,y); 
 #else
 	iterateur it=y.begin(),itend=y.end();
@@ -14944,6 +15031,58 @@ namespace giac {
     identificateur x(" x");
     gen ux=(*u)(x,contextptr);
     return analytic_apply(ux,x,m,contextptr);
+  }
+
+  bool mker(vector< vector<int> > & res,vector< vector<int> > & v,int modulo){
+    v.clear();
+    longlong det;
+    vector<int> permutation(res.size()),maxrankcols; vecteur pivots;
+    for (int i=0;i<res.size();++i)
+      permutation[i]=i;
+#if 1
+    if (debug_infolevel) CERR << CLOCK()*1e-6 << " rref lower\n"; 
+    smallmodrref(1,res,pivots,permutation,maxrankcols,det,0,int(res.size()),0,int(res.front().size()),/* fullreduction */0,0,modulo,0,false,NULL,true,modulo);
+    int usedcount=0;
+    if (debug_infolevel) CERR << CLOCK()*1e-6 << " rref upper\n"; 
+    smallmodrref_upper(res,0,int(res.size()),0,int(res.front().size()),modulo);
+    if (debug_infolevel) CERR << CLOCK()*1e-6 << " rref end\n"; 
+#else
+    smallmodrref(1,res,pivots,permutation,maxrankcols,det,0,int(res.size()),0,int(res.front().size()),/* fullreduction */1,0,modulo,0,false,NULL,true,modulo);
+#endif
+    // mdividebypivot(res,-1,contextptr);
+    // put zero lines in res at their proper place, so that
+    // non zero pivot are on the diagonal
+    int s=int(res.size()),c=int(res.front().size());
+    vector< vector<int> > newres(c);
+    vector< vector<int> >::iterator it=res.begin(),itend=res.end();
+    int i;
+    for (i=0;(i<c) && (it!=itend);++i){
+      if (it->empty() || (*it)[i]==0){
+	newres[i]=vector<int>(c);
+      }
+      else {
+	newres[i].swap(*it);
+	++it;
+      }
+    }
+    for (;i<c;++i)
+      newres[i]=vector<int>(c);
+    // on newres tranposed, keep the ith line if it's ith coeff is 0
+    // replace 0 by -1 to get an element of the basis
+    //tran_vect_vector_int(newres,res); 
+    it=newres.begin();
+    itend=newres.end();
+    for (int i=0;it!=itend;++it,++i){
+      if ((*it)[i]==0){
+	(*it)[i]=-1;
+	// column i is in ker
+	vector<int> w(c);
+	for (int j=0;j<c;++j)
+	  w[j]=newres[j][i];
+	v.push_back(w);
+      }
+    }
+    return true;
   }
 
   // return a vector which elements are the basis of the ker of a

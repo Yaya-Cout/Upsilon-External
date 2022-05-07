@@ -1,4 +1,7 @@
 /* -*- mode:C -*- */
+#if defined EMCC && !defined NO_QSTR
+#include <emscripten.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -19,6 +22,7 @@
 #include "parse.h"
 #include "compile.h"
 extern const struct _mp_obj_module_t mp_module_graphic;
+void py_ck_ctrl_c();
 // basic
 #ifdef NUMWORKS
 void c_sprint_double(char * s,double d);
@@ -30,10 +34,10 @@ void strcat_double(char * s,double d){
 int numworks_get_pixel(int x,int y);
 inline int os_get_pixel(int x,int y){ return numworks_get_pixel(x,y);}
 void sync_screen(){}
-#else
+#else // NUMWORKS
 int os_get_pixel(int x,int y);
 void sync_screen();
-#endif
+#endif // NUMWORKS
 void c_set_pixel(int x,int y,int c); // c_ prefixed functions run freeze=true
 void c_fill_rect(int x,int y,int w,int h,int c);
 int os_draw_string_small(int x,int y,int c,int bg,const char * s,bool fake);
@@ -50,6 +54,17 @@ void c_draw_polygon(int * x,int *y ,int n,int color);
 void c_draw_filled_polygon(int * x,int *y, int n,int xmin,int xmax,int ymin,int ymax,int color);
 void c_draw_arc(int xc,int yc,int rx,int ry,int color,double theta1, double theta2);
 void c_draw_filled_arc(int x,int y,int rx,int ry,int theta1_deg,int theta2_deg,int color,int xmin,int xmax,int ymin,int ymax,bool segment);
+void c_turtle_forward(double d);
+void c_turtle_left(double d);
+void c_turtle_up(int i);
+void c_turtle_goto(double x,double y);
+void c_turtle_cap(double x);
+void c_turtle_crayon(int i);
+void c_turtle_rond(int x,int y,int z);
+void c_turtle_disque(int x,int y,int z,int centre);
+void c_turtle_fill(int i);
+void c_turtle_fillcolor(double r,double g,double b,int entier);
+void c_turtle_getposition(double * x,double * y);
 //const double M_PI=3.1415926535897932;
 #define LCD_WIDTH 320
 #define LCD_HEIGHT 222
@@ -149,14 +164,14 @@ static mp_obj_t graphic_clear_screen(size_t n_args, const mp_obj_t *args){
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(graphic_clear_screen_obj, 0, 1, graphic_clear_screen);
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(graphic_clear_obj, 0, 1, graphic_clear_screen);
 
-static mp_obj_t graphic_show_screen(){
+static mp_obj_t graphic_show_screen(size_t n_args, const mp_obj_t *args){
 #ifndef NUMWORKS
   sync_screen();
 #endif
   return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(graphic_show_screen_obj, graphic_show_screen);
-static MP_DEFINE_CONST_FUN_OBJ_0(graphic_show_obj, graphic_show_screen);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(graphic_show_screen_obj, 0,1,graphic_show_screen);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(graphic_show_obj, 0,1,graphic_show_screen);
 
 mp_obj_t mp_color_tuple(int c){
   mp_obj_tuple_t * t = (mp_obj_tuple_t *)(MP_OBJ_TO_PTR(mp_obj_new_tuple(3, NULL)));
@@ -346,9 +361,11 @@ static mp_obj_t graphic_draw_string(size_t n_args, const mp_obj_t *args) {
   const char * text = mp_obj_str_get_str(args[2]);
   if (n_args>=4)
     c = mp_get_color(args[3]);
-  const char * font = 0;
   if (n_args>=5)
-    font=mp_obj_str_get_str(args[4]);
+    bg = mp_get_color(args[4]);
+  const char * font = 0;
+  if (n_args>=6)
+    font=mp_obj_str_get_str(args[5]);
   if (font && strcmp(font,"small")==0)
     c_draw_string_small(x,y,c,bg,text,false);
   else {
@@ -359,7 +376,7 @@ static mp_obj_t graphic_draw_string(size_t n_args, const mp_obj_t *args) {
   }
   return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(graphic_draw_string_obj, 3, 5, graphic_draw_string);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(graphic_draw_string_obj, 3, 6, graphic_draw_string);
 
 //
 static const mp_map_elem_t graphic_locals_dict_table[] = {
@@ -834,16 +851,25 @@ static mp_obj_t cas_caseval(size_t n_args, const mp_obj_t *args) {
     }
     buf[strlen(buf)-1]=')';
     const char * val=caseval(buf);
+    py_ck_ctrl_c();
     return mp_obj_new_str(val,strlen(val));
   }
   const char * val=caseval(text);
+  py_ck_ctrl_c();
   return mp_obj_new_str(val,strlen(val));
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cas_caseval_obj, 1, 8, cas_caseval);
 
+static mp_obj_t cas_get_key(size_t n_args, const mp_obj_t *args) {
+    const char * val=caseval("caseval(get_key())");
+    return mp_obj_new_int(atoi(val));
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cas_get_key_obj, 0, 0, cas_get_key);
+
 //
 static const mp_map_elem_t cas_locals_dict_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_caseval), (mp_obj_t) &cas_caseval_obj },
+	{ MP_ROM_QSTR(MP_QSTR_get_key), (mp_obj_t) &cas_get_key_obj },
 	{ MP_ROM_QSTR(MP_QSTR_xcas), (mp_obj_t) &cas_caseval_obj },
 	{ MP_ROM_QSTR(MP_QSTR_eval_expr), (mp_obj_t) &cas_caseval_obj },
 };
@@ -861,6 +887,7 @@ const mp_obj_type_t cas_type = {
 STATIC const mp_map_elem_t mp_module_cas_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__cas) },
     { MP_ROM_QSTR(MP_QSTR_caseval), (mp_obj_t) &cas_caseval_obj },
+    { MP_ROM_QSTR(MP_QSTR_get_key), (mp_obj_t) &cas_get_key_obj },
     { MP_ROM_QSTR(MP_QSTR_xcas), (mp_obj_t) &cas_caseval_obj },
     { MP_ROM_QSTR(MP_QSTR_eval_expr), (mp_obj_t) &cas_caseval_obj },
 };
@@ -890,6 +917,33 @@ mp_obj_t str2int(const char * s){
   if (neg)
     ++s;
   return mp_obj_new_int_from_str_len(&s,strlen(s),neg,10);
+}
+
+static mp_obj_t str2list2int(const char * val,int N){
+  char buf[strlen(val)+1];
+  strcpy(buf,val);
+  char * buf1=buf;
+  mp_obj_t res = mp_obj_new_list(0, NULL);
+  for (;*buf1;++buf1){
+    if (*buf1=='[')
+      break;
+  }
+  if (*buf1){
+    ++buf1;
+    for (int i=0;i<N;++i){
+      char * buf2=buf1;
+      for (;*buf2;++buf2){
+	if (*buf2==',' || *buf2==']')
+	  break;
+      }
+      *buf2=0;
+      mp_obj_list_append(res,str2int(buf1));
+      buf1=buf2+1;
+      while (*buf1==' ')
+	++buf1;
+    }
+  }
+  return res;
 }
 
 static mp_obj_t arit(const mp_obj_t *args,int nargs,int cmd) {
@@ -965,28 +1019,7 @@ static mp_obj_t arit(const mp_obj_t *args,int nargs,int cmd) {
     return str2int(val);
   }
   if (cmd==6){
-    char buf[strlen(val)+1];
-    strcpy(buf,val);
-    char * buf1=buf;
-    mp_obj_t res = mp_obj_new_list(0, NULL);
-    for (;*buf1;++buf1){
-      if (*buf1=='[')
-	break;
-    }
-    if (*buf1){
-      ++buf1;
-      for (int i=0;i<3;++i){
-	char * buf2=buf1;
-	for (;*buf2;++buf2){
-	  if (*buf2==',')
-	    break;
-	}
-	*buf2=0;
-	mp_obj_list_append(res,str2int(buf1));
-	buf1=buf2+1;
-      }
-    }
-    return res;
+    return str2list2int(val,3);
   }
   return mp_obj_new_str(val,strlen(val));
 }
@@ -1295,17 +1328,30 @@ c_complex mult(c_complex a,c_complex b){
   return c;
 }
 
-// transpose matrix in place
+// transpose matrix (in place for square matrices)
 void transpose(c_complex *x,int n,int m){
-  for (int i=1;i<n;++i){
-    for (int j=0;j<i;++j){
-      c_complex * a=x+i*m+j;
-      c_complex * b=x+j*m+i;
-      c_complex t=*a;
-      *a=*b;
-      *b=t;
+  if (n==m){
+    for (int i=1;i<n;++i){
+      for (int j=0;j<i;++j){
+	c_complex * a=x+i*m+j;
+	c_complex * b=x+j*m+i;
+	c_complex t=*a;
+	*a=*b;
+	*b=t;
+      }
+    }
+    return;
+  }
+  c_complex * tmp=(c_complex *) malloc(n*m*sizeof(c_complex));
+  if (!tmp)
+    return; // should error!
+  for (int i=0;i<n;++i){
+    for (int j=0;j<m;++j){
+      *(tmp+j*n+i)=*(x+i*m+j);
     }
   }
+  memcpy(x,tmp,n*m*sizeof(c_complex));
+  free(tmp);
 }
 
 
@@ -1511,7 +1557,7 @@ static mp_obj_t linalg_eig(size_t n_args, const mp_obj_t *args) {
   }
   nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Wrong type of 1st argument."));
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(linalg_eig_obj, 1, 1, linalg_eig);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(giac_linalg_eig_obj, 1, 1, linalg_eig);
 
 static mp_obj_t linalg_inv(size_t n_args, const mp_obj_t *args) {
   c_complex *x;
@@ -1531,7 +1577,7 @@ static mp_obj_t linalg_inv(size_t n_args, const mp_obj_t *args) {
   }
   nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Wrong type of 1st argument."));
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(linalg_inv_obj, 1, 1, linalg_inv);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(giac_linalg_inv_obj, 1, 1, linalg_inv);
 
 static mp_obj_t linalg_re(size_t n_args, const mp_obj_t *args) {
   if (MP_OBJ_IS_INT(args[0]) || mp_obj_is_float(args[0]))
@@ -1781,6 +1827,7 @@ static mp_obj_t linalg_apply(size_t n_args, const mp_obj_t *args) {
     return fun_builtin_1_call(args[0],1,0,args+1);
   }
   else {
+    nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Wrong type of 1st argument."));
     if (((int) n)>=0){
       mp_obj_t r = mp_obj_new_list(0, NULL);
       mp_obj_t args_[2];
@@ -1815,7 +1862,7 @@ static mp_obj_t linalg_det(size_t n_args, const mp_obj_t *args) {
   }
   nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Wrong type of 1st argument."));
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(linalg_det_obj, 1, 1, linalg_det);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(giac_linalg_det_obj, 1, 1, linalg_det);
 
 static mp_obj_t linalg_zerosones(size_t n_args, const mp_obj_t *args,int v0,int v1) {
   size_t n1=0,m1=0;
@@ -1906,8 +1953,8 @@ static const mp_rom_map_elem_t linalg_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rref), (mp_obj_t) &linalg_rref_obj },
     { MP_ROM_QSTR(MP_QSTR_egv), (mp_obj_t) &linalg_egv_obj },
     { MP_ROM_QSTR(MP_QSTR_eigenvects), (mp_obj_t) &linalg_egv_obj },
-    { MP_ROM_QSTR(MP_QSTR_eig), (mp_obj_t) &linalg_eig_obj },
-    { MP_ROM_QSTR(MP_QSTR_det), (mp_obj_t) &linalg_det_obj },
+    { MP_ROM_QSTR(MP_QSTR_eig), (mp_obj_t) &giac_linalg_eig_obj },
+    { MP_ROM_QSTR(MP_QSTR_det), (mp_obj_t) &giac_linalg_det_obj },
     { MP_ROM_QSTR(MP_QSTR_zeros), (mp_obj_t) &linalg_zeros_obj },
     { MP_ROM_QSTR(MP_QSTR_ones), (mp_obj_t) &linalg_ones_obj },
     { MP_ROM_QSTR(MP_QSTR_eye), (mp_obj_t) &linalg_eye_obj },
@@ -1918,7 +1965,7 @@ static const mp_rom_map_elem_t linalg_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ranm), (mp_obj_t) &linalg_rand_obj },
     { MP_ROM_QSTR(MP_QSTR_shape), (mp_obj_t) &linalg_shape_obj },
     { MP_ROM_QSTR(MP_QSTR_size), (mp_obj_t) &linalg_size_obj },
-    { MP_ROM_QSTR(MP_QSTR_inv), (mp_obj_t) &linalg_inv_obj },
+    { MP_ROM_QSTR(MP_QSTR_inv), (mp_obj_t) &giac_linalg_inv_obj },
     { MP_ROM_QSTR(MP_QSTR_re), (mp_obj_t) &linalg_re_obj },
     { MP_ROM_QSTR(MP_QSTR_proot), (mp_obj_t) &linalg_proot_obj },
     { MP_ROM_QSTR(MP_QSTR_pcoeff), (mp_obj_t) &linalg_pcoeff_obj },
@@ -1961,8 +2008,8 @@ STATIC const mp_rom_map_elem_t mp_module_linalg_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rref), (mp_obj_t) &linalg_rref_obj },
     { MP_ROM_QSTR(MP_QSTR_egv), (mp_obj_t) &linalg_egv_obj },
     { MP_ROM_QSTR(MP_QSTR_eigenvects), (mp_obj_t) &linalg_egv_obj },
-    { MP_ROM_QSTR(MP_QSTR_eig), (mp_obj_t) &linalg_eig_obj },
-    { MP_ROM_QSTR(MP_QSTR_det), (mp_obj_t) &linalg_det_obj },
+    { MP_ROM_QSTR(MP_QSTR_eig), (mp_obj_t) &giac_linalg_eig_obj },
+    { MP_ROM_QSTR(MP_QSTR_det), (mp_obj_t) &giac_linalg_det_obj },
     { MP_ROM_QSTR(MP_QSTR_zeros), (mp_obj_t) &linalg_zeros_obj },
     { MP_ROM_QSTR(MP_QSTR_ones), (mp_obj_t) &linalg_ones_obj },
     { MP_ROM_QSTR(MP_QSTR_eye), (mp_obj_t) &linalg_eye_obj },
@@ -1973,7 +2020,7 @@ STATIC const mp_rom_map_elem_t mp_module_linalg_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ranm), (mp_obj_t) &linalg_rand_obj },
     { MP_ROM_QSTR(MP_QSTR_shape), (mp_obj_t) &linalg_shape_obj },
     { MP_ROM_QSTR(MP_QSTR_size), (mp_obj_t) &linalg_size_obj },
-    { MP_ROM_QSTR(MP_QSTR_inv), (mp_obj_t) &linalg_inv_obj },
+    { MP_ROM_QSTR(MP_QSTR_inv), (mp_obj_t) &giac_linalg_inv_obj },
     { MP_ROM_QSTR(MP_QSTR_re), (mp_obj_t) &linalg_re_obj },
     { MP_ROM_QSTR(MP_QSTR_proot), (mp_obj_t) &linalg_proot_obj },
     { MP_ROM_QSTR(MP_QSTR_pcoeff), (mp_obj_t) &linalg_pcoeff_obj },
@@ -2011,6 +2058,7 @@ const mp_obj_module_t mp_module_linalg = {
 void turtle_freeze();
 
 mp_obj_t turtle_ret(const char * val){
+  py_ck_ctrl_c();
   if (strncmp(val,"\"Done",5)==0)
     return mp_const_none;
   return mp_obj_new_str(val,strlen(val));  
@@ -2018,11 +2066,15 @@ mp_obj_t turtle_ret(const char * val){
 
 static mp_obj_t turtle_forward(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
-  int i=10;
+  double i=10;
   if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
     i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+  if (n_args==1 && mp_obj_is_float(args[0])) 
+    i=mp_obj_get_float(args[0]);
+  c_turtle_forward(i);
+  return mp_const_none;
   char buf[256];
-  sprintf(buf,"avance(%i):;",i);
+  sprintf(buf,"avance(%.4g):;",i);
   const char * val=caseval(buf);
   return turtle_ret(val);
 }
@@ -2030,11 +2082,15 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_forward_obj, 0, 1, turtle_forward);
 
 static mp_obj_t turtle_backward(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
-  int i=10;
+  double i=10;
   if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
     i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+  if (n_args==1 && mp_obj_is_float(args[0])) 
+    i=mp_obj_get_float(args[0]);
+  c_turtle_forward(-i);
+  return mp_const_none;
   char buf[256];
-  sprintf(buf,"recule(%i):;",i);
+  sprintf(buf,"recule(%.4g):;",i);
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2043,31 +2099,49 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_backward_obj, 0, 1, turtle_backward);
 
 static mp_obj_t turtle_left(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
-  int i=90;
+  double i=90;
+  if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
+    i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+  else if (n_args==1 && mp_obj_is_float(args[0])) 
+    i=mp_obj_get_float(args[0]);
+  else if (n_args==1) i=0;  
+  c_turtle_left(i);
+  return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_left_obj, 0, 1, turtle_left);
+
+static mp_obj_t turtle_pensize(size_t n_args, const mp_obj_t *args) {
+  if (n_args==0){
+    const char * val=caseval("crayon -128;");
+    return str2int(val);
+  }
+  turtle_freeze();
+  int i=1;
   if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
     i=MP_OBJ_SMALL_INT_VALUE(args[0]);
   if (n_args==1 && mp_obj_is_float(args[0])) 
     i=mp_obj_get_float(args[0]);
+  if (i<1) i=1;
+  c_turtle_crayon(-i);
+  return mp_const_none;
   char buf[256];
-  sprintf(buf,"tourne_gauche(%i):;",i);
+  sprintf(buf,"crayon -%i:;",i);
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_left_obj, 0, 1, turtle_left);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_pensize_obj, 0, 1, turtle_pensize);
 
 static mp_obj_t turtle_right(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
-  int i=90;
+  double i=90;
   if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
     i=MP_OBJ_SMALL_INT_VALUE(args[0]);
-  if (n_args==1 && mp_obj_is_float(args[0])) 
+  else if (n_args==1 && mp_obj_is_float(args[0])) 
     i=mp_obj_get_float(args[0]);
-  char buf[256];
-  sprintf(buf,"tourne_droite(%i):;",i);
-  const char * val=caseval(buf);
-  return turtle_ret(val);
-  return mp_obj_new_str(val,strlen(val));
+  else if (n_args==1) i=0;
+  c_turtle_left(-i);
+  return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_right_obj, 0, 1, turtle_right);
 
@@ -2078,6 +2152,14 @@ static mp_obj_t turtle_reset(size_t n_args, const mp_obj_t *args) {
   return mp_obj_new_str(val,strlen(val));
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_reset_obj, 0, 0, turtle_reset);
+
+static mp_obj_t turtle_clear(size_t n_args, const mp_obj_t *args) {
+  turtle_freeze();
+  const char * val=caseval("efface(op(position())):;");
+  return turtle_ret(val);
+  return mp_obj_new_str(val,strlen(val));
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_clear_obj, 0, 0, turtle_clear);
 
 static mp_obj_t turtle_dessine_tortue(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
@@ -2103,6 +2185,8 @@ static mp_obj_t turtle_circle(size_t n_args, const mp_obj_t *args) {
       y=0;
     }
   }
+  c_turtle_rond(x,y,z);
+  return mp_const_none;
   char buf[256];
   sprintf(buf,"rond(%i,%i,%i):;",x,y,z);
   const char * val=caseval(buf);
@@ -2111,10 +2195,10 @@ static mp_obj_t turtle_circle(size_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_circle_obj, 1, 3, turtle_circle);
 
-static mp_obj_t turtle_disque(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t do_turtle_disque(size_t n_args, const mp_obj_t *args,bool centered) {
   turtle_freeze();
-  int x=0,y=0,z=360;
-  if (MP_OBJ_IS_SMALL_INT(args[0])) 
+  int x=5,y=0,z=360;
+  if (n_args>=1 && MP_OBJ_IS_SMALL_INT(args[0])) 
     x=MP_OBJ_SMALL_INT_VALUE(args[0]);
   if (n_args>=2 && MP_OBJ_IS_SMALL_INT(args[1])) 
     y=MP_OBJ_SMALL_INT_VALUE(args[1]);
@@ -2127,13 +2211,23 @@ static mp_obj_t turtle_disque(size_t n_args, const mp_obj_t *args) {
       y=0;
     }
   }
+  c_turtle_disque(x,y,z,centered);
+  return mp_const_none;
   char buf[256];
-  sprintf(buf,"disque(%i,%i,%i):;",x,y,z);
+  sprintf(buf,centered?"disque_centre(%i,%i,%i):;":"disque(%i,%i,%i):;",x/2,y,z);
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_disque_obj, 1, 3, turtle_disque);
+static mp_obj_t turtle_disque(size_t n_args, const mp_obj_t *args) {
+  return do_turtle_disque(n_args,args,false);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_disque_obj, 0, 3, turtle_disque);
+
+static mp_obj_t turtle_dot(size_t n_args, const mp_obj_t *args) {
+  return do_turtle_disque(n_args,args,true);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_dot_obj, 0, 3, turtle_dot);
 
 static mp_obj_t turtle_rectangle_plein(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
@@ -2185,6 +2279,8 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_hideturtle_obj, 0, 0, turtle_hideturt
 
 static mp_obj_t turtle_down(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
+  c_turtle_up(0);
+  return mp_const_none;
   const char * val=caseval("baisse_crayon():;");
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2193,6 +2289,8 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_down_obj, 0, 0, turtle_down);
 
 static mp_obj_t turtle_up(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
+  c_turtle_up(1);
+  return mp_const_none;
   const char * val=caseval("leve_crayon():;");
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2225,13 +2323,48 @@ static mp_obj_t turtle_pas_de_cote(size_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_pas_de_cote_obj, 1, 1, turtle_pas_de_cote);
 
-static mp_obj_t turtle_setheading(size_t n_args, const mp_obj_t *args) {
-  turtle_freeze();
-  int i=0;
-  if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
-    i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+static mp_obj_t turtle_towards(size_t n_args, const mp_obj_t *args) {
+  double x,y;
+  if (n_args!=2 || !mp_int_float(args[0],&x) || !mp_int_float(args[1],&y))
+    mp_raise_TypeError("x,y expected");
+#ifndef NUMWORKS
   char buf[256];
-  sprintf(buf,"cap(%i):;",i);
+  sprintf(buf,"towards(%.4f,%.4f);",x,y);
+#else
+  char buf[256]="towards(";
+  strcat_double(buf,x);
+  strcat(buf,",");
+  strcat_double(buf,y);
+  strcat(buf,");");
+#endif
+  const char * val=caseval(buf);
+  x=atof(val);
+  return mp_obj_new_float(x);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_towards_obj, 2, 2, turtle_towards);
+
+static mp_obj_t turtle_setheading(size_t n_args, const mp_obj_t *args) {
+  if (n_args==0){
+    char buf[]="cap()";
+    const char * val=caseval(buf);
+    return str2int(val);
+  }
+  turtle_freeze();
+  double i=0;
+  if (n_args==1){
+    if (!mp_int_float(args[0],&i))
+      mp_raise_TypeError("int/float expected");
+  }
+  c_turtle_cap(i);
+  return mp_const_none;
+#ifndef NUMWORKS
+  char buf[256];
+  sprintf(buf,"cap(%.4f):;",i);
+#else
+  char buf[256]="cap(";
+  strcat_double(buf,i);
+  strcat(buf,"):;");
+#endif
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2239,27 +2372,56 @@ static mp_obj_t turtle_setheading(size_t n_args, const mp_obj_t *args) {
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_setheading_obj, 0, 1, turtle_setheading);
 
 static mp_obj_t turtle_setposition(size_t n_args, const mp_obj_t *args) {
+  if (n_args<2){
+    double x,y;
+    c_turtle_getposition(&x,&y);
+    mp_obj_t res = mp_obj_new_list(0, NULL);
+    mp_obj_list_append(res,mp_obj_new_int(x));
+    mp_obj_list_append(res,mp_obj_new_int(y));
+    return res;
+    char buf[]="position();";
+    const char * val=caseval(buf);
+    int l=strlen(val);
+    if (l<5 || val[0]!='[' || val[l-1]!=']')
+      return mp_obj_new_str(val,l);
+    // parse 2 integers separated by a comma
+    return str2list2int(val,2);
+  }
   turtle_freeze();
-  int x=0,y=0;
-  if (MP_OBJ_IS_SMALL_INT(args[0])) 
-    x=MP_OBJ_SMALL_INT_VALUE(args[0]);
-  if (MP_OBJ_IS_SMALL_INT(args[1])) 
-    y=MP_OBJ_SMALL_INT_VALUE(args[1]);
+  double x=0,y=0;
+  if (!mp_int_float(args[0],&x) || !mp_int_float(args[1],&y))
+    mp_raise_TypeError("x,y expected");    
+  c_turtle_goto(x,y);
+  return mp_const_none;
+#ifndef NUMWORKS
   char buf[256];
-  sprintf(buf,"position(%i,%i):;",x,y);
+  sprintf(buf,"position(%.4f,%.4f):;",x,y);
+#else
+  char buf[256]="position(";
+  strcat_double(buf,x);
+  strcat(buf,",");
+  strcat_double(buf,y);
+  strcat(buf,"):;");
+#endif
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_setposition_obj, 2, 2, turtle_setposition);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_setposition_obj, 0, 2, turtle_setposition);
 
 static mp_obj_t turtle_setx(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
-  int i=0;
-  if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
-    i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+  double i=0;
+  if (n_args==1)
+    mp_int_float(args[0],&i);
+#ifndef NUMWORKS
   char buf[256];
-  sprintf(buf,"position(%i,position()[1]):;",i);
+  sprintf(buf,"position(%.4f,position()[1]):;",i);
+#else
+  char buf[256]="position(";
+  strcat_double(buf,i);
+  strcat(buf,"position()[1]):;");
+#endif
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2268,11 +2430,17 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_setx_obj, 0, 1, turtle_setx);
 
 static mp_obj_t turtle_sety(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
-  int i=0;
-  if (n_args==1 && MP_OBJ_IS_SMALL_INT(args[0])) 
-    i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+  double i=0;
+  if (n_args==1)
+    mp_int_float(args[0],&i);
+#ifndef NUMWORKS
   char buf[256];
-  sprintf(buf,"position(position()[0],%i):;",i);
+  sprintf(buf,"position(position()[0],%.4f):;",i);
+#else
+  char buf[256]="position(position()[0],";
+  strcat_double(buf,i);
+  strcat(buf,"):;");
+#endif
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2288,6 +2456,88 @@ static mp_obj_t turtle_write(size_t n_args, const mp_obj_t *args) {
   return mp_obj_new_str(val,strlen(val));
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_write_obj, 1, 1, turtle_write);
+
+static mp_obj_t turtle_colormode(size_t n_args, const mp_obj_t *args) {
+  if (n_args==0)
+    return mp_obj_new_int(255);    
+  return turtle_ret("\"Done");
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_colormode_obj, 0, 1, turtle_colormode);
+
+static mp_obj_t turtle_fillcolor(size_t n_args, const mp_obj_t *args) {
+  int i=0;
+  char buf[256]="polygone_rempli()";
+  if (n_args==1){
+    if (MP_OBJ_IS_STR(args[0]))
+      sprintf(buf,"polygone_rempli(%s):;",mp_obj_str_get_str(args[0]));
+    if (MP_OBJ_IS_SMALL_INT(args[0])) {
+      i=MP_OBJ_SMALL_INT_VALUE(args[0]);
+      sprintf(buf,"polygone_rempli([%i]):;",i);
+    }
+    if (strlen(buf)==17){
+      size_t n=0; mp_obj_t * tab=0;
+      mp_obj_get_array(args[0],&n,&tab);
+      if (n==3 &&  mp_obj_is_float(tab[0]) && mp_obj_is_float(tab[1]) && mp_obj_is_float(tab[2])){
+	c_turtle_fillcolor(mp_obj_get_float(tab[0]),mp_obj_get_float(tab[1]),mp_obj_get_float(tab[2]),0);
+	return mp_const_none;
+#ifdef NUMWORKS
+	strcpy(buf,"polygone_rempli(");
+	for (int i=0;i<3;++i){
+	  strcat_double(buf,mp_obj_get_float(tab[i]));
+	  if (i<2)
+	    strcat(buf,",");
+	}
+	strcat(buf,"):;");
+#else
+	sprintf(buf,"polygone_rempli(%.3f,%.3f,%.3f):;",mp_obj_get_float(tab[0]),mp_obj_get_float(tab[1]),mp_obj_get_float(tab[2]));
+#endif
+      }
+      if (n==3 &&  MP_OBJ_IS_SMALL_INT(tab[0]) && MP_OBJ_IS_SMALL_INT(tab[1]) && MP_OBJ_IS_SMALL_INT(tab[2])){
+	c_turtle_fillcolor((int)MP_OBJ_SMALL_INT_VALUE(tab[0]),(int)MP_OBJ_SMALL_INT_VALUE(tab[1]),(int)MP_OBJ_SMALL_INT_VALUE(tab[2]),1);
+	return mp_const_none;
+	sprintf(buf,"polygone_rempli(%i,%i,%i):;",(int)MP_OBJ_SMALL_INT_VALUE(tab[0]),(int)MP_OBJ_SMALL_INT_VALUE(tab[1]),(int)MP_OBJ_SMALL_INT_VALUE(tab[2]));
+      }
+    }
+  }
+  if (n_args==3 &&  MP_OBJ_IS_SMALL_INT(args[0]) && MP_OBJ_IS_SMALL_INT(args[1]) && MP_OBJ_IS_SMALL_INT(args[2])){
+    sprintf(buf,"polygone_rempli(%i,%i,%i):;",(int)MP_OBJ_SMALL_INT_VALUE(args[0]),(int)MP_OBJ_SMALL_INT_VALUE(args[1]),(int)MP_OBJ_SMALL_INT_VALUE(args[2]));
+  }
+  if (n_args==3 && mp_obj_is_float(args[0]) && mp_obj_is_float(args[1]) && mp_obj_is_float(args[2]) ){
+#ifdef NUMWORKS
+	strcpy(buf,"polygone_rempli(");
+	for (int i=0;i<3;++i){
+	  strcat_double(buf,mp_obj_get_float(args[i]));
+	  if (i<2)
+	    strcat(buf,",");
+	}
+	strcat(buf,"):;");
+#else
+    sprintf(buf,"polygone_rempli(%.3f,%.3f,%.3f):;",mp_obj_get_float(args[0]),mp_obj_get_float(args[1]),mp_obj_get_float(args[2]));
+#endif
+  }
+  //printf(buf);
+  const char * val=caseval(buf);
+  if (n_args==0) return mp_obj_new_str(val,strlen(val));
+  return turtle_ret(val);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_fillcolor_obj, 0, 3, turtle_fillcolor);
+
+static mp_obj_t turtle_begin_fill(size_t n_args, const mp_obj_t *args) {
+  c_turtle_fill(1);
+  return mp_const_none;
+  const char * val=caseval("polygone_rempli([]):;");
+  return turtle_ret(val);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_begin_fill_obj, 0, 0, turtle_begin_fill);
+
+static mp_obj_t turtle_end_fill(size_t n_args, const mp_obj_t *args) {
+  turtle_freeze();
+  c_turtle_fill(0);
+  return mp_const_none;
+  const char * val=caseval("polygone_rempli():;");
+  return turtle_ret(val);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(turtle_end_fill_obj, 0, 0, turtle_end_fill);
 
 static mp_obj_t turtle_pencolor(size_t n_args, const mp_obj_t *args) {
   turtle_freeze();
@@ -2313,13 +2563,16 @@ static mp_obj_t turtle_pencolor(size_t n_args, const mp_obj_t *args) {
 	}
 	strcat(buf,"):;");
 #else
-	sprintf(buf,"crayon(%.3g,%.3g,%.3g):;",mp_obj_get_float(tab[0]),mp_obj_get_float(tab[1]),mp_obj_get_float(tab[2]));
+	sprintf(buf,"crayon(%.3f,%.3f,%.3f):;",mp_obj_get_float(tab[0]),mp_obj_get_float(tab[1]),mp_obj_get_float(tab[2]));
 #endif
       }
       if (n==3 &&  MP_OBJ_IS_SMALL_INT(tab[0]) && MP_OBJ_IS_SMALL_INT(tab[1]) && MP_OBJ_IS_SMALL_INT(tab[2])){
 	sprintf(buf,"crayon(%i,%i,%i):;",(int)MP_OBJ_SMALL_INT_VALUE(tab[0]),(int)MP_OBJ_SMALL_INT_VALUE(tab[1]),(int)MP_OBJ_SMALL_INT_VALUE(tab[2]));
       }
     }
+  }
+  if (n_args==3 &&  MP_OBJ_IS_SMALL_INT(args[0]) && MP_OBJ_IS_SMALL_INT(args[1]) && MP_OBJ_IS_SMALL_INT(args[2])){
+    sprintf(buf,"crayon(%i,%i,%i):;",(int)MP_OBJ_SMALL_INT_VALUE(args[0]),(int)MP_OBJ_SMALL_INT_VALUE(args[1]),(int)MP_OBJ_SMALL_INT_VALUE(args[2]));
   }
   if (n_args==3 && mp_obj_is_float(args[0]) && mp_obj_is_float(args[1]) && mp_obj_is_float(args[2]) ){
 #ifdef NUMWORKS
@@ -2331,9 +2584,14 @@ static mp_obj_t turtle_pencolor(size_t n_args, const mp_obj_t *args) {
 	}
 	strcat(buf,"):;");
 #else
-    sprintf(buf,"crayon(%.3g,%.3g,%.3g):;",mp_obj_get_float(args[0]),mp_obj_get_float(args[1]),mp_obj_get_float(args[2]));
+    sprintf(buf,"crayon(%.3f,%.3f,%.3f):;",mp_obj_get_float(args[0]),mp_obj_get_float(args[1]),mp_obj_get_float(args[2]));
 #endif
   }
+  if (n_args==2 ){
+    int f=mp_get_color(args[0]),b=mp_get_color(args[1]);
+    sprintf(buf,"crayon(%i),polygone_rempli(%i):;",f,b);
+  }
+  //printf(buf);
   const char * val=caseval(buf);
   return turtle_ret(val);
   return mp_obj_new_str(val,strlen(val));
@@ -2365,19 +2623,25 @@ static const mp_map_elem_t turtle_locals_dict_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_rt), (mp_obj_t) &turtle_right_obj },
 	{ MP_ROM_QSTR(MP_QSTR_circle), (mp_obj_t) &turtle_circle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_disque), (mp_obj_t) &turtle_disque_obj },
+	{ MP_ROM_QSTR(MP_QSTR_dot), (mp_obj_t) &turtle_dot_obj },
 	{ MP_ROM_QSTR(MP_QSTR_rectangle_plein), (mp_obj_t) &turtle_rectangle_plein_obj },
 	{ MP_ROM_QSTR(MP_QSTR_triangle_plein), (mp_obj_t) &turtle_triangle_plein_obj },
 	{ MP_ROM_QSTR(MP_QSTR_reset), (mp_obj_t) &turtle_reset_obj },
+	{ MP_ROM_QSTR(MP_QSTR_clear), (mp_obj_t) &turtle_clear_obj },
 	{ MP_ROM_QSTR(MP_QSTR_dessine_tortue), (mp_obj_t) &turtle_dessine_tortue_obj },
 	{ MP_ROM_QSTR(MP_QSTR_setheading), (mp_obj_t) &turtle_setheading_obj },
 	{ MP_ROM_QSTR(MP_QSTR_seth), (mp_obj_t) &turtle_setheading_obj },
 	{ MP_ROM_QSTR(MP_QSTR_setposition), (mp_obj_t) &turtle_setposition_obj },
+	{ MP_ROM_QSTR(MP_QSTR_towards), (mp_obj_t) &turtle_towards_obj },
 	{ MP_ROM_QSTR(MP_QSTR_goto), (mp_obj_t) &turtle_setposition_obj },
 	{ MP_ROM_QSTR(MP_QSTR_setpos), (mp_obj_t) &turtle_setposition_obj },
 	{ MP_ROM_QSTR(MP_QSTR_setx), (mp_obj_t) &turtle_setx_obj },
 	{ MP_ROM_QSTR(MP_QSTR_sety), (mp_obj_t) &turtle_sety_obj },
 	{ MP_ROM_QSTR(MP_QSTR_write), (mp_obj_t) &turtle_write_obj },
 	{ MP_ROM_QSTR(MP_QSTR_speed), (mp_obj_t) &turtle_speed_obj },
+	{ MP_ROM_QSTR(MP_QSTR_fillcolor), (mp_obj_t) &turtle_fillcolor_obj },
+	{ MP_ROM_QSTR(MP_QSTR_end_fill), (mp_obj_t) &turtle_end_fill_obj },
+	{ MP_ROM_QSTR(MP_QSTR_begin_fill), (mp_obj_t) &turtle_begin_fill_obj },
 	{ MP_ROM_QSTR(MP_QSTR_showturtle), (mp_obj_t) &turtle_showturtle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_st), (mp_obj_t) &turtle_showturtle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_hideturtle), (mp_obj_t) &turtle_hideturtle_obj },
@@ -2391,6 +2655,8 @@ static const mp_map_elem_t turtle_locals_dict_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_penup), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_pu), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_pencolor), (mp_obj_t) &turtle_pencolor_obj },
+	{ MP_ROM_QSTR(MP_QSTR_color), (mp_obj_t) &turtle_pencolor_obj },
+    { MP_ROM_QSTR(MP_QSTR_colormode), (mp_obj_t) &turtle_colormode_obj },
 	{ MP_ROM_QSTR(MP_QSTR_avance), (mp_obj_t) &turtle_forward_obj },
 	{ MP_ROM_QSTR(MP_QSTR_av), (mp_obj_t) &turtle_forward_obj },
 	{ MP_ROM_QSTR(MP_QSTR_recule), (mp_obj_t) &turtle_backward_obj },
@@ -2412,12 +2678,13 @@ static const mp_map_elem_t turtle_locals_dict_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_cache_tortue), (mp_obj_t) &turtle_hideturtle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_baisse_crayon), (mp_obj_t) &turtle_down_obj },
 	{ MP_ROM_QSTR(MP_QSTR_leve_crayon), (mp_obj_t) &turtle_up_obj },
+	{ MP_ROM_QSTR(MP_QSTR_pensize), (mp_obj_t) &turtle_pensize_obj },
+	{ MP_ROM_QSTR(MP_QSTR_width), (mp_obj_t) &turtle_pensize_obj },
 	/* { MP_ROM_QSTR(MP_QSTR_time), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_sleep), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_monotonic), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_time), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_sleep), (mp_obj_t) &turtle_up_obj },
-	{ MP_ROM_QSTR(MP_QSTR_pensize), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_width), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_isdown), (mp_obj_t) &turtle_up_obj },
 	{ MP_ROM_QSTR(MP_QSTR_isvisible), (mp_obj_t) &turtle_up_obj },
@@ -2447,20 +2714,26 @@ STATIC const mp_map_elem_t mp_module_turtle_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_right), (mp_obj_t) &turtle_right_obj },
     { MP_ROM_QSTR(MP_QSTR_rt), (mp_obj_t) &turtle_right_obj },
     { MP_ROM_QSTR(MP_QSTR_reset), (mp_obj_t) &turtle_reset_obj },
+    { MP_ROM_QSTR(MP_QSTR_clear), (mp_obj_t) &turtle_clear_obj },
     { MP_ROM_QSTR(MP_QSTR_dessine_tortue), (mp_obj_t) &turtle_dessine_tortue_obj },
     { MP_ROM_QSTR(MP_QSTR_circle), (mp_obj_t) &turtle_circle_obj },
     { MP_ROM_QSTR(MP_QSTR_disque), (mp_obj_t) &turtle_disque_obj },
+    { MP_ROM_QSTR(MP_QSTR_dot), (mp_obj_t) &turtle_dot_obj },
     { MP_ROM_QSTR(MP_QSTR_rectangle_plein), (mp_obj_t) &turtle_rectangle_plein_obj },
     { MP_ROM_QSTR(MP_QSTR_triangle_plein), (mp_obj_t) &turtle_triangle_plein_obj },
     { MP_ROM_QSTR(MP_QSTR_setheading), (mp_obj_t) &turtle_setheading_obj },
     { MP_ROM_QSTR(MP_QSTR_goto), (mp_obj_t) &turtle_setposition_obj },
     { MP_ROM_QSTR(MP_QSTR_seth), (mp_obj_t) &turtle_setheading_obj },
     { MP_ROM_QSTR(MP_QSTR_setposition), (mp_obj_t) &turtle_setposition_obj },
+    { MP_ROM_QSTR(MP_QSTR_towards), (mp_obj_t) &turtle_towards_obj },
     { MP_ROM_QSTR(MP_QSTR_setpos), (mp_obj_t) &turtle_setposition_obj },
     { MP_ROM_QSTR(MP_QSTR_setx), (mp_obj_t) &turtle_setx_obj },
     { MP_ROM_QSTR(MP_QSTR_sety), (mp_obj_t) &turtle_sety_obj },
     { MP_ROM_QSTR(MP_QSTR_write), (mp_obj_t) &turtle_write_obj },
     { MP_ROM_QSTR(MP_QSTR_speed), (mp_obj_t) &turtle_speed_obj },
+    { MP_ROM_QSTR(MP_QSTR_fillcolor), (mp_obj_t) &turtle_fillcolor_obj },
+    { MP_ROM_QSTR(MP_QSTR_end_fill), (mp_obj_t) &turtle_end_fill_obj },
+    { MP_ROM_QSTR(MP_QSTR_begin_fill), (mp_obj_t) &turtle_begin_fill_obj },
     { MP_ROM_QSTR(MP_QSTR_showturtle), (mp_obj_t) &turtle_showturtle_obj },
     { MP_ROM_QSTR(MP_QSTR_st), (mp_obj_t) &turtle_showturtle_obj },
     { MP_ROM_QSTR(MP_QSTR_hideturtle), (mp_obj_t) &turtle_hideturtle_obj },
@@ -2474,6 +2747,8 @@ STATIC const mp_map_elem_t mp_module_turtle_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_penup), (mp_obj_t) &turtle_up_obj },
     { MP_ROM_QSTR(MP_QSTR_pu), (mp_obj_t) &turtle_up_obj },
     { MP_ROM_QSTR(MP_QSTR_pencolor), (mp_obj_t) &turtle_pencolor_obj },
+	{ MP_ROM_QSTR(MP_QSTR_color), (mp_obj_t) &turtle_pencolor_obj },
+    { MP_ROM_QSTR(MP_QSTR_colormode), (mp_obj_t) &turtle_colormode_obj },
 	{ MP_ROM_QSTR(MP_QSTR_avance), (mp_obj_t) &turtle_forward_obj },
 	{ MP_ROM_QSTR(MP_QSTR_av), (mp_obj_t) &turtle_forward_obj },
 	{ MP_ROM_QSTR(MP_QSTR_recule), (mp_obj_t) &turtle_backward_obj },
@@ -2486,13 +2761,17 @@ STATIC const mp_map_elem_t mp_module_turtle_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_rond), (mp_obj_t) &turtle_circle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_efface), (mp_obj_t) &turtle_reset_obj },
 	{ MP_ROM_QSTR(MP_QSTR_cap), (mp_obj_t) &turtle_setheading_obj },
+	{ MP_ROM_QSTR(MP_QSTR_heading), (mp_obj_t) &turtle_setheading_obj },
 	{ MP_ROM_QSTR(MP_QSTR_position), (mp_obj_t) &turtle_setposition_obj },
+	{ MP_ROM_QSTR(MP_QSTR_pos), (mp_obj_t) &turtle_setposition_obj },
 	{ MP_ROM_QSTR(MP_QSTR_ecris), (mp_obj_t) &turtle_write_obj },
 	{ MP_ROM_QSTR(MP_QSTR_vitesse_tortue), (mp_obj_t) &turtle_speed_obj },
 	{ MP_ROM_QSTR(MP_QSTR_montre_tortue), (mp_obj_t) &turtle_showturtle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_cache_tortue), (mp_obj_t) &turtle_hideturtle_obj },
 	{ MP_ROM_QSTR(MP_QSTR_baisse_crayon), (mp_obj_t) &turtle_down_obj },
 	{ MP_ROM_QSTR(MP_QSTR_leve_crayon), (mp_obj_t) &turtle_up_obj },
+	{ MP_ROM_QSTR(MP_QSTR_pensize), (mp_obj_t) &turtle_pensize_obj },
+	{ MP_ROM_QSTR(MP_QSTR_width), (mp_obj_t) &turtle_pensize_obj },
 };
 
 STATIC const mp_obj_dict_t mp_module_turtle_globals = {
@@ -2514,6 +2793,12 @@ const mp_obj_module_t mp_module_turtle = {
 /* MATPLOTL */
 static mp_obj_t matplotl_show(size_t n_args, const mp_obj_t *args) {
   const char * val=caseval("show()");
+#if defined EMCC && !defined NO_QSTR
+  EM_ASM_ARGS({
+      var msg = UTF8ToString($0);
+      UI.python_output += msg;
+    },val);
+#endif
   return mp_obj_new_str(val,strlen(val));
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(matplotl_show_obj, 0, 0, matplotl_show);
@@ -2732,7 +3017,7 @@ static mp_obj_t matplotl_boxplot(size_t n_args, const mp_obj_t *args) {
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(matplotl_boxplot_obj, 1, 2, matplotl_boxplot);
 
 static mp_obj_t matplotl_arrow(size_t n_args, const mp_obj_t *args) {
-  double a=0,b=0,c=0,d=d;
+  double a=0,b=0,c=0,d=0;
   int col=0;
   if (n_args==5)
     col=mp_get_color(args[4]);

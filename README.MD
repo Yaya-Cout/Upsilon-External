@@ -23,6 +23,10 @@ This is a port of https://github.com/M4xi1m3/nw-atom
 
 This is a port of Nofrendo from https://www.baisoku.org/
 
+## Unit Circle
+
+A simple app showing an unit circle for trigonometry
+
 ## CHIP-8
 
 This is a port of CHIP-8 from https://github.com/f0lg0/CHIP-8
