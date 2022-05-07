@@ -17,7 +17,7 @@ def eff():
 def go(f,xmax=4,ymax=4):
   eff()
   h,v = 160,80
-  for i in range(-h,h,1):
+  for i in range(-h, h):
     m,n = 0,220
     for j in range(v,-v,-1):
       x = -xmax*i/h+xmax*j/v
