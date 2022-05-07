@@ -1,37 +1,33 @@
-apps.tar: apps/KhiCAS/app.elf apps/Periodic/app.elf apps/Nofrendo/app.elf apps/Peanut-GB/app.elf apps/HexEdit/app.elf apps/BadApple/app.elf apps/CHIP-8/app.elf apps/Example/app.elf
-	./archive $@ $^
+.PHONY: %_flash
+%_flash: %_rebuild
+	./tool/archive apps.tar $@
+	@echo "Waiting for the calculator to be connected, use the bootloader to flash on Upsilon if your app is bigger than 2MB"
+	@until dfu-util -l | grep -E "0483:a291|0483:df11" > /dev/null 2>&1; do sleep 2;done
+	dfu-util -i 0 -a 0 -s 0x90200000 -D apps.tar
 
-flash: apps.tar
-	dfu-util -i 0 -a 0 -s 0x90200000 -D $^
+.PHONY: %_rebuild
+%_rebuild: api/libapi.a
+	@echo "Rebuilding..."
+# 	Because the Makefile can't interpret the `%` operator, we have
+#   to use the following command to rebuild the application.
+	./tool/rebuild.sh $@
+
+.PHONE: %_clean
+%_clean:
+	@echo "Cleaning..."
+	rm -rf apps.tar
+	rm -rf api/libapi.a
+	./tool/clean.sh $@
 
 api/libapi.a:
 	make -C api
 
-apps/Periodic/app.elf: api/libapi.a
-	make -C apps/Periodic
+apps/%/app.elf: api/libapi.a
+	make -C apps/$@
 
-apps/Peanut-GB/app.elf: api/libapi.a
-	make -C apps/Peanut-GB
-
-apps/KhiCAS/app.elf: api/libapi.a
-	make -C apps/KhiCAS
-
-apps/Nofrendo/app.elf: api/libapi.a
-	make -C apps/Nofrendo
-
-apps/HexEdit/app.elf: api/libapi.a
-	make -C apps/HexEdit
-
-apps/BadApple/app.elf: api/libapi.a
-	make -C apps/BadApple
-
-apps/CHIP-8/app.elf: api/libapi.a
-	make -C apps/CHIP-8
-
-apps/Example/app.elf: api/libapi.a
-	make -C apps/Example
 
 clean:
+	@echo "make clean is deprecated, use make app-name_clean instead"
 	rm -f apps.tar
 	make -C api clean
 	make -C apps/Periodic clean
