@@ -5,7 +5,7 @@
 To create a new project, you just need to:
 
 1. Create a new directory with the name of your project. You can copy the Example project to get started.
-2. Add your project to the Makefile. You just need copy the `apps/Example/app.elf` target then rename the `Example` to your project name.
+2. Add your project to the Makefile. You just need to copy the `apps/Example/app.elf` target then rename the `Example` to your project name.
 3. Add your project to the `apps/apps.js` file.
 4. To flash your project, you just need to run the `make app-name_flash` command.
 5. It's done! :tada:
@@ -15,7 +15,7 @@ To create a new project, you just need to:
 To edit a project, you just need to open your project directory and edit the files.
 To flash your project, you just need to run the `make app-name_flash` command in the root directory (not in your app directory).
 
-If you want to see the external applications documentation, you have the `api/extapi.h` file, which contains is the list of all the external applications commands and their description.
+If you want to see the external applications documentation, you have the `api/extapi.h` file, which contains the list of all the external applications commands and their description.
 
 ## Publishing your app
 
