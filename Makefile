@@ -38,4 +38,5 @@ clean:
 	make -C apps/BadApple clean
 	make -C apps/CHIP-8 clean
 	make -C apps/Example clean
+	make -C apps/Example-Cpp clean
 
