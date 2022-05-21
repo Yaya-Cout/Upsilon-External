@@ -46,7 +46,7 @@ void extapp_main(void) {
 
 
     extapp_drawTextLarge("Reading file...", 0, 20 * 4, 0x0000, 0xFFFF, false);
-    // Initialize the file len variable that will be writted by the file read function
+    // Initialize the file len variable that will be written by the file read function
     size_t file_len = 0;
     // Read the file into filecontent variable
     const char * filecontent = extapp_fileRead(filename, &file_len, EXTAPP_FLASH_FILE_SYSTEM);
@@ -62,7 +62,12 @@ void extapp_main(void) {
     Peripherals::init_display();
 
     extapp_drawTextLarge("File content :", 0, 20 * 1, 0x0000, 0xFFFF, false);
-    extapp_drawTextLarge(filecontent, 0, 20 * 2, 0x0000, 0xFFFF, false);
+    // It crashes on simulator, because Built-In app content is NULL
+    if (filecontent != NULL) {
+        extapp_drawTextLarge(filecontent, 0, 20 * 2, 0x0000, 0xFFFF, false);
+    } else {
+        extapp_drawTextLarge("File content is NULL", 0, 20 * 2, 0x0000, 0xFFFF, false);
+    }
 
     extapp_drawTextLarge("Press any key to continue", 0, 20 * 3, 0x0000, 0xFFFF, false);
     // Wait for a key to be pressed
@@ -72,7 +77,7 @@ void extapp_main(void) {
     // Clear the screen
     Peripherals::init_display();
 
-    extapp_drawTextLarge("Writting file into ram filesystem...", 0, 20 * 1, 0x0000, 0xFFFF, false);
+    extapp_drawTextLarge("Writing file into ram filesystem...", 0, 20 * 1, 0x0000, 0xFFFF, false);
 
     // Initialize the filename to write to the ram filesystem
     const char * filename_to_write = "hello_world.py";

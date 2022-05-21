@@ -70,7 +70,7 @@ const char * select_file(const char * extension_to_match, int max_files) {
 
   // If the extension to match isn't empty, filter the file list
   // Checking without strcomp, because it's also a string littery when it is empty
-  if (extension_to_match != "") {
+  if (extension_to_match[0] != '\0') {
     // Iterate through the file list
     for (int i = 0; i < nb; i++) {
       // Get the file extension by splitting his name by a dot
