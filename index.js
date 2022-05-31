@@ -533,7 +533,7 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
       CROP_IMAGE_SAVE: "Sauvegarder",
       CANCEL: "Annuler",
       TOO_BIG_FILES: "Vous écrivez une grande quantité de fichiers sur votre calculatrice. Si vous utilisez une version récente d'Upsilon, vous devez passer par le bootloader (bouton de réinitialisation à l'arrière) pour vous assurer que les fichiers ne seront pas écrits dans du code en cours d'exécution.",
-      UNABLE_TO_CLAIM_INTERFACE: "Impossible de réclamer l'interface. Veuillez vous assurer que aucun autre onglet ou application n'est utilisée par le périphérique.",
+      UNABLE_TO_CLAIM_INTERFACE: "Impossible de réclamer l'interface. Veuillez vous assurer qu'aucun autre onglet ou application n'utilise la calculatrice.",
     })
     .registerAvailableLanguageKeys(['en', 'fr'], {
       'en_*': 'en',
