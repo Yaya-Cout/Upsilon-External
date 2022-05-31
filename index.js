@@ -408,6 +408,10 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
         if(error.message != undefined && error.message.match("Address .*? outside of memory map")) {
           $scope.error = $translate.instant("TOO_MUCH_FILES");
         }
+        // Handle Unable to claim interface error
+        else if(error.message != undefined && error.message.match("Unable to claim interface")) {
+          $scope.error = $translate.instant("UNABLE_TO_CLAIM_INTERFACE");
+        }
         else {
           $scope.error = error;
         }
@@ -496,7 +500,8 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
       CROP_IMAGE_SAVE: "Save",
       CANCEL: "Cancel",
       CONTINUE: "Continue",
-      TOO_BIG_FILES: "You are writing a large amount of files to your calculator. If you are using a recent version of Upsilon, you must go through the bootloader (reset button on the back) to make sure that the files will not be written over running code."
+      TOO_BIG_FILES: "You are writing a large amount of files to your calculator. If you are using a recent version of Upsilon, you must go through the bootloader (reset button on the back) to make sure that the files will not be written over running code.",
+      UNABLE_TO_CLAIM_INTERFACE: "Unable to claim interface. Please make sure that no other tab or application is using the device.",
     })
     .translations('fr', {
       TITLE: 'Dépôt d\'application N0110 non officiel',
@@ -527,7 +532,8 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
       CROP_IMAGE_TITLE: "Recadrer le fond d'écran",
       CROP_IMAGE_SAVE: "Sauvegarder",
       CANCEL: "Annuler",
-      TOO_BIG_FILES: "Vous écrivez une grande quantité de fichiers sur votre calculatrice. Si vous utilisez une version récente d'Upsilon, vous devez passer par le bootloader (bouton de réinitialisation à l'arrière) pour vous assurer que les fichiers ne seront pas écrits dans du code en cours d'exécution."
+      TOO_BIG_FILES: "Vous écrivez une grande quantité de fichiers sur votre calculatrice. Si vous utilisez une version récente d'Upsilon, vous devez passer par le bootloader (bouton de réinitialisation à l'arrière) pour vous assurer que les fichiers ne seront pas écrits dans du code en cours d'exécution.",
+      UNABLE_TO_CLAIM_INTERFACE: "Impossible de réclamer l'interface. Veuillez vous assurer que aucun autre onglet ou application n'est utilisée par le périphérique.",
     })
     .registerAvailableLanguageKeys(['en', 'fr'], {
       'en_*': 'en',
