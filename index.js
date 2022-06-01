@@ -501,7 +501,7 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
       CANCEL: "Cancel",
       CONTINUE: "Continue",
       TOO_BIG_FILES: "You are writing a large amount of files to your calculator. If you are using a recent version of Upsilon, you must go through the bootloader (reset button on the back) to make sure that the files will not be written over running code.",
-      UNABLE_TO_CLAIM_INTERFACE: "Unable to claim interface. Please make sure that no other tab or application is using the device.",
+      UNABLE_TO_CLAIM_INTERFACE: "Unable to claim interface. Please make sure that no other tab or application is using the calculator.",
     })
     .translations('fr', {
       TITLE: 'Dépôt d\'application N0110 non officiel',
