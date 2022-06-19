@@ -20,10 +20,9 @@ get_d.lo: get_d.c /usr/lib/gcc/arm-none-eabi/10.3.1/include/float.h \
  /usr/include/newlib/stdlib.h /usr/include/newlib/machine/stdlib.h \
  /usr/include/newlib/alloca.h \
  /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h mpfr-cvers.h \
- mpfr-thread.h \
- /mnt/c/msys64/home/lauri/Upsilon-External/apps/KhiCAS/src/include/gmp.h \
- mpfr.h mpfr-gmp.h mpfr-longlong.h mpfr-sassert.h mparam.h arm/mparam.h \
- generic/mparam.h /usr/include/newlib/locale.h ieee_floats.h
+ mpfr-thread.h /External/apps/KhiCAS/src/include/gmp.h mpfr.h mpfr-gmp.h \
+ mpfr-longlong.h mpfr-sassert.h mparam.h arm/mparam.h generic/mparam.h \
+ /usr/include/newlib/locale.h ieee_floats.h
 /usr/lib/gcc/arm-none-eabi/10.3.1/include/float.h:
 mpfr-impl.h:
 /usr/include/newlib/stdio.h:
@@ -65,7 +64,7 @@ mpfr-impl.h:
 /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h:
 mpfr-cvers.h:
 mpfr-thread.h:
-/mnt/c/msys64/home/lauri/Upsilon-External/apps/KhiCAS/src/include/gmp.h:
+/External/apps/KhiCAS/src/include/gmp.h:
 mpfr.h:
 mpfr-gmp.h:
 mpfr-longlong.h:

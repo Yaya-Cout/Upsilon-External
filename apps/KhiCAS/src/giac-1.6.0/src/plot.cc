@@ -1650,7 +1650,7 @@ namespace giac {
 	nu=int(std::sqrt(double(nstep)));
 	nv=int(std::sqrt(double(nstep)));
       }
-#ifdef KHICAS
+#if defined KHICAS || defined GIAC_HAS_STO_38
       if (nu*nv>900 && densityplot!=2){
 #if 1 // def DEVICE
 	nu=nv=30;
@@ -1770,7 +1770,7 @@ namespace giac {
 	    if (fval._DOUBLE_val>fmax)
 	      fmax=fval._DOUBLE_val;
 	  }
-#ifdef KHICAS // FIXME format is not translatable, etc.
+#if defined KHICAS || defined GIAC_HAS_STO_38 // FIXME format is not translatable, etc.
 	  if (!densityplot){
 	    tmp.push_back(x); tmp.push_back(y); tmp.push_back(fval);
 	  } 
@@ -5610,7 +5610,7 @@ namespace giac {
 	  else
 	    sol=solve(eq,v[1],0,contextptr);
 	}
-	if (calc_mode(contextptr)==1 && sol.empty())
+	if (calc_mode(contextptr)==2 && sol.empty())
 	  return undef;
 	sol.push_back(v[3]);
 	// find smallest 
@@ -5720,7 +5720,7 @@ namespace giac {
     if (e.type!=_VECT || e._VECTptr->size()<2)
       return undef;
     vecteur v(*e._VECTptr);
-    int c=calc_mode(contextptr); calc_mode(0,contextptr);
+    int c=calc_mode(contextptr); calc_mode(2,contextptr); // was set to 0 for distance(point(3,4), y=sin(x)) but then distance(point(a,b),y=x^2); return abs(a-b^2), see if (calc_mode(contextptr)==2 && sol.empty()) return undef in projection
     gen p=projection(ee,f,contextptr);
     calc_mode(c,contextptr);
     gen projete=subst(v[0],v[1],p,false,contextptr);
@@ -5930,7 +5930,7 @@ namespace giac {
 	  }
 	}
       }
-      e2=plotimplicit(e2,x__IDNT_e,y__IDNT_e,gnuplot_xmin,gnuplot_xmax,gnuplot_ymin,gnuplot_ymax,20*gnuplot_pixels_per_eval,0,epsilon(contextptr),vecteur(1,default_color(contextptr)),false,false,contextptr,1);
+      e2=plotimplicit(equal2diff(e2),x__IDNT_e,y__IDNT_e,gnuplot_xmin,gnuplot_xmax,gnuplot_ymin,gnuplot_ymax,20*gnuplot_pixels_per_eval,0,epsilon(contextptr),vecteur(1,default_color(contextptr)),false,true /* cklinear */ ,contextptr,3);
       if (e2.type==_VECT && !e2._VECTptr->empty())
 	e2=e2._VECTptr->front();
     }
@@ -6066,10 +6066,20 @@ namespace giac {
   gen _aire(const gen & args,GIAC_CONTEXT){
     if ( args.type==_STRNG && args.subtype==-1) return  args;
     if (args.type==_VECT && !args._VECTptr->empty() && args._VECTptr->front().is_symb_of_sommet(at_pnt) && args._VECTptr->back().is_symb_of_sommet(at_pnt)){
-      gen res=0;
-      for (unsigned i=0;i<args._VECTptr->size();++i)
-	res += _aire((*args._VECTptr)[i],contextptr);
-      return res;
+      gen res=remove_at_pnt(args._VECTptr->front());
+      bool loop=true;
+      if (res.type==_VECT && res.subtype==_POINT__VECT)
+	loop=false;
+      else if (res.type<_IDNT)
+	loop=false;
+      else if (res.type==_SYMB && has_i(res))
+	loop=false;
+      if (loop){
+	res=0;
+	for (unsigned i=0;i<args._VECTptr->size();++i)
+	  res += _aire((*args._VECTptr)[i],contextptr);
+	return res;
+      }
     }
     gen g=args;
     if (g.is_symb_of_sommet(at_equal)){
@@ -6175,7 +6185,7 @@ namespace giac {
     }
     gen res;
     for (int i=3;i<s;++i){
-      gen cote1(v[i-2]-v[0]),cote2(v[i-1]-v[0]);
+      gen cote1(remove_at_pnt(v[i-2])-v[0]),cote2(remove_at_pnt(v[i-1])-v[0]);
       if (cote1.type==_VECT && cote2.type==_VECT)
 	res += l2norm(cross(*cote1._VECTptr,*cote2._VECTptr,contextptr),contextptr);
       else
@@ -14115,7 +14125,7 @@ int find_plotseq_args(const gen & args,gen & expr,gen & x,double & x0d,double & 
   }
 
 #if !defined KHICAS // in kdisplay.cc
-#if defined RTOS_THREADX || defined NSPIRE || defined FXCG
+#if defined NSPIRE || defined FXCG
   logo_turtle vecteur2turtle(const vecteur & v){
     return logo_turtle();
   }
@@ -14485,15 +14495,27 @@ gen _vers(const gen & g,GIAC_CONTEXT){
     return turtle2gen(turtle(contextptr));
   }
 
+  int ck_turtle_size(GIAC_CONTEXT){
+    vector<logo_turtle> & v=turtle_stack(contextptr);
+    if (v.size()<v.capacity())
+      return 1;
+    return 2;
+  }
+
   static gen update_turtle_state(bool clrstring,GIAC_CONTEXT){
+    int x=ck_turtle_size(contextptr);
     if (clrstring)
       turtle(contextptr).s="";
     turtle(contextptr).theta = turtle(contextptr).theta - floor(turtle(contextptr).theta/360)*360;
     bool push=true;
     if (!turtle_stack(contextptr).empty()){
       logo_turtle & t=turtle_stack(contextptr).back();
-      if (t.equal_except_angle(turtle(contextptr))){
-	t.theta=turtle(contextptr).theta;
+      if (t.equal_except_nomark(turtle(contextptr))){
+	logo_turtle & src=turtle(contextptr);
+	t.theta=src.theta;
+	t.mark=src.mark;
+	t.visible=src.visible;
+	t.color=src.color;
 	push=false;
       }
     }
@@ -14514,6 +14536,11 @@ gen _vers(const gen & g,GIAC_CONTEXT){
 
   gen _avance(const gen & g,GIAC_CONTEXT){
     if ( g.type==_STRNG && g.subtype==-1) return  g;
+    /* os_draw_string_small(50,50,0x0,0xffffff,"avance tortue",false);
+       Sleep(1000);
+       int k=getkey(true);
+       os_draw_string_small(50,50,0x0,0xffffff,print_INT_(k).c_str(),false);
+       Sleep(1000); */
     // logo instruction
     double i;
     if (g.type!=_INT_){

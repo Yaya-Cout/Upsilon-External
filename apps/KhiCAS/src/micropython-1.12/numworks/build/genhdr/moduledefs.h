@@ -7,7 +7,15 @@
     #define MODULE_DEF_MP_QSTR_UARRAY
 #endif
 
+#if (MODULE_ULAB_ENABLED)
+    extern const struct _mp_obj_module_t ulab_user_cmodule;
+    #define MODULE_DEF_MP_QSTR_ULAB { MP_ROM_QSTR(MP_QSTR_ulab), MP_ROM_PTR(&ulab_user_cmodule) },
+#else
+    #define MODULE_DEF_MP_QSTR_ULAB
+#endif
+
 
 #define MICROPY_REGISTERED_MODULES \
     MODULE_DEF_MP_QSTR_UARRAY \
+    MODULE_DEF_MP_QSTR_ULAB \
 // MICROPY_REGISTERED_MODULES

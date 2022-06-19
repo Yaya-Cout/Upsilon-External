@@ -189,9 +189,10 @@ bool alphawasactive () {
   return alphawasactive_;
 }
 
-int getkey(bool allow_suspend) {
+int getkey(int allow_suspend) {
   return extapp_getKey(allow_suspend, &alphawasactive_);
 }
+
 
 bool iskeydown(int key) {
   return extapp_isKeydown(key);

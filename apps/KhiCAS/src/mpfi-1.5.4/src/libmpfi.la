@@ -17,7 +17,7 @@ old_library='libmpfi.a'
 inherited_linker_flags=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/mnt/c/msys64/home/lauri/khiext/apps/KhiCAS/src/mpfi-1.5.4/..//lib -lmpfr -lgmp'
+dependency_libs=' -L/External/apps/KhiCAS/src/mpfi-1.5.4/..//lib -lmpfr -lgmp'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''

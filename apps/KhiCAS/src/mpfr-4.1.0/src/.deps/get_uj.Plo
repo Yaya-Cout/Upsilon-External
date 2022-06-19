@@ -24,9 +24,8 @@ get_uj.lo: get_uj.c mpfr-impl.h /usr/include/newlib/stdio.h \
  mpfr-intmax.h /usr/include/newlib/inttypes.h \
  /usr/include/newlib/sys/_intsup.h \
  /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h mpfr-thread.h \
- /mnt/c/msys64/home/lauri/Upsilon-External/apps/KhiCAS/src/include/gmp.h \
- mpfr.h mpfr-gmp.h mpfr-sassert.h mparam.h arm/mparam.h generic/mparam.h \
- /usr/include/newlib/locale.h
+ /External/apps/KhiCAS/src/include/gmp.h mpfr.h mpfr-gmp.h mpfr-sassert.h \
+ mparam.h arm/mparam.h generic/mparam.h /usr/include/newlib/locale.h
 mpfr-impl.h:
 /usr/include/newlib/stdio.h:
 /usr/include/newlib/_ansi.h:
@@ -72,7 +71,7 @@ mpfr-intmax.h:
 /usr/include/newlib/sys/_intsup.h:
 /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h:
 mpfr-thread.h:
-/mnt/c/msys64/home/lauri/Upsilon-External/apps/KhiCAS/src/include/gmp.h:
+/External/apps/KhiCAS/src/include/gmp.h:
 mpfr.h:
 mpfr-gmp.h:
 mpfr-sassert.h:

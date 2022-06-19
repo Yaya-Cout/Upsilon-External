@@ -307,7 +307,6 @@ void mp_keyboard_interrupt(void) {
 
 bool back_key_pressed();
 int getkey(int allow_suspend);
-bool iskeydown(int key);
 
 
 int micropython_port_vm_hook_loop() {
@@ -325,7 +324,7 @@ int micropython_port_vm_hook_loop() {
   }
 
   // Check if the user asked for an interruption from the keyboard
-  int g=iskeydown(mp_interrupt_char);
+  int g=getkey(mp_interrupt_char | 0x80000000);
   if (!g) return 0;
   mp_keyboard_interrupt();
   return 1;

@@ -5,35 +5,35 @@ the "external" application and an API for accessing base functionality of epsilo
 
 The modified sources can be found here : https://github.com/Delta-NumWorks/delta/tree/external
 
-# If something goes wrong
+## Developer info
+
+To create a new application, go to [the external applications creation guide](docs/new-app.md)
+
+## If something goes wrong
 
 Reinstall Omega from https://getomega.dev/, doing a device recovery from there if necessary.
 
-# Included applications
+## Included applications
 
-## KhiCAS
+### KhiCAS
 
 The port included here is a port from the delta firmware : https://github.com/Delta-NumWorks/delta/tree/delta
 
-## Periodic
+### Periodic
 
 This is a port of https://github.com/M4xi1m3/nw-atom
 
-## Nofrendo
+### Nofrendo
 
 This is a port of Nofrendo from https://www.baisoku.org/
 
-## Unit Circle
+### Unit Circle
 
 A simple app showing an unit circle for trigonometry
 
-## CHIP-8
+### CHIP-8
 
 This is a port of CHIP-8 from https://github.com/f0lg0/CHIP-8
-
-# Developer info
-
-To create a new application, go to [the external applications creation guide](docs/index.md)
 
 ## Technical concepts
 

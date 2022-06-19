@@ -89,7 +89,8 @@ extern "C" {
   void os_set_pixel(int x,int y,int c);
   void os_fill_rect(int x,int y,int w,int h,int c);
   inline void drawRectangle(int x,int y,int w,int h,int c){
-    os_fill_rect(x,y,w,h,c);
+    if (w>=0 && h>=0)
+      os_fill_rect(x,y,w,h,c);
   }
   int os_get_pixel(int x,int y);
   /* returns new x position */
@@ -121,7 +122,7 @@ extern "C" {
 #endif
   inline int os_draw_string_medium_(int x,int y,const char * s){ return os_draw_string_medium(x,y,SDK_BLACK,SDK_WHITE,s,false);}
   void GetKey(int * key);
-  int getkey(bool allow_suspend);
+  int getkey(int allow_suspend); // transformed
   void enable_back_interrupt();
   inline void set_abort(){  enable_back_interrupt(); }
   void disable_back_interrupt();

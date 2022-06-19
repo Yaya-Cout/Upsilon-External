@@ -44,6 +44,7 @@ function build {
     ln -sf /usr/share/aclocal/lt~obsolete.m4         m4/lt~obsolete.m4
     ln -sf /usr/share/aclocal/ltversion.m4           m4/ltversion.m4
     
+    
     ./configure --with-mpfr=$(pwd)/../ --with-gmp=$(pwd)/../ --host=arm-none-eabi CFLAGS="$2"
     make -j $(nproc)
     cp src/.libs/libmpfi.a ../lib/
