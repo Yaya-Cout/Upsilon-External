@@ -34,7 +34,7 @@ jobs:
         with:
           name: BadApple
           path: BadApple.tar
-  Chip-8:
+  CHIP-8:
     runs-on: ubuntu-latest
     steps:
       - run: sudo apt-get install wget gdb gcc g++ libgmp-dev libmpfr-dev libmpfi-dev libpari-dev libgsl0-dev libxext-dev libpng-dev libjpeg-dev libreadline-dev libncurses5-dev mesa-common-dev libx11-dev libxt-dev libxft-dev libntl-dev libgl1-mesa-dev libgl-dev libao-dev hevea debhelper libfltk1.3-dev build-essential git imagemagick libx11-dev libxext-dev libfreetype6-dev libpng-dev libjpeg-dev pkg-config gcc-arm-none-eabi binutils-arm-none-eabi dfu-util texinfo -y
@@ -42,12 +42,12 @@ jobs:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - run: make Chip-8_rebuild
-      - run: ./tool/archive Chip-8.tar Chip-8
+      - run: make CHIP-8_rebuild
+      - run: ./tool/archive CHIP-8.tar CHIP-8
       - uses: actions/upload-artifact@master
         with:
-          name: Chip-8
-          path: Chip-8.tar
+          name: CHIP-8
+          path: CHIP-8.tar
   Example:
     runs-on: ubuntu-latest
     steps:
