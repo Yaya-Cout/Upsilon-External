@@ -14,8 +14,11 @@ To update KhiCAS, you have some things to do:
 4. Now, you have the new version of KhiCAS, but you have to apply some changes to the code.
 5. Replace `inline bool iskeydown(int key){ return getkey(key | 0x80000000); }` by `inline bool iskeydown(int key);`
 6. Add this code in the file `apps/KhiCAS/main.cpp`:
+
 ```cpp
 bool iskeydown(int key) {
   return extapp_isKeydown(key);
 }
 ```
+
+7. If you have an error like `arm-none-eabi-ar: add.o: No such file or directory`, try to execute `make distclean` in the `apps/KhiCAS/src/gmp-6.2.1` folder. Try to rebuild KhiCAS after that. If it works, check if the `make distclean` command exists in the GMP section of `apps/KhiCAS/buildDeps`.

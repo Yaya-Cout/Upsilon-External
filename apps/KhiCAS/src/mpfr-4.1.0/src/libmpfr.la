@@ -17,7 +17,7 @@ old_library='libmpfr.a'
 inherited_linker_flags=''
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/External/apps/KhiCAS/src/lib -lgmp'
+dependency_libs=' -L/workspaces/Upsilon-External/apps/KhiCAS/src/lib -lgmp'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''

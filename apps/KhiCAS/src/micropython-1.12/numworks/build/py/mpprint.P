@@ -2,11 +2,11 @@ build/py/mpprint.o: ../py/mpprint.c /usr/include/newlib/assert.h \
  /usr/include/newlib/_ansi.h /usr/include/newlib/newlib.h \
  /usr/include/newlib/_newlib_version.h /usr/include/newlib/sys/config.h \
  /usr/include/newlib/machine/ieeefp.h /usr/include/newlib/sys/features.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdarg.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdint.h \
  /usr/include/newlib/stdio.h /usr/include/newlib/sys/cdefs.h \
  /usr/include/newlib/machine/_default_types.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stddef.h \
  /usr/include/newlib/sys/reent.h /usr/include/newlib/_ansi.h \
  /usr/include/newlib/sys/_types.h /usr/include/newlib/machine/_types.h \
  /usr/include/newlib/sys/lock.h /usr/include/newlib/sys/types.h \
@@ -21,21 +21,21 @@ build/py/mpprint.o: ../py/mpprint.c /usr/include/newlib/assert.h \
  ../py/mphal.h ../py/mpconfig.h mpconfigport.h \
  /usr/include/newlib/alloca.h mphalport.h /usr/include/newlib/unistd.h \
  /usr/include/newlib/sys/unistd.h ../extmod/virtpin.h ../py/obj.h \
- ../py/misc.h /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdbool.h \
+ ../py/misc.h /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdbool.h \
  ../py/qstr.h build/genhdr/qstrdefs.generated.h ../py/mpprint.h \
  ../py/runtime0.h ../py/objint.h ../py/mpz.h ../py/runtime.h \
  ../py/mpstate.h ../py/mpthread.h ../py/nlr.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h ../py/objlist.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include-fixed/limits.h ../py/objlist.h \
  ../py/objexcept.h ../py/objtuple.h ../py/pystack.h ../py/formatfloat.h
 ../py/mpprint.c /usr/include/newlib/assert.h :
  /usr/include/newlib/_ansi.h /usr/include/newlib/newlib.h :
  /usr/include/newlib/_newlib_version.h /usr/include/newlib/sys/config.h :
  /usr/include/newlib/machine/ieeefp.h /usr/include/newlib/sys/features.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdarg.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdint.h :
  /usr/include/newlib/stdio.h /usr/include/newlib/sys/cdefs.h :
  /usr/include/newlib/machine/_default_types.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stddef.h :
  /usr/include/newlib/sys/reent.h /usr/include/newlib/_ansi.h :
  /usr/include/newlib/sys/_types.h /usr/include/newlib/machine/_types.h :
  /usr/include/newlib/sys/lock.h /usr/include/newlib/sys/types.h :
@@ -50,9 +50,9 @@ build/py/mpprint.o: ../py/mpprint.c /usr/include/newlib/assert.h \
  ../py/mphal.h ../py/mpconfig.h mpconfigport.h :
  /usr/include/newlib/alloca.h mphalport.h /usr/include/newlib/unistd.h :
  /usr/include/newlib/sys/unistd.h ../extmod/virtpin.h ../py/obj.h :
- ../py/misc.h /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdbool.h :
+ ../py/misc.h /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdbool.h :
  ../py/qstr.h build/genhdr/qstrdefs.generated.h ../py/mpprint.h :
  ../py/runtime0.h ../py/objint.h ../py/mpz.h ../py/runtime.h :
  ../py/mpstate.h ../py/mpthread.h ../py/nlr.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h ../py/objlist.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include-fixed/limits.h ../py/objlist.h :
  ../py/objexcept.h ../py/objtuple.h ../py/pystack.h ../py/formatfloat.h :

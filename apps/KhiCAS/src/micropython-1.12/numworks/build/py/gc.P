@@ -4,8 +4,8 @@ build/py/gc.o: ../py/gc.c /usr/include/newlib/assert.h \
  /usr/include/newlib/machine/ieeefp.h /usr/include/newlib/sys/features.h \
  /usr/include/newlib/stdio.h /usr/include/newlib/sys/cdefs.h \
  /usr/include/newlib/machine/_default_types.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stddef.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdarg.h \
  /usr/include/newlib/sys/reent.h /usr/include/newlib/_ansi.h \
  /usr/include/newlib/sys/_types.h /usr/include/newlib/machine/_types.h \
  /usr/include/newlib/sys/lock.h /usr/include/newlib/sys/types.h \
@@ -17,11 +17,11 @@ build/py/gc.o: ../py/gc.c /usr/include/newlib/assert.h \
  /usr/include/newlib/machine/types.h /usr/include/newlib/sys/stdio.h \
  /usr/include/newlib/string.h /usr/include/newlib/sys/_locale.h \
  /usr/include/newlib/strings.h /usr/include/newlib/sys/string.h \
- ../py/gc.h /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h \
+ ../py/gc.h /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdint.h \
  ../py/mpconfig.h mpconfigport.h /usr/include/newlib/alloca.h \
- ../py/misc.h /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdbool.h \
+ ../py/misc.h /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdbool.h \
  ../py/runtime.h ../py/mpstate.h ../py/mpthread.h ../py/nlr.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h ../py/obj.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include-fixed/limits.h ../py/obj.h \
  ../py/qstr.h build/genhdr/qstrdefs.generated.h ../py/mpprint.h \
  ../py/runtime0.h ../py/objlist.h ../py/objexcept.h ../py/objtuple.h \
  ../py/pystack.h
@@ -31,8 +31,8 @@ build/py/gc.o: ../py/gc.c /usr/include/newlib/assert.h \
  /usr/include/newlib/machine/ieeefp.h /usr/include/newlib/sys/features.h :
  /usr/include/newlib/stdio.h /usr/include/newlib/sys/cdefs.h :
  /usr/include/newlib/machine/_default_types.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdarg.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stddef.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdarg.h :
  /usr/include/newlib/sys/reent.h /usr/include/newlib/_ansi.h :
  /usr/include/newlib/sys/_types.h /usr/include/newlib/machine/_types.h :
  /usr/include/newlib/sys/lock.h /usr/include/newlib/sys/types.h :
@@ -44,11 +44,11 @@ build/py/gc.o: ../py/gc.c /usr/include/newlib/assert.h \
  /usr/include/newlib/machine/types.h /usr/include/newlib/sys/stdio.h :
  /usr/include/newlib/string.h /usr/include/newlib/sys/_locale.h :
  /usr/include/newlib/strings.h /usr/include/newlib/sys/string.h :
- ../py/gc.h /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h :
+ ../py/gc.h /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdint.h :
  ../py/mpconfig.h mpconfigport.h /usr/include/newlib/alloca.h :
- ../py/misc.h /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdbool.h :
+ ../py/misc.h /usr/lib/gcc/arm-none-eabi/9.2.1/include/stdbool.h :
  ../py/runtime.h ../py/mpstate.h ../py/mpthread.h ../py/nlr.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h ../py/obj.h :
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include-fixed/limits.h ../py/obj.h :
  ../py/qstr.h build/genhdr/qstrdefs.generated.h ../py/mpprint.h :
  ../py/runtime0.h ../py/objlist.h ../py/objexcept.h ../py/objtuple.h :
  ../py/pystack.h :

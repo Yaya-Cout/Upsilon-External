@@ -5,11 +5,11 @@ set -e
 function build {
   (
     cd src/gmp-6.2.1
+    make distclean
     ./configure --host=arm-none-eabi --disable-assembly CFLAGS="$2"
     make -j $(nproc)
     cp .libs/libgmp.a ../lib/
     cp gmp.h ../include/gmp.h
-    #make distclean
   )
 
   (

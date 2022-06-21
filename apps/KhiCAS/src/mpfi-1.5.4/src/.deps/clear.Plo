@@ -1,12 +1,20 @@
 clear.lo: clear.c mpfi-impl.h mpfi.h \
- /External/apps/KhiCAS/src/mpfi-1.5.4/..//include/gmp.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h \
- /External/apps/KhiCAS/src/mpfi-1.5.4/..//include/mpfr.h ../mpfi_config.h
+ /workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include/gmp.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include/stddef.h \
+ /usr/lib/gcc/arm-none-eabi/9.2.1/include-fixed/limits.h \
+ /workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include/mpfr.h \
+ ../mpfi_config.h
+
 mpfi-impl.h:
+
 mpfi.h:
-/External/apps/KhiCAS/src/mpfi-1.5.4/..//include/gmp.h:
-/usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h:
-/usr/lib/gcc/arm-none-eabi/10.3.1/include-fixed/limits.h:
-/External/apps/KhiCAS/src/mpfi-1.5.4/..//include/mpfr.h:
+
+/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include/gmp.h:
+
+/usr/lib/gcc/arm-none-eabi/9.2.1/include/stddef.h:
+
+/usr/lib/gcc/arm-none-eabi/9.2.1/include-fixed/limits.h:
+
+/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include/mpfr.h:
+
 ../mpfi_config.h:
