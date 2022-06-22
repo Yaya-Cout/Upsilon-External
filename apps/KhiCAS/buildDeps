@@ -14,11 +14,11 @@ function build {
 
   (
     cd src/mpfr-4.1.0
+    make distclean
     ./configure --with-gmp=../ --host=arm-none-eabi --disable-shared CFLAGS="$2"
     make -j $(nproc)
     cp src/.libs/libmpfr.a ../lib/
     cp src/mpfr.h ../include/mpfr.h
-    #make distclean
   )
 
   (

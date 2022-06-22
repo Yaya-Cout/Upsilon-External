@@ -781,7 +781,7 @@ configure: failed program was:
 configure:10071: result: yes
 configure:10087: checking for dup2
 configure:10087: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs -I/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include -I/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include  -L/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//lib -L/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//lib  conftest.c -lmpfr -lgmp  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc5m2wRW.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc217F9c.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `dup2'
 collect2: error: ld returned 1 exit status
 configure:10087: $? = 1
@@ -864,7 +864,7 @@ configure:10087: $? = 0
 configure:10087: result: yes
 configure:10099: checking for mpfr_q_sub
 configure:10099: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs -I/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include -I/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include  -L/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//lib -L/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//lib  conftest.c -lmpfr -lgmp  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccOXiQCf.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccZZpRBZ.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `mpfr_q_sub'
 collect2: error: ld returned 1 exit status
 configure:10099: $? = 1
@@ -948,7 +948,7 @@ configure:10099: $? = 0
 configure:10099: result: yes
 configure:10099: checking for mpfr_z_div
 configure:10099: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs -I/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include -I/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//include  -L/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//lib -L/workspaces/Upsilon-External/apps/KhiCAS/src/mpfi-1.5.4/..//lib  conftest.c -lmpfr -lgmp  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccnZr584.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccdJEucC.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `mpfr_z_div'
 collect2: error: ld returned 1 exit status
 configure:10099: $? = 1

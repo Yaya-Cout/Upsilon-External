@@ -3014,7 +3014,7 @@ configure:21126: $? = 0
 configure:21293: result: IEEE little endian
 configure:21373: checking for alarm
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cco4oYJ6.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccp10dWM.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `alarm'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3119,7 +3119,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for attr_get
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccdwqVix.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccxVEYd9.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `attr_get'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3228,7 +3228,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21373: checking for cputime
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccuJd7Pi.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccxc0hwY.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `cputime'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3334,7 +3334,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for getpagesize
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cciDTWUD.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccLT52Yl.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `getpagesize'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3440,7 +3440,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for getrusage
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccfTIKj3.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cceuweMF.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `getrusage'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3550,7 +3550,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21373: checking for getsysinfo
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cccEWdaO.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccJWEKnx.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `getsysinfo'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3671,7 +3671,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21373: checking for mmap
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc82kXsZ.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccEr6SLX.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `mmap'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3780,7 +3780,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for mprotect
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccE7YAdm.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccaXG6Nk.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `mprotect'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -3893,7 +3893,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21373: checking for obstack_vprintf
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccNvPAby.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccQTWDQ8.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `obstack_vprintf'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4003,7 +4003,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for popen
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccdZYjbW.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccvcEY8v.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `popen'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4113,7 +4113,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for processor_info
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc6heNzj.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccggADSR.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `processor_info'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4223,7 +4223,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for pstat_getprocessor
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc5jsSLD.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccZSQ0Cc.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `pstat_getprocessor'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4337,7 +4337,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21373: checking for read_real_time
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccTP45iQ.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc0tS3YY.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `read_real_time'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4448,7 +4448,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for sigaction
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccCFO658.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cceuTiYA.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `sigaction'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4559,7 +4559,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for sigaltstack
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccqlLQdy.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccweEmfc.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `sigaltstack'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4670,7 +4670,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for sigstack
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cc9YvdtV.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccwmLdqv.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `sigstack'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4781,7 +4781,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for syssgi
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccs8a0Qe.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccCth0DU.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `syssgi'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -4921,7 +4921,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21373: checking for sysconf
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccpXq7vk.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccOowpJV.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `sysconf'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -5037,7 +5037,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for sysctl
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/cch96JFR.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccRBBrMh.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `sysctl'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -5153,7 +5153,7 @@ configure: failed program was:
 configure:21373: result: no
 configure:21373: checking for sysctlbyname
 configure:21373: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccjNBLAe.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccL9nGRD.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `sysctlbyname'
 collect2: error: ld returned 1 exit status
 configure:21373: $? = 1
@@ -5273,7 +5273,7 @@ configure:21373: $? = 0
 configure:21373: result: yes
 configure:21389: checking for library containing clock_gettime
 configure:21420: arm-none-eabi-gcc -o conftest -Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs   conftest.c  >&5
-/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccZPh5fI.o: in function `main':
+/usr/lib/gcc/arm-none-eabi/9.2.1/../../../arm-none-eabi/bin/ld: /tmp/ccecus36.o: in function `main':
 conftest.c:(.text.startup.main+0x2): undefined reference to `clock_gettime'
 collect2: error: ld returned 1 exit status
 configure:21420: $? = 1
