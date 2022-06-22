@@ -5,9 +5,9 @@
 # Get the application name
 application="$1"
 # Remove the suffix
-application_without_suffix="$(echo "$application" | sed -e 's/_rebuild//')"
-echo "Rebuilding $application_without_suffix"
+application_without_suffix="$(echo "${application}" | sed -e 's/_rebuild//')"
+echo "Rebuilding ${application_without_suffix}"
 # Clean the application
-./tool/clean.sh "$application_without_suffix"
+./tool/clean.sh "${application_without_suffix}"
 # Rebuild the application
-make -C "apps/$application_without_suffix"
+make -C "apps/${application_without_suffix}"

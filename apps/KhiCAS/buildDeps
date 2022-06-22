@@ -14,10 +14,19 @@ function build {
 
   (
     cd src/mpfr-4.1.0
-    make distclean
+    # We need to configure the Makefile to can clean the build directory before building
     ./configure --with-gmp=../ --host=arm-none-eabi --disable-shared CFLAGS="$2"
+    # Autoreconf is required, becaise the version may have changed
+    autoreconf
+    make distclean
+    # Now, we need to reconfigure the Makefile, because the distclean command above removed the Makefile
+    ./configure --with-gmp=../ --host=arm-none-eabi --disable-shared CFLAGS="$2"
+    autoreconf
+    # Now, we can build the library
     make -j $(nproc)
+    # Copy the library to the correct location
     cp src/.libs/libmpfr.a ../lib/
+    # Copy the header files to the correct location
     cp src/mpfr.h ../include/mpfr.h
   )
 
@@ -47,8 +56,15 @@ function build {
     
     
     ./configure --with-mpfr=$(pwd)/../ --with-gmp=$(pwd)/../ --host=arm-none-eabi CFLAGS="$2"
+    # Remove aclocal.m4, because it will create conflicts with the system version
+    rm aclocal.m4
+    # Reconfigure the project, to recreate aclocal.m4
+    autoreconf
+    # Build the library
     make -j $(nproc)
+    # Copy the library to the correct location
     cp src/.libs/libmpfi.a ../lib/
+    # Copy the header files to the correct location
     cp src/mpfi.h ../include/mpfi.h
     
     #rm -r build-aux

@@ -1135,6 +1135,11 @@ STATIC void do_import_name(compiler_t *comp, mp_parse_node_t pn, qstr *q_base) {
                 memcpy(str_dest, str_src, str_src_len);
                 str_dest += str_src_len;
             }
+            if (q_ptr == NULL) {
+                compile_syntax_error(comp, pn, "out of memory");
+                return;
+            }
+
             qstr q_full = qstr_from_strn(q_ptr, len);
             mp_local_free(q_ptr);
             EMIT_ARG(import, q_full, MP_EMIT_IMPORT_NAME);

@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
 # Generated automatically by config.status (mpfr) 4.1.0
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 
@@ -65,7 +65,7 @@ fast_install=needless
 shared_archive_member_spec=
 
 # Shell to use when invoking shell scripts.
-SHELL="/bin/bash"
+SHELL="/bin/sh"
 
 # An echo program that protects backslashes.
 ECHO="printf %s\\n"
@@ -284,7 +284,7 @@ finish_eval=""
 hardcode_into_libs=no
 
 # Compile-time system search path for libraries.
-sys_lib_search_path_spec="/usr/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard /usr/lib/arm-none-eabi/lib/thumb/v7e-m+fp/hard "
+sys_lib_search_path_spec="/usr/lib/gcc/arm-none-eabi/12.1.0/thumb/v7e-m+fp/hard /usr/arm-none-eabi/lib/thumb/v7e-m+fp/hard "
 
 # Detected run-time system search path for libraries.
 sys_lib_dlsearch_path_spec="/lib /usr/lib"
@@ -307,7 +307,7 @@ striplib="arm-none-eabi-strip --strip-unneeded"
 
 
 # The linker used to build libraries.
-LD="/usr/lib/arm-none-eabi/bin/ld"
+LD="/usr/arm-none-eabi/bin/ld"
 
 # How to create reloadable object files.
 reload_flag=" -r"

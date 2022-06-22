@@ -21,4 +21,5 @@ bool iskeydown(int key) {
 }
 ```
 
-7. If you have an error like `arm-none-eabi-ar: add.o: No such file or directory`, try to execute `make distclean` in the `apps/KhiCAS/src/gmp-6.2.1` folder. Try to rebuild KhiCAS after that. If it works, check if the `make distclean` command exists in the GMP section of `apps/KhiCAS/buildDeps`.
+7. If you have build error, please check if the `buildDeps` file is modified. If yes, restore the file to the original state.
+8. If it continues to crash, please ask for help in an issue on the GitHub repository or on the Discord server.
