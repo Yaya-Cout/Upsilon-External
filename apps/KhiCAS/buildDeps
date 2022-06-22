@@ -23,7 +23,8 @@ function build {
 
   (
     cd src/mpfi-1.5.4
-    # autoreconf
+    make distclean
+    autoreconf
     # Quick and dirty hack for github pages to work
     # Setup symlinks manually
     mkdir -p build-aux
@@ -49,7 +50,6 @@ function build {
     make -j $(nproc)
     cp src/.libs/libmpfi.a ../lib/
     cp src/mpfi.h ../include/mpfi.h
-    #make distclean
     
     #rm -r build-aux
     #rm -r m4

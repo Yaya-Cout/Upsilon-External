@@ -284,7 +284,7 @@ finish_eval=""
 hardcode_into_libs=no
 
 # Compile-time system search path for libraries.
-sys_lib_search_path_spec="/usr/lib/gcc/arm-none-eabi/9.2.1/thumb/v7e-m+fp/hard /usr/lib/arm-none-eabi/lib/thumb/v7e-m+fp/hard "
+sys_lib_search_path_spec="/usr/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard /usr/lib/arm-none-eabi/lib/thumb/v7e-m+fp/hard "
 
 # Detected run-time system search path for libraries.
 sys_lib_dlsearch_path_spec="/lib /usr/lib"
