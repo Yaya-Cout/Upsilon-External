@@ -6,9 +6,16 @@ apps/nofrendo/epsilon/rom.c
 apps/KhiCAS/src/include/*.h
 apps/KhiCAS/libgiac_simulator.a
 apps/KhiCAS/src/gmp*/**/Makefile
+apps/KhiCAS/src/mpfr*/configure
 apps/KhiCAS/src/mpfr*/**/Makefile
+apps/KhiCAS/src/mpfr*/**/Makefile.in
+apps/KhiCAS/src/mpfi*/**/Makefile.in
+apps/KhiCAS/src/mpfi*/configure
+apps/KhiCAS/src/mpfi*/mpfr_config.h.in
+apps/KhiCAS/src/mpfi*/mpfr_config.h.in~
 apps/KhiCAS/src/mpfr*/configure~
 apps/KhiCAS/src/mpfi*/**/Makefile
+apps/KhiCAS/src/mpfi*/mpfi_config.h.in
 apps/KhiCAS/src/mpfi*/mpfi_config.h
 apps/KhiCAS/src/mpfi*/stamp-h1
 apps/KhiCAS/src/gmp*/demos/pexpr-config.h

@@ -22,4 +22,5 @@ bool iskeydown(int key) {
 ```
 
 7. If you have build error, please check if the Makfile is modified. If yes, restore the file to the original state.
-8. If it continues to crash, please ask for help in an issue on the GitHub repository or on the Discord server.
+8. You can try to run `make cleanall` in the folder `apps/KhiCAS` to clean the build and rebuild the program.
+9. If it continues to crash, please ask for help in an issue on the GitHub repository or on the Discord server.

@@ -14,8 +14,11 @@ LDFLAGS=-Wl,-L$(API) -Wl,--gc-sections -Wl,--entry=entrypoint --specs=nano.specs
 app.elf: src/main.o src/lib/libgiac.a src/lib/libmpfi.a src/lib/libmpfr.a src/lib/libgmp.a src/lib/libmicropy.a
 	$(CC) $^ -o $@ $(CFLAGS) $(LDFLAGS)
 
+libDirectory:
+	mkdir -p src/lib
+	mkdir -p src/include
 
-src/lib/libgmp.a src/include/gmp.h:
+src/lib/libgmp.a src/include/gmp.h: libDirectory
 	cd src/gmp-6.2.1
 # Rebuild the Makefile because cleanall removed it.
 	./configure --host=arm-none-eabi --disable-assembly CFLAGS="-Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs"
@@ -25,7 +28,7 @@ src/lib/libgmp.a src/include/gmp.h:
 	cp .libs/libgmp.a ../lib/
 	cp gmp.h ../include/gmp.h
 
-src/lib/libmpfi.a src/include/mpfi.h: src/lib/libmpfr.a src/include/mpfr.h src/lib/libgmp.a src/include/gmp.h
+src/lib/libmpfi.a src/include/mpfi.h: src/lib/libmpfr.a src/include/mpfr.h src/lib/libgmp.a src/include/gmp.h libDirectory
 	cd src/mpfi-1.5.4
 # Rebuild the Makefile because cleanall removed it.
 	autoreconf
@@ -60,7 +63,7 @@ src/lib/libmpfi.a src/include/mpfi.h: src/lib/libmpfr.a src/include/mpfr.h src/l
 	# rm -r build-aux
 	# rm -r m4
 
-src/lib/libmpfr.a src/include/mpfr.h: src/lib/libgmp.a src/include/gmp.h
+src/lib/libmpfr.a src/include/mpfr.h: src/lib/libgmp.a src/include/gmp.h libDirectory
 	cd src/mpfr-4.1.0
 #	Rebuild the Makefile because cleanall removed it.
 	./configure --with-gmp=$(shell pwd)/src/ --host=arm-none-eabi --disable-shared CFLAGS="-Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs"
@@ -71,12 +74,12 @@ src/lib/libmpfr.a src/include/mpfr.h: src/lib/libgmp.a src/include/gmp.h
 	cp src/.libs/libmpfr.a ../lib/
 # Copy the header files to the correct location
 	cp src/mpfr.h ../include/mpfr.h
-src/lib/libmicropy.a:
+src/lib/libmicropy.a: libDirectory
 	cd src/micropython-1.12/numworks
 # We need to use a script to build MicroPython, because the make command crashes in MicroPython because it tries to link without the required libraries
 	./mklib
 
-src/lib/libgiac.a: src/lib/libgmp.a src/lib/libmpfi.a src/lib/libmpfr.a src/include/gmp.h src/include/mpfi.h src/include/mpfr.h
+src/lib/libgiac.a: src/lib/libgmp.a src/lib/libmpfi.a src/lib/libmpfr.a src/include/gmp.h src/include/mpfi.h src/include/mpfr.h libDirectory
 	cd src/giac-1.6.0/src
 	make -f Makefile.numworks.n0110
 	cp libgiac.a ../../lib/
