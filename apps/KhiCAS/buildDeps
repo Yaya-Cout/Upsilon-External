@@ -73,9 +73,14 @@ function build {
   
   (
     cd src/micropython-1.12/numworks
+    make clean
+    # We need to use a script to build MicroPython, because the make command crashes in MicroPython because it tries to link without the required libraries
     ./mklib
   )
 }
+
+echo "buildDeps is deprecated. Use Makefile instead."
+exit 1
 
 # build n0100 "-Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -fno-strict-aliasing --specs=nosys.specs"
 build n0110 "-Os -fdata-sections -ffunction-sections -DNDEBUG -mthumb -march=armv7e-m -mfloat-abi=hard -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -fno-strict-aliasing --specs=nosys.specs"

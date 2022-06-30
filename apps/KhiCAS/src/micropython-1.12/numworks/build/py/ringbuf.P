@@ -1,6 +1,0 @@
-build/py/ringbuf.o: ../py/ringbuf.c ../py/ringbuf.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h \
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h
-../py/ringbuf.c ../py/ringbuf.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stddef.h :
- /usr/lib/gcc/arm-none-eabi/10.3.1/include/stdint.h :

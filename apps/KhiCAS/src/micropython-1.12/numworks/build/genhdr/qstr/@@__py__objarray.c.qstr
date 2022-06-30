@@ -1,8 +1,0 @@
-Q(itemsize)
-Q(append)
-Q(extend)
-Q(decode)
-Q(array)
-Q(bytearray)
-Q(memoryview)
-Q(iterator)
