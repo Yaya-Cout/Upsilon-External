@@ -12,6 +12,9 @@ function build {
   )
 }
 
+echo "buildGiac is deprecated. Use Makefile instead."
+exit 1
+
 #build n0100
 build n0110
 #build simulator

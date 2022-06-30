@@ -1,1 +1,0 @@
-../mpn/generic/gcd_22.c
