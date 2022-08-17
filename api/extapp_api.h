@@ -408,7 +408,7 @@ EXTERNC  bool extapp_writesector(unsigned char * dest,const unsigned char * data
  * Get if the exam mode is active
  * @return bool, true if the exam mode is active
  */
-EXTERNC  bool extapp_inexammode();
+EXTERNC  bool extapp_inExamMode();
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
 EXTERNC void *_heap_ptr;

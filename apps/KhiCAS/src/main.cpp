@@ -203,7 +203,7 @@ void GetKey(int * key) {
 }
 
 bool inexammode(){
-  return extapp_inexammode();
+  return extapp_inExamMode();
 }
 
 } // end extern "C"

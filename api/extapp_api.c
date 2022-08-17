@@ -96,6 +96,6 @@ bool extapp_writememory(unsigned char * dest,const unsigned char * data,size_t l
   return ((bool (*)(unsigned char *, const unsigned char *, size_t))_api_base[22])(dest,data,length);
 }
 
-bool extapp_inexammode(){
+bool extapp_inExamMode(){
   return ((bool (*)(void ))_api_base[23])();
 }
