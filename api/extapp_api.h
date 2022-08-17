@@ -409,6 +409,16 @@ EXTERNC  bool extapp_writesector(unsigned char * dest,const unsigned char * data
  * @return bool, true if the exam mode is active
  */
 EXTERNC  bool extapp_inExamMode();
+/**
+ * Get the actual brightness
+ * @return uint8_t, the actual brightness
+ */
+EXTERNC  uint8_t extapp_getBrightness();
+/**
+ * Set the brightness
+ * @param brightness uint8_t, the brightness to set
+ */
+EXTERNC  void extapp_setBrightness(uint8_t brightness);
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
 EXTERNC void *_heap_ptr;

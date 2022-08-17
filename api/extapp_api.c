@@ -99,3 +99,11 @@ bool extapp_writememory(unsigned char * dest,const unsigned char * data,size_t l
 bool extapp_inExamMode(){
   return ((bool (*)(void ))_api_base[23])();
 }
+
+uint8_t extapp_getBrightness(){
+  return ((uint8_t (*)(void ))_api_base[24])();
+}
+
+void extapp_setBrightness(uint8_t brightness){
+  ((void (*)(uint8_t))_api_base[25])(brightness);
+}
