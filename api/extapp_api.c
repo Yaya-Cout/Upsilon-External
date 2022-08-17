@@ -107,3 +107,19 @@ uint8_t extapp_getBrightness(){
 void extapp_setBrightness(uint8_t brightness){
   ((void (*)(uint8_t))_api_base[25])(brightness);
 }
+
+int extapp_batteryLevel(){
+  return ((int (*)(void ))_api_base[26])();
+}
+
+float extapp_batteryVoltage(){
+  return ((float (*)(void ))_api_base[27])();
+}
+
+bool extapp_batteryCharging(){
+  return ((bool (*)(void ))_api_base[28])();
+}
+
+int extapp_batteryPercentage(){
+  return ((int (*)(void ))_api_base[29])();
+}

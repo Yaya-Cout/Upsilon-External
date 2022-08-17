@@ -419,6 +419,26 @@ EXTERNC  uint8_t extapp_getBrightness();
  * @param brightness uint8_t, the brightness to set
  */
 EXTERNC  void extapp_setBrightness(uint8_t brightness);
+/**
+ * Get the battery level (0-3, 0 is empty, 1 is low, 2 is somewhere in between, 3 is full)
+ * @return int, the battery level
+ */
+EXTERNC  int extapp_batteryLevel();
+/**
+ * Get the battery voltage (in V)
+ * @return float, the battery voltage
+ */
+EXTERNC  float extapp_batteryVoltage();
+/**
+ * Get if the battery is charging
+ * @return bool, true if the battery is charging
+ */
+EXTERNC  bool extapp_batteryCharging();
+/**
+ * Get battery percentage (0-100), computed from battery voltage
+ * @return int, the battery percentage
+ */
+EXTERNC  int extapp_batteryPercentage();
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
 EXTERNC void *_heap_ptr;
