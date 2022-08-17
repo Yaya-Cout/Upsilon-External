@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define API_VERSION 2
+#define API_VERSION 3
 
 #ifdef __cplusplus
 #define EXTERNC extern "C"
