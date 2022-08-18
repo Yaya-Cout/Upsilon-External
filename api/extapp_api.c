@@ -166,3 +166,15 @@ void extapp_reloadTitleBar(){
 const char * extapp_username(){
   return ((const char * (*)(void ))_api_base[37])();
 }
+
+const char * extapp_getOS(){
+  return ((const char * (*)(void ))_api_base[38])();
+}
+
+const char * extapp_getOSVersion(){
+  return ((const char * (*)(void ))_api_base[39])();
+}
+
+void extapp_getOSCommit(char *commit){
+  ((void (*)(char *))_api_base[40])(commit);
+}

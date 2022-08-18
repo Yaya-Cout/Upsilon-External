@@ -491,6 +491,21 @@ EXTERNC  void extapp_reloadTitleBar();
  * @return const char *, the username
  */
 EXTERNC  const char * extapp_username();
+/**
+ * Get the OS name
+ * @return const char *, the OS name
+ */
+EXTERNC  const char * extapp_getOS();
+/**
+ * Get the OS version
+ * @return const char *, the OS version
+ */
+EXTERNC  const char * extapp_getOSVersion();
+/**
+ * Get the OS commit hash
+ * @return const char *, the OS commit hash
+ */
+EXTERNC  const char * extapp_getOSCommit();
 
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
