@@ -162,3 +162,7 @@ uint32_t extapp_random(){
 void extapp_reloadTitleBar(){
   ((void (*)(void ))_api_base[36])();
 }
+
+const char * extapp_username(){
+  return ((const char * (*)(void ))_api_base[37])();
+}

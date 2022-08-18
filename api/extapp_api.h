@@ -486,6 +486,11 @@ EXTERNC  uint32_t extapp_random();
  * Reload the title bar
  */
 EXTERNC  void extapp_reloadTitleBar();
+/**
+ * Get the username
+ * @return const char *, the username
+ */
+EXTERNC  const char * extapp_username();
 
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
