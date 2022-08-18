@@ -244,6 +244,18 @@
 #define KEY_PRGM_SHIFT 78
 #define KEY_PRGM_MENU 48
 
+// Types definitions
+// Date and time
+struct DateTime {
+  int tm_sec;
+  int tm_min;
+  int tm_hour; // 0-23
+  int tm_mday; // 1-31
+  int tm_mon;  // 1-12
+  int tm_year;
+  int tm_wday; // 0-6, 0 is Monday
+};
+
 // External API functions
 /**
  * Get the current date, in milliseconds, from the boot, excluding suspended time
@@ -439,6 +451,33 @@ EXTERNC  bool extapp_batteryCharging();
  * @return int, the battery percentage
  */
 EXTERNC  int extapp_batteryPercentage();
+/**
+ * Get the current RTC time
+ * @return DateTime, the current RTC time
+ */
+EXTERNC struct DateTime extapp_getDateTime();
+
+/**
+ * Set the RTC time
+ * @param dt DateTime, the time to set
+ */
+EXTERNC  void extapp_setDateTime(struct DateTime dt);
+/**
+ * Set the RTC mode (0 for disabled, 1 for LSI (low consumption), 2 for HSE (high precision))
+ * @param mode int, the mode to set
+ */
+EXTERNC  void extapp_setRTCMode(int mode);
+/**
+ * Get the RTC mode (0 for disabled, 1 for LSI (low consumption), 2 for HSE (high precision))
+ * @return int, the RTC mode
+ */
+EXTERNC  int extapp_getRTCMode();
+/**
+ * Get the current time from 2000-01-01 00:00:00
+ * @return uint64_t, the current time from 2000-01-01 00:00:00
+ */
+EXTERNC  uint64_t extapp_getTime();
+
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
 EXTERNC void *_heap_ptr;

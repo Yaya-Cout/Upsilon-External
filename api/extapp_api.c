@@ -4,6 +4,17 @@
 
 extern void (* const *_api_base)(void);
 
+// We need to redefine DataTime struct to match the one in extapp_api.h file, because we can't include it directly
+struct DateTime {
+  int tm_sec;
+  int tm_min;
+  int tm_hour; // 0-23
+  int tm_mday; // 1-31
+  int tm_mon;  // 1-12
+  int tm_year;
+  int tm_wday; // 0-6, 0 is Monday
+};
+
 uint64_t extapp_millis() {
   return ((uint64_t (*)(void))_api_base[0])();
 }
@@ -122,4 +133,24 @@ bool extapp_batteryCharging(){
 
 int extapp_batteryPercentage(){
   return ((int (*)(void ))_api_base[29])();
+}
+
+struct DateTime extapp_getDateTime(){
+  return ((struct DateTime (*)(void ))_api_base[30])();
+}
+
+void extapp_setDateTime(struct DateTime dt){
+  ((void (*)(struct DateTime))_api_base[31])(dt);
+}
+
+void extapp_setRTCMode(int mode){
+  ((void (*)(int))_api_base[32])(mode);
+}
+
+int extapp_getRTCMode(){
+  return ((int (*)(void ))_api_base[33])();
+}
+
+void extapp_getTime(struct DateTime *dt){
+  ((void (*)(struct DateTime *))_api_base[34])(dt);
 }
