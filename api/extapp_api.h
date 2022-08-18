@@ -482,6 +482,10 @@ EXTERNC  uint64_t extapp_getTime();
  * @return uint32_t, the random number
  */
 EXTERNC  uint32_t extapp_random();
+/**
+ * Reload the title bar
+ */
+EXTERNC  void extapp_reloadTitleBar();
 
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;

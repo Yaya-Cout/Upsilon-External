@@ -158,3 +158,7 @@ void extapp_getTime(struct DateTime *dt){
 uint32_t extapp_random(){
   return ((uint32_t (*)(void ))_api_base[35])();
 }
+
+void extapp_reloadTitleBar(){
+  ((void (*)(void ))_api_base[36])();
+}
