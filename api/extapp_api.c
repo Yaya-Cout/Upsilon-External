@@ -178,3 +178,15 @@ const char * extapp_getOSVersion(){
 void extapp_getOSCommit(char *commit){
   ((void (*)(char *))_api_base[40])(commit);
 }
+
+size_t extapp_storageSize(){
+  return ((size_t (*)(void ))_api_base[41])();
+}
+
+size_t extapp_storageAvailable(){
+  return ((size_t (*)(void ))_api_base[42])();
+}
+
+size_t extapp_storageUsed(){
+  return ((size_t (*)(void ))_api_base[43])();
+}

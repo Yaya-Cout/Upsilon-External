@@ -506,6 +506,21 @@ EXTERNC  const char * extapp_getOSVersion();
  * @return const char *, the OS commit hash
  */
 EXTERNC  const char * extapp_getOSCommit();
+/**
+ * Get the RAM storage size
+ * @return size_t, the RAM storage size
+ */
+EXTERNC  size_t extapp_storageSize();
+/**
+ * Get the available RAM storage size
+ * @return size_t, the available RAM storage size
+ */
+EXTERNC  size_t extapp_storageAvailable();
+/**
+ * Get the used RAM storage size
+ * @return size_t, the used RAM storage size
+ */
+EXTERNC  size_t extapp_storageUsed();
 
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
