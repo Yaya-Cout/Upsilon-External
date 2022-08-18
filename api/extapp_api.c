@@ -154,3 +154,7 @@ int extapp_getRTCMode(){
 void extapp_getTime(struct DateTime *dt){
   ((void (*)(struct DateTime *))_api_base[34])(dt);
 }
+
+uint32_t extapp_random(){
+  return ((uint32_t (*)(void ))_api_base[35])();
+}

@@ -477,6 +477,11 @@ EXTERNC  int extapp_getRTCMode();
  * @return uint64_t, the current time from 2000-01-01 00:00:00
  */
 EXTERNC  uint64_t extapp_getTime();
+/**
+ * Get a 32 bit true random number that can be casted to any (32 bit or less) type
+ * @return uint32_t, the random number
+ */
+EXTERNC  uint32_t extapp_random();
 
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;
