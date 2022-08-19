@@ -22,7 +22,7 @@ extern "C" const char * mp_hal_input(const char * prompt) {
 extern "C" {
 
 int ext_main();
-void extapp_main() {
+void extapp_main(int argc, char * argv[]) {
   ext_main();
 }
 

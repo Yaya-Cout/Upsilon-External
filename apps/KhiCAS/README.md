@@ -22,6 +22,7 @@ bool iskeydown(int key) {
 ```
 
 7. Rename `extapp_inexammode` to `extapp_inExamMode` in the file `apps/KhiCAS/main.cpp`
-8. If you have build error, please check if the Makfile is modified. If yes, restore the file to the original state.
-9. You can try to run `make cleanall` in the folder `apps/KhiCAS` to clean the build and rebuild the program.
-10. If it continues to crash, please ask for help in an issue on the GitHub repository or on the Discord server.
+8. Replace `void extapp_main() {` by `void extapp_main(int argc, char * argv[]) {` in the file `apps/KhiCAS/main.cpp`
+9. If you have build error, please check if the Makfile is modified. If yes, restore the file to the original state.
+10. You can try to run `make cleanall` in the folder `apps/KhiCAS` to clean the build and rebuild the program.
+11. If it continues to crash, please ask for help in an issue on the GitHub repository or on the Discord server.
