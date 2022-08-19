@@ -256,6 +256,21 @@ struct DateTime {
   int tm_wday; // 0-6, 0 is Monday
 };
 
+// Settings
+// TODO: Improve this structure when using C++
+struct Settings {
+  // 0 for degrees, 1 for radians, 2 for gradians
+  uint8_t angleUnit;
+  // 0 for decimal, 1 for Scientific, 2 for Engineering
+  uint8_t displayMode;
+  // Raw number of digits, max is 14
+  uint8_t numberOfSignificantDigits;
+  // 0 for real, 1 for cartesian, 2 for polar
+  uint8_t complexFormat;
+  // If true, the big font should be used.
+  bool largeFont;
+};
+
 // External API functions
 /**
  * Get the current date, in milliseconds, from the boot, excluding suspended time
@@ -521,6 +536,16 @@ EXTERNC  size_t extapp_storageAvailable();
  * @return size_t, the used RAM storage size
  */
 EXTERNC  size_t extapp_storageUsed();
+/**
+ * Get the settings
+ * @return struct Settings, the settings
+ */
+EXTERNC  struct Settings extapp_getSettings();
+/**
+ * Set the settings
+ * @param settings struct Settings, the settings to set
+ */
+EXTERNC  void extapp_setSettings(struct Settings settings);
 
 EXTERNC uint32_t _heap_size;
 EXTERNC void *_heap_base;

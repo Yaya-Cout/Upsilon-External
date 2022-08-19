@@ -15,6 +15,21 @@ struct DateTime {
   int tm_wday; // 0-6, 0 is Monday
 };
 
+// Settings
+struct Settings {
+  // 0 for degrees, 1 for radians, 2 for gradians
+  uint8_t angleUnit;
+  // 0 for decimal, 1 for Scientific, 2 for Engineering
+  uint8_t displayMode;
+  // Raw number of digits, max is 14
+  uint8_t numberOfSignificantDigits;
+  // 0 for real, 1 for cartesian, 2 for polar
+  uint8_t complexFormat;
+  // If true, the big font should be used.
+  bool largeFont;
+};
+
+
 uint64_t extapp_millis() {
   return ((uint64_t (*)(void))_api_base[0])();
 }
@@ -189,4 +204,13 @@ size_t extapp_storageAvailable(){
 
 size_t extapp_storageUsed(){
   return ((size_t (*)(void ))_api_base[43])();
+}
+
+
+struct Settings extapp_getSettings(){
+  return ((struct Settings (*)(void ))_api_base[44])();
+}
+
+void extapp_setSettings(struct Settings settings){
+  ((void (*)(struct Settings))_api_base[45])(settings);
 }
