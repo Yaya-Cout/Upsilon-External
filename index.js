@@ -233,7 +233,7 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
     let context = canvas.getContext('2d');
     context.drawImage(img, 0, 0);
     let imgd = context.getImageData(0, 0, img.width, img.height);
-    
+
     let img_rgba32 = new Uint32Array(imgd.data.buffer);
     let img_rgba8888 = new Uint8Array(imgd.data.buffer);
     let img_rgb565 = new Uint16Array(img_rgba32.length);
@@ -396,10 +396,10 @@ angular.module('nwas', ['ngSanitize', 'pascalprecht.translate']).controller('mai
           throw Error($translate.instant("TOO_MUCH_DATA"));
         }
 
-        if (archive.length > 0x90400000 - 0x90200000 && dfu.findDeviceDfuInterfaces(selectedDevice).length == 1 && selectedDevice.productName == 'Upsilon Calculator') {
-          // It's a version of upsilon with the bootloader, but the dfu is executed from a slot, so a part of the flash memory is locked
-          throw Error($translate.instant("TOO_BIG_FILES"))
-        }
+        // if (archive.length > 0x90400000 - 0x90200000 && dfu.findDeviceDfuInterfaces(selectedDevice).length == 1 && selectedDevice.productName == 'Upsilon Calculator') {
+        //   // It's a version of upsilon with the bootloader, but the dfu is executed from a slot, so a part of the flash memory is locked
+        //   throw Error($translate.instant("TOO_BIG_FILES"))
+        // }
 
         await uploadFile(selectedDevice, "@External Flash /0x90200000/32*064Kg,64*064Kg", archive, false);
 
